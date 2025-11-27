@@ -1,11 +1,9 @@
 import React from "react";
 import Navbar from "./Navbar";
 
+
 export default function HeroSection() {
   return (
-    <> 
-    <Navbar />  
-
     <section className="bg-gradient-to-br from-gray-50 via-green-50 to-blue-50 py-20 px-4">
       <div className="max-w-4xl mx-auto text-center">
         <div className="flex items-center justify-center mb-6">
@@ -60,7 +58,5 @@ export default function HeroSection() {
         </div>
       </div>
     </section>
-    </>
-    
   );
 }
