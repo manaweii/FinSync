@@ -1,19 +1,60 @@
-import React from "react";
-import { Link } from "react-router-dom";
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+
+const API_URL = "http://localhost:5000/api";
 
 export default function Login() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const res = await fetch(`${API_URL}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data?.message || "Login failed");
+        return;
+      }
+
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+      }
+      if (data.user) {
+        localStorage.setItem("user", JSON.stringify(data.user));
+      }
+
+      navigate("/dashboard");
+    } catch (err) {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-50 via-white to-teal-50">
-      {/* Background accents */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute -left-10 top-10 w-64 h-64 bg-teal-100/40 rounded-full blur-3xl" />
         <div className="absolute right-0 bottom-0 w-72 h-72 bg-teal-100/40 rounded-full blur-3xl" />
       </div>
 
-      {/* Card */}
       <div className="relative w-full max-w-md bg-white/90 backdrop-blur rounded-2xl shadow-xl px-10 py-8">
         <div className="mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-teal-500">
-          {/* simple logo mark */}
           <span className="text-white text-xl font-bold">↗</span>
         </div>
 
@@ -24,20 +65,26 @@ export default function Login() {
           Sign in to manage your finances and insights.
         </p>
 
-        <form className="mt-8 space-y-4">
+        <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
+          {error && (
+            <p className="text-sm text-red-500 bg-red-50 border border-red-100 rounded-md px-3 py-2">
+              {error}
+            </p>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-slate-600">
               Email
             </label>
             <div className="mt-1 flex items-center rounded-lg border border-slate-200 bg-slate-50 px-3">
-              <span className="text-slate-400 mr-2">
-                {/* mail icon */}
-                &#9993;
-              </span>
+              <span className="text-slate-400 mr-2">&#9993;</span>
               <input
                 type="email"
                 placeholder="you@example.com"
                 className="w-full border-0 bg-transparent py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
               />
             </div>
           </div>
@@ -47,14 +94,14 @@ export default function Login() {
               Password
             </label>
             <div className="mt-1 flex items-center rounded-lg border border-slate-200 bg-slate-50 px-3">
-              <span className="text-slate-400 mr-2">
-                {/* lock icon */}
-                &#128274;
-              </span>
+              <span className="text-slate-400 mr-2">&#128274;</span>
               <input
                 type="password"
                 placeholder="••••••••"
                 className="w-full border-0 bg-transparent py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
               />
             </div>
           </div>
@@ -67,24 +114,28 @@ export default function Login() {
               />
               Remember me
             </label>
-            <button
-              type="button"
+            <Link
+              to="/ResetPassword"
               className="text-teal-500 font-medium hover:text-teal-600"
             >
               Forgot password?
-            </button>
+            </Link>
           </div>
 
           <button
             type="submit"
-            className="mt-2 w-full rounded-lg bg-teal-500 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-teal-600 transition-colors"
+            disabled={loading}
+            className="mt-2 w-full rounded-lg bg-teal-500 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-teal-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Log In
+            {loading ? "Logging in..." : "Log In"}
           </button>
 
           <p className="mt-4 text-center text-sm text-slate-500">
             Don&apos;t have an account?{" "}
-            <Link to="/signup" className="font-medium text-teal-500 hover:text-teal-600">
+            <Link
+              to="/signup"
+              className="font-medium text-teal-500 hover:text-teal-600"
+            >
               Create an account
             </Link>
           </p>
