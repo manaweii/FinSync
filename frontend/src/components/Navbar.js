@@ -7,9 +7,9 @@ export default function Navbar() {
       <div className="flex items-center gap-3">
         {/* Logo Icon */}
         <img
-          src="YOUR_LOGO_SRC_HERE"
+          src="/FinSync_Icon.png"
           alt="FinSync Logo"
-          className="h-12 w-12 rounded-xl"
+          className="h-20 w-20 rounded-xl"
         />
         {/* Logo Text */}
         <span className="text-2xl font-semibold">

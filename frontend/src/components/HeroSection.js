@@ -9,9 +9,9 @@ export default function HeroSection() {
         <div className="flex items-center justify-center mb-6">
           {/* Logo */}
           <img
-            src="YOUR_LOGO_SRC_HERE"
+            src="/FinSync_Icon.png"
             alt="FinSync Logo"
-            className="h-10 w-10 mr-2"
+            className="h-14 w-14 mr2"
           />
           <span className="text-2xl font-semibold text-green-600">FinSync</span>
         </div>
