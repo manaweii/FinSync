@@ -1,0 +1,205 @@
+import React, { useState } from "react";
+
+function CreateUser() {
+  const [form, setForm] = useState({
+    fullName: "",
+    orgName: "",
+    email: "",
+    password: "",
+    role: "",
+  });
+
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("http://localhost:5000/api/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(form),
+      });
+
+      if (!response.ok) {
+        alert("Something went wrong while creating the user");
+        setIsLoading(false);
+        return;
+      }
+
+      const data = await response.json();
+      console.log("User created:", data);
+
+      // clear form after success
+      setForm({
+        fullName: "",
+        orgName: "",
+        email: "",
+        password: "",
+        role: "",
+      });
+      alert("User created successfully");
+    } catch (err) {
+      console.error(err);
+      alert("Network error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-sky-50 to-white flex items-center justify-center px-4">
+      <div className="w-full max-w-md">
+        <div className="bg-white rounded-3xl shadow-[0_32px_80px_rgba(15,23,42,0.18)] px-10 py-10">
+          {/* top icon */}
+          <div className="flex justify-center mb-4">
+            <div className="h-14 w-14 rounded-full bg-teal-500 flex items-center justify-center text-white text-2xl">
+              +
+            </div>
+          </div>
+
+          {/* title */}
+          <h1 className="text-xl font-semibold text-center text-slate-900 mb-1">
+            Create new user
+          </h1>
+          <p className="text-xs text-center text-slate-500 mb-7">
+            Add a new team member to your organization.
+          </p>
+
+          {/* form */}
+          <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+            {/* full name */}
+            <div>
+              <label className="block mb-1 text-slate-700" htmlFor="fullName">
+                Full name
+              </label>
+              <input
+                id="fullName"
+                name="fullName"
+                type="text"
+                placeholder="Enter full name"
+                value={form.fullName}
+                onChange={handleChange}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
+              />
+            </div>
+
+            {/* organization name */}
+            <div>
+              <label className="block mb-1 text-slate-700" htmlFor="orgName">
+                Organization name
+              </label>
+              <input
+                id="orgName"
+                name="orgName"
+                type="text"
+                placeholder="Enter organization name"
+                value={form.orgName}
+                onChange={handleChange}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
+              />
+            </div>
+
+            {/* email */}
+            <div>
+              <label className="block mb-1 text-slate-700" htmlFor="email">
+                Work email
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="name@company.com"
+                value={form.email}
+                onChange={handleChange}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
+              />
+            </div>
+
+            {/* password */}
+            <div>
+              <label className="block mb-1 text-slate-700" htmlFor="password">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  placeholder="Create password"
+                  value={form.password}
+                  onChange={handleChange}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 pr-9 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400 text-[10px]">
+                  ●●
+                </span>
+              </div>
+            </div>
+
+            {/* role */}
+            <div>
+              <label className="block mb-1 text-slate-700" htmlFor="role">
+                Role
+              </label>
+              <div className="relative">
+                <select
+                  id="role"
+                  name="role"
+                  value={form.role}
+                  onChange={handleChange}
+                  className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 pr-8 text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
+                >
+                  <option value="">Select role</option>
+                  <option value="Admin">Admin</option>
+                  <option value="Manager">Manager</option>
+                  <option value="Viewer">Viewer</option>
+                </select>
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400 text-[10px]">
+                  ▼
+                </span>
+              </div>
+            </div>
+
+            {/* buttons */}
+            <div className="pt-2 space-y-3">
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full rounded-full bg-gradient-to-r from-teal-500 to-sky-500 py-2 text-xs font-medium text-white shadow-[0_18px_40px_rgba(45,212,191,0.55)] hover:opacity-95 disabled:opacity-60"
+              >
+                {isLoading ? "Creating..." : "Create user"}
+              </button>
+
+              <button
+                type="button"
+                className="w-full text-xs font-medium text-teal-600 hover:text-teal-700"
+                onClick={() =>
+                  setForm({
+                    fullName: "",
+                    orgName: "",
+                    email: "",
+                    password: "",
+                    role: "",
+                  })
+                }
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default CreateUser;
