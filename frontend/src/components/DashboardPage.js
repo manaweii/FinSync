@@ -1,23 +1,11 @@
 import React from "react";
+import Navbar from "./Navbar";
 
 const DashboardPage = () => {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Top navbar */}
-      <header className="h-14 border-b border-slate-200 bg-white flex items-center justify-between px-4 sm:px-6">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-teal-500 flex items-center justify-center text-white text-sm font-bold">
-            F
-          </div>
-          <span className="text-sm font-semibold text-slate-800">
-            FinSync
-          </span>
-        </div>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-slate-500">Hi, User</span>
-          <div className="h-8 w-8 rounded-full bg-slate-200" />
-        </div>
-      </header>
+      <Navbar isLoggedIn={true} />
 
       {/* Main area */}
       <div className="flex">

@@ -6,13 +6,13 @@ function Navbar({ isLoggedIn }) {
   const publicLinks = ["Home", "Features", "Platform", "Pricing", "Contact"];
 
   // links AFTER login
-  const privateLinks = ["Dashboard", "Analytics", "Import", "Report", "Users"];
+  const privateLinks = ["Dashboard", "Analytics", "Import", "Report"];
 
   const linksToShow = isLoggedIn ? privateLinks : publicLinks;
 
   // map readable names to app routes
   const linkMap = {
-    Home: "/landingpage",
+    Home: "/",
     Features: "/#features",
     Platform: "/#platform",
     Pricing: "/pricing",
@@ -21,7 +21,6 @@ function Navbar({ isLoggedIn }) {
     Analytics: "/analytics",
     Import: "/import",
     Report: "/reports",
-    Users: "/users",
   };
 
   return (

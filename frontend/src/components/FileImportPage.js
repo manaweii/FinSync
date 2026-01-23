@@ -1,73 +1,83 @@
-import React, { useState } from "react";
-
-const PAST_IMPORTS = [
-  {
-    id: 1,
-    fileName: "Q4_transactions_2025.csv",
-    type: "CSV",
-    importedOn: "Jan 8, 2026 14:32",
-    records: "1,247",
-    status: "Success",
-  },
-  {
-    id: 2,
-    fileName: "December_expenses.xlsx",
-    type: "Excel",
-    importedOn: "Jan 7, 2026 09:15",
-    records: "856",
-    status: "Success",
-  },
-  {
-    id: 3,
-    fileName: "vendor_payments_jan.csv",
-    type: "CSV",
-    importedOn: "Jan 6, 2026 16:48",
-    records: "423",
-    status: "Success",
-  },
-  {
-    id: 4,
-    fileName: "payroll_data_2025.xlsx",
-    type: "Excel",
-    importedOn: "Jan 5, 2026 11:22",
-    records: "2,134",
-    status: "Success",
-  },
-  {
-    id: 5,
-    fileName: "tax_documents_Q4.csv",
-    type: "CSV",
-    importedOn: "Jan 4, 2026 13:05",
-    records: "—",
-    status: "Failed",
-  },
-];
+import React, { useEffect, useState } from "react";
 
 function FileImportPage() {
   const [selectedFile, setSelectedFile] = useState(null);
+  const [imports, setImports] = useState([]);       // from backend
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+
+  // load past imports when page opens
+  useEffect(() => {
+    async function loadImports() {
+      try {
+        setLoading(true);
+        setError("");
+
+        const res = await fetch("http://localhost:5000/api/imports");
+        if (!res.ok) throw new Error("Failed to fetch imports");
+
+        const data = await res.json();
+        setImports(data);
+      } catch (err) {
+        console.error(err);
+        setError("Could not load past imports.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadImports();
+  }, []);
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     setSelectedFile(file || null);
   };
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!selectedFile) {
       alert("Please choose a file first.");
       return;
     }
-    alert(`Pretend uploading: ${selectedFile.name}`);
+
+    try {
+      setUploading(true);
+
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
+      const res = await fetch("http://localhost:5000/api/imports", {
+        method: "POST",
+        body: formData, // no Content-Type header, browser sets it
+      });
+
+      if (!res.ok) {
+        alert("Upload failed");
+        return;
+      }
+
+      const createdImport = await res.json();
+
+      // add new import to top of list
+      setImports((prev) => [createdImport, ...prev]);
+      setSelectedFile(null);
+      alert("File uploaded and saved");
+    } catch (err) {
+      console.error(err);
+      alert("Network error during upload");
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-50 via-emerald-50/40 to-slate-50 py-12 px-4">
       <div className="max-w-5xl mx-auto text-center mb-8">
-        {/* label */}
         <span className="inline-flex items-center rounded-full bg-emerald-50 px-4 py-1 text-xs font-medium text-emerald-600 mb-4">
           Imports
         </span>
 
-        {/* heading */}
         <h1 className="text-3xl md:text-4xl font-semibold text-slate-900 mb-2">
           File import management.
         </h1>
@@ -99,7 +109,8 @@ function FileImportPage() {
               </p>
               {selectedFile && (
                 <p className="mt-2 text-[11px] text-slate-500">
-                  Selected file: <span className="font-medium">{selectedFile.name}</span>
+                  Selected file:{" "}
+                  <span className="font-medium">{selectedFile.name}</span>
                 </p>
               )}
             </div>
@@ -115,9 +126,10 @@ function FileImportPage() {
             <button
               type="button"
               onClick={handleUpload}
-              className="px-4 py-2 rounded-lg bg-emerald-600 text-xs font-medium text-white hover:bg-emerald-700"
+              disabled={uploading}
+              className="px-4 py-2 rounded-lg bg-emerald-600 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
             >
-              Upload file
+              {uploading ? "Uploading..." : "Upload file"}
             </button>
           </div>
         </div>
@@ -127,9 +139,14 @@ function FileImportPage() {
           <h3 className="text-sm font-semibold text-slate-900 mb-1">
             Past imports
           </h3>
-          <p className="text-xs text-slate-500 mb-4">
+          <p className="text-xs text-slate-500 mb-2">
             Review files you have imported previously.
           </p>
+
+          {loading && (
+            <p className="text-xs text-slate-500 mb-2">Loading imports...</p>
+          )}
+          {error && <p className="text-xs text-red-500 mb-2">{error}</p>}
 
           {/* table */}
           <div className="overflow-hidden rounded-2xl border border-slate-100">
@@ -143,11 +160,11 @@ function FileImportPage() {
             </div>
 
             <div className="bg-white text-xs">
-              {PAST_IMPORTS.map((imp, index) => (
+              {imports.map((imp, index) => (
                 <div
-                  key={imp.id}
+                  key={imp._id || imp.id}
                   className={`grid grid-cols-[2fr,1fr,2fr,1fr,1fr,40px] px-5 py-3 items-center ${
-                    index !== PAST_IMPORTS.length - 1
+                    index !== imports.length - 1
                       ? "border-b border-slate-100"
                       : ""
                   }`}
@@ -155,7 +172,9 @@ function FileImportPage() {
                   <span className="text-slate-800">{imp.fileName}</span>
                   <span className="text-slate-500">{imp.type}</span>
                   <span className="text-slate-500">{imp.importedOn}</span>
-                  <span className="text-slate-500">{imp.records}</span>
+                  <span className="text-slate-500">
+                    {imp.records ?? "—"}
+                  </span>
 
                   <span
                     className={`inline-flex justify-center rounded-full px-3 py-1 text-[10px] font-medium ${
@@ -172,24 +191,27 @@ function FileImportPage() {
                   </button>
                 </div>
               ))}
+
+              {!loading && imports.length === 0 && !error && (
+                <p className="px-5 py-3 text-xs text-slate-500">
+                  No imports yet. Upload a file to get started.
+                </p>
+              )}
             </div>
           </div>
 
-          {/* pagination */}
+          {/* simple info instead of real pagination */}
           <div className="mt-4 flex items-center justify-between text-[11px] text-slate-500">
-            <span>Showing 1 to 5 of 7 imports</span>
+            <span>Showing {imports.length} imports</span>
 
             <div className="flex items-center gap-2">
-              <button className="px-3 py-1 rounded-full border border-slate-200 bg-white hover:bg-slate-50">
+              <button className="px-3 py-1 rounded-full border border-slate-200 bg-white text-slate-400 cursor-default">
                 Previous
               </button>
-              <button className="h-7 w-7 rounded-full bg-emerald-600 text-white text-xs font-medium">
+              <button className="h-7 px-3 rounded-full bg-emerald-600 text-white text-xs font-medium">
                 1
               </button>
-              <button className="h-7 w-7 rounded-full border border-slate-200 bg-white text-xs">
-                2
-              </button>
-              <button className="px-3 py-1 rounded-full border border-slate-200 bg-white hover:bg-slate-50">
+              <button className="px-3 py-1 rounded-full border border-slate-200 bg-white text-slate-400 cursor-default">
                 Next
               </button>
             </div>

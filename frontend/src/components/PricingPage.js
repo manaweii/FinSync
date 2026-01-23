@@ -1,4 +1,5 @@
 import React from "react";
+import Navbar from "./Navbar";
 
 const plans = [
   {
@@ -53,30 +54,7 @@ const faqs = [
 const PricingPage = () => {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-      {/* Top nav */}
-      <header className="w-full border-b border-slate-100 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 md:px-6">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500 text-white font-semibold">
-              F
-            </div>
-            <span className="text-lg font-semibold tracking-tight">
-              FinSync
-            </span>
-          </div>
-          <nav className="hidden items-center gap-8 text-sm font-medium text-slate-600 md:flex">
-            <button className="hover:text-slate-900">Features</button>
-            <button className="hover:text-slate-900">Platform</button>
-            <button className="text-emerald-500">Pricing</button>
-            <button className="hover:text-slate-900">About</button>
-            <button className="hover:text-slate-900">Contact</button>
-          </nav>
-          <button className="rounded-full bg-gradient-to-r from-emerald-400 to-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow-md shadow-emerald-500/30 hover:brightness-105">
-            Login
-          </button>
-        </div>
-      </header>
-
+      <Navbar isLoggedIn={false} />
       {/* Hero + pricing cards */}
       <main className="mx-auto max-w-6xl px-4 pt-12 pb-20 md:px-6 md:pt-16">
         {/* Hero */}

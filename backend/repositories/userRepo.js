@@ -32,3 +32,13 @@ export async function updateLastLogin(userId) {
   const User = await getUserModel();
   return User.findByIdAndUpdate(userId, { $set: { lastLoginAt: new Date() } }, { new: true });
 }
+
+// Function to get all users
+export async function getUsers() {
+  const User = await getUserModel();
+
+  // Get all users from database
+  const users = await User.find();
+
+  return users;
+}

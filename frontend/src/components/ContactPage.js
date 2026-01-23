@@ -1,8 +1,10 @@
 import React from "react";
+import Navbar from "./Navbar";
 
 const ContactPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-50 to-emerald-50 flex flex-col">
+      <Navbar isLoggedIn={false} />
       {/* Main content */}
       <main className="flex-1 px-4 py-10 md:py-16">
         <div className="mx-auto max-w-5xl">

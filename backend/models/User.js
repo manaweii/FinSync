@@ -1,12 +1,29 @@
+// models/User.js
 import mongoose from "mongoose";
 
 const { Schema } = mongoose;
 
 const userSchema = new Schema(
   {
-    fullName: { type: String },
-    companyName: { type: String },
+    // from CreateUser form
+    fullName: { type: String, required: true },
+    // use orgName instead of companyName to match your frontend
+    orgName: { type: String },
 
+    // used by table (avatar circle)
+    initials: { type: String },
+
+    // simple role and status for your app
+    role: {
+      type: String,
+      default: "Viewer",
+    },
+    status: {
+      type: String,
+      default: "Active",
+    },
+
+    // auth fields
     email: {
       type: String,
       required: true,
@@ -16,23 +33,20 @@ const userSchema = new Schema(
       index: true,
     },
 
+    // store hashed password here
     passwordHash: { type: String, required: true },
 
+    // optional: MFA
     mfa: {
       enabled: { type: Boolean, default: false },
       secret: { type: String },
     },
 
-    providers: {
-      google: { sub: { type: String, index: true } },
-      github: { id: { type: String, index: true } },
-      // add others as needed
-    },
-
+    // optional: multi‑tenant memberships
     memberships: [
       {
         tenantId: { type: String, required: true, index: true },
-        roles: [{ type: String }], 
+        roles: [{ type: String }],
       },
     ],
 
@@ -41,4 +55,7 @@ const userSchema = new Schema(
   { timestamps: true }
 );
 
-export default userSchema;
+// IMPORTANT: export the model, not just the schema
+const User = mongoose.model("User", userSchema);
+
+export default User;

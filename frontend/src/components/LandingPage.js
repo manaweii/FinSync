@@ -7,7 +7,7 @@ import FeaturesSection from "./FeaturesSection";
 export default function LandingPage() {
   return (
     <> 
-    <Navbar /> 
+    <Navbar isLoggedIn={false} />
     <HeroSection />
     <FeaturesSection />
     </>

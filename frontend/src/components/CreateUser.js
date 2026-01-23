@@ -1,4 +1,7 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
 function CreateUser() {
   const [form, setForm] = useState({
@@ -10,10 +13,16 @@ function CreateUser() {
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem("token");
+    return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
   const handleSubmit = async (e) => {
@@ -21,32 +30,43 @@ function CreateUser() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5000/api/users", {
+      // Map frontend fields to backend register payload
+      const payload = {
+        fullName: form.fullName,
+        companyName: form.orgName,
+        email: form.email,
+        password: form.password,
+      };
+
+      const response = await fetch(`${API_URL}/auth/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...getAuthHeaders(),
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
 
+      const data = await response.json().catch(() => ({}));
+
       if (!response.ok) {
-        alert("Something went wrong while creating the user");
+        const msg = data.message || "Something went wrong while creating the user";
+        alert(msg);
         setIsLoading(false);
         return;
       }
 
-      const data = await response.json();
       console.log("User created:", data);
 
-      // clear form after success
-      setForm({
-        fullName: "",
-        orgName: "",
-        email: "",
-        password: "",
-        role: "",
-      });
-      alert("User created successfully");
+      // If backend returned token (registered user), optionally store it
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+      }
+
+      // Clear form and navigate to users list
+      setForm({ fullName: "", orgName: "", email: "", password: "", role: "" });
+      alert(data.message || "User created successfully");
+      navigate("/users");
     } catch (err) {
       console.error(err);
       alert("Network error");
@@ -89,6 +109,7 @@ function CreateUser() {
                 value={form.fullName}
                 onChange={handleChange}
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
+                required
               />
             </div>
 
@@ -121,6 +142,7 @@ function CreateUser() {
                 value={form.email}
                 onChange={handleChange}
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
+                required
               />
             </div>
 
@@ -138,6 +160,7 @@ function CreateUser() {
                   value={form.password}
                   onChange={handleChange}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 pr-9 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
+                  required
                 />
                 <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400 text-[10px]">
                   ●●
