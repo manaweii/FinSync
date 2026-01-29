@@ -1,4 +1,5 @@
 import React from "react";
+import Navbar from "./Navbar";
 
 function StatCard({ label, value, change, changeColor }) {
   return (

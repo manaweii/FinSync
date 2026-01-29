@@ -12,7 +12,7 @@ function Navbar({ isLoggedIn }) {
 
   // map readable names to app routes
   const linkMap = {
-    Home: "/",
+    Home: "/landingpage",
     Features: "/#features",
     Platform: "/#platform",
     Pricing: "/pricing",

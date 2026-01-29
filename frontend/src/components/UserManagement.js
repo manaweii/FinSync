@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import Navbar from "./Navbar";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
 function UserManagement() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -132,6 +135,14 @@ function UserManagement() {
         <p className="text-sm text-slate-500 mb-4">
           Read, edit, and delete users from your backend.
         </p>
+
+        <button
+          onClick={() => navigate("/create-user")}
+          className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-blue-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 transition"
+        >
+          <span className="text-lg leading-none">+</span>
+          <span>Add User</span>
+        </button>
 
         {loading && <p className="text-xs text-slate-500">Loading...</p>}
         {error && <p className="text-xs text-red-500 mb-2">{error}</p>}

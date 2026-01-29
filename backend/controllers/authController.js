@@ -1,16 +1,14 @@
-// controllers/ValidateController.js
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
 import { findUserByEmail, createUser, updateLastLogin } from "../repositories/userRepo.js";
 
-const JWT_EXPIRES_IN = "7d";
 const SALT_ROUNDS = 10;
 
 export const register = async (req, res) => {
   try {
-    const { name, fullName, organization, companyName, email, password } = req.body;
-    const userName = name || fullName || "";
-    const org = organization || companyName || "";
+    const { fullName, organization, email, password, role } = req.body;
+    const userName = fullName || "";
+    const org = organization || "";
+    const userRole = role || "User";
 
     if (!email || !password || !userName) {
       return res.status(400).json({ message: "Name, email and password are required" });
@@ -26,13 +24,8 @@ export const register = async (req, res) => {
       companyName: org,
       email,
       passwordHash,
-    });
+      role: userRole,    });
 
-    const token = jwt.sign(
-      { userId: userDoc._id, email: userDoc.email },
-      process.env.JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
-    );
 
     res.status(201).json({
       message: "Account created",

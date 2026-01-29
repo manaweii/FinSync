@@ -1,34 +1,40 @@
 import React, { useEffect, useState } from "react";
+import Navbar from "./Navbar";
+import Papa from "papaparse";
 
 function FileImportPage() {
   const [selectedFile, setSelectedFile] = useState(null);
-  const [imports, setImports] = useState([]);       // from backend
+  const [imports, setImports] = useState([]); // from backend
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
 
+  // parsed CSV rows will be stored here
+  const [csvRows, setCsvRows] = useState([]);
+  const [parseError, setParseError] = useState("");
+
   // load past imports when page opens
   useEffect(() => {
-    async function loadImports() {
+    const loadImports = async () => {
       try {
-        setLoading(true);
-        setError("");
-
         const res = await fetch("http://localhost:5000/api/imports");
-        if (!res.ok) throw new Error("Failed to fetch imports");
-
+        if (!res.ok) {
+          console.log("Fetch failed, status:", res.status);
+          const text = await res.text();
+          console.log("Response text:", text);
+          throw new Error("Failed to fetch imports");
+        }
         const data = await res.json();
         setImports(data);
       } catch (err) {
-        console.error(err);
+        console.error("Error loading imports:", err);
         setError("Could not load past imports.");
-      } finally {
-        setLoading(false);
       }
-    }
+    };
 
     loadImports();
   }, []);
+
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -44,25 +50,44 @@ function FileImportPage() {
     try {
       setUploading(true);
 
-      const formData = new FormData();
-      formData.append("file", selectedFile);
+      // const formData = new FormData();
+      // formData.append("file", selectedFile);
 
-      const res = await fetch("http://localhost:5000/api/imports", {
-        method: "POST",
-        body: formData, // no Content-Type header, browser sets it
+      Papa.parse(selectedFile, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          // results.data = array of objects (columns become keys)
+          // results.errors = parsing errors (if any)
+          if (results.errors && results.errors.length > 0) {
+            setParseError("CSV parsed with errors. Check console for details.");
+            console.log("PapaParse errors:", results.errors);
+          } else {
+            setParseError("");
+            const res = await fetch("http://localhost:5000/api/imports", {
+              method: "POST",
+              body: JSON.stringify(results.data), // no Content-Type header, browser sets it
+            });
+            console.log("CSV rows:", JSON.stringify(results.data));
+
+            if (!res.ok) {
+              alert("Upload failed");
+              return;
+            }
+            
+            const createdImport = await res.json();
+            
+            // add new import to top of list
+            setImports((prev) => [createdImport, ...prev]);
+            setSelectedFile(null);
+            alert("File uploaded and saved");
+          }
+            
+          setCsvRows(results.data);
+          console.log("Parsed CSV rows:", results.data);
+        },
       });
 
-      if (!res.ok) {
-        alert("Upload failed");
-        return;
-      }
-
-      const createdImport = await res.json();
-
-      // add new import to top of list
-      setImports((prev) => [createdImport, ...prev]);
-      setSelectedFile(null);
-      alert("File uploaded and saved");
     } catch (err) {
       console.error(err);
       alert("Network error during upload");
@@ -82,8 +107,9 @@ function FileImportPage() {
           File import management.
         </h1>
         <p className="text-sm md:text-base text-slate-500 max-w-2xl mx-auto">
-          Upload and manage your financial data files. Drag and drop CSV or Excel
-          files to import transactions, and review your import history below.
+          Upload and manage your financial data files. Drag and drop CSV or
+          Excel files to import transactions, and review your import history
+          below.
         </p>
       </div>
 
@@ -172,9 +198,7 @@ function FileImportPage() {
                   <span className="text-slate-800">{imp.fileName}</span>
                   <span className="text-slate-500">{imp.type}</span>
                   <span className="text-slate-500">{imp.importedOn}</span>
-                  <span className="text-slate-500">
-                    {imp.records ?? "—"}
-                  </span>
+                  <span className="text-slate-500">{imp.records ?? "—"}</span>
 
                   <span
                     className={`inline-flex justify-center rounded-full px-3 py-1 text-[10px] font-medium ${

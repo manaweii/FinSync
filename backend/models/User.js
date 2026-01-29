@@ -1,22 +1,19 @@
-// models/User.js
 import mongoose from "mongoose";
 
 const { Schema } = mongoose;
 
 const userSchema = new Schema(
   {
+    _id: { type: Schema.Types.ObjectId },
     // from CreateUser form
     fullName: { type: String, required: true },
     // use orgName instead of companyName to match your frontend
     orgName: { type: String },
 
-    // used by table (avatar circle)
-    initials: { type: String },
-
     // simple role and status for your app
     role: {
       type: String,
-      default: "Viewer",
+      default: "User",
     },
     status: {
       type: String,
@@ -42,20 +39,12 @@ const userSchema = new Schema(
       secret: { type: String },
     },
 
-    // optional: multi‑tenant memberships
-    memberships: [
-      {
-        tenantId: { type: String, required: true, index: true },
-        roles: [{ type: String }],
-      },
-    ],
-
     lastLoginAt: { type: Date },
   },
   { timestamps: true }
 );
 
-// IMPORTANT: export the model, not just the schema
+// Export the model, not just the schema
 const User = mongoose.model("User", userSchema);
 
 export default User;

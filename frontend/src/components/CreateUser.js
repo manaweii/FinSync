@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
@@ -13,6 +13,9 @@ function CreateUser() {
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [orgs, setOrgs] = useState([]);
+  const [orgsLoading, setOrgsLoading] = useState(true);
+  const [orgsError, setOrgsError] = useState("");
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -24,6 +27,34 @@ function CreateUser() {
     const token = localStorage.getItem("token");
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
+
+  // load organizations for dropdown
+  useEffect(() => {
+    let mounted = true;
+    const loadOrgs = async () => {
+      try {
+        setOrgsLoading(true);
+        setOrgsError("");
+        const res = await fetch(`${API_URL}/orgs`, {
+          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        });
+        if (!res.ok) throw new Error("Failed to load organizations");
+        const data = await res.json();
+        if (!mounted) return;
+        // data expected as array of { _id, name }
+        setOrgs(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error(err);
+        if (mounted) setOrgsError("Could not load organizations");
+      } finally {
+        if (mounted) setOrgsLoading(false);
+      }
+    };
+    loadOrgs();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -113,20 +144,37 @@ function CreateUser() {
               />
             </div>
 
-            {/* organization name */}
+            {/* organization name (dropdown) */}
             <div>
               <label className="block mb-1 text-slate-700" htmlFor="orgName">
-                Organization name
+                Organization
               </label>
-              <input
-                id="orgName"
-                name="orgName"
-                type="text"
-                placeholder="Enter organization name"
-                value={form.orgName}
-                onChange={handleChange}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
-              />
+              {orgsLoading ? (
+                <div className="text-xs text-slate-500">Loading organizations...</div>
+              ) : orgsError ? (
+                <div className="text-xs text-rose-500">{orgsError}</div>
+              ) : (
+                <div className="relative">
+                  <select
+                    id="orgName"
+                    name="orgName"
+                    value={form.orgName}
+                    onChange={handleChange}
+                    className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 pr-8 text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
+                    required
+                  >
+                    <option value="">Select organization</option>
+                    {orgs.map((o) => (
+                      <option key={o._id || o.id} value={o.name}>
+                        {o.name}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400 text-[10px]">
+                    ▼
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* email */}
@@ -182,9 +230,9 @@ function CreateUser() {
                   className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 pr-8 text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
                 >
                   <option value="">Select role</option>
+                  <option value="Superadmin">Super Admin</option>
                   <option value="Admin">Admin</option>
-                  <option value="Manager">Manager</option>
-                  <option value="Viewer">Viewer</option>
+                  <option value="User">User</option>
                 </select>
                 <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400 text-[10px]">
                   ▼

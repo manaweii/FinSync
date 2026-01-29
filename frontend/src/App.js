@@ -23,8 +23,10 @@ function App() {
 
         {/* App pages */}
         <Route path="/pricing" element={<PricingPage />} />
-        <Route path="/users" element={<UserManagement />} />
         <Route path="/contact" element={<ContactPage />} />
+
+        {/* Admin */}
+        <Route path="/users" element={<UserManagement />} />
         <Route path="/create-user" element={<CreateUser />} />
 
         {/* Convenience routes that map to dashboard for now */}
