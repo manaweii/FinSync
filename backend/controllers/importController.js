@@ -1,25 +1,27 @@
 import ImportModel from "../models/Import.js";
 
-export const importData = async (req, res) => {
+export const uploadFile = async (req, res) => {
   try {
-    const { fileName, type, rows } = req.body;      // client sends these
+    const { fileName, fileType, records, data } = req.body;      // client sends these
     const userId = req.user?._id;                   // from auth middleware
     const userName = req.user?.name;
-    const tenantId = req.user?.tenantId || req.headers["x-tenant-id"];
-
-    if (!fileName || !rows || !Array.isArray(rows)) {
+    const orgId = req.user?.orgId || req.headers["x-org-id"];
+    
+    if (!fileName || !data || !Array.isArray(data)) {
       return res.status(400).json({ message: "Invalid payload" });
     }
-
+    
     const newImport = await ImportModel.create({
       fileName,
-      type: type || "CSV",
-      records: rows.length,
+      fileType: fileType || "CSV",
+      importedOn: Date.now(),
+      records: records ?? data.length,
       status: "Success",
-      importedByName: userName,
-      importedByUserId: userId,
-      tenantId,
+      importedByName: userName || "",
+      importedByUserId: userId || null,
+      orgId: orgId || "",
       notes: "",
+      importedData: JSON.stringify(data),
     });
 
     // optionally: process `rows` and insert into a Transactions collection here
@@ -31,10 +33,10 @@ export const importData = async (req, res) => {
   }
 };
 
-export const getImportsForTenant = async (req, res) => {
+export const pastImportData = async (req, res) => {
   try {
-    const tenantId = req.user?.tenantId || req.headers["x-tenant-id"];
-    const imports = await ImportModel.find({ tenantId })
+    const orgId = req.user?.orgId || req.headers["x-org-id"];
+    const imports = await ImportModel.find({ orgId })
       .sort({ createdAt: -1 });
     res.status(200).json(imports);
   } catch (err) {

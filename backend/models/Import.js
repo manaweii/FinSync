@@ -4,13 +4,12 @@ const { Schema } = mongoose;
 
 const importSchema = new Schema(
   {
-    _id: { type: Schema.Types.ObjectId },
-
     // file details
     fileName: { type: String, required: true },
     fileType: { type: String, required: true },          // "CSV" or "Excel"
     importedOn: { type: Date, default: Date.now },
     records: { type: Number, required: true },       // number of rows
+    importedData: { type: String, required: true },   // JSON string of imported data
     status: {
       type: String,
       default: "Success",                            // "Success" or "Failed"
@@ -20,10 +19,10 @@ const importSchema = new Schema(
     importedByName: { type: String },                
     importedByUserId: { type: Schema.Types.ObjectId, ref: "User" },
 
-    // optional: which organization / tenant
-    tenantId: { type: String },                      
+    // which organization
+    orgId: { type: String },                      
 
-    // optional: for debugging / notes (e.g. error message)
+    // additional notes
     notes: { type: String },
   },
   { timestamps: true }

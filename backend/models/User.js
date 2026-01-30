@@ -4,7 +4,6 @@ const { Schema } = mongoose;
 
 const userSchema = new Schema(
   {
-    _id: { type: Schema.Types.ObjectId },
     // from CreateUser form
     fullName: { type: String, required: true },
     // use orgName instead of companyName to match your frontend

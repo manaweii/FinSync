@@ -3,7 +3,6 @@ import express from 'express';
 import cors from 'cors';
 import { connectAuthDB } from './config/db.js';
 import authRoutes from './routes/ValidateRoutes.js';
-import { importData } from './controllers/importController.js';
 
 // Load env
 dotenv.config();
@@ -25,7 +24,6 @@ connectAuthDB();
 
 // Routes
 app.use('/api', authRoutes);
-app.use("/api", importData);
 
 // Start server
 const PORT = process.env.PORT || 5000;

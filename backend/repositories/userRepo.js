@@ -1,9 +1,10 @@
 import { connectAuthDB } from '../config/db.js';
-import UserSchema from '../models/User.js';
+import User from '../models/User.js';
 
 let UserModel;
 
 async function getUserModel() {
+  console.log('Getting User model');
   if (UserModel) return UserModel;
   const conn = await connectAuthDB();
 
@@ -12,19 +13,17 @@ async function getUserModel() {
   if (modelNames.includes('User')) {
     UserModel = conn.model('User');
   } else {
-    UserModel = conn.model('User', UserSchema);
+    UserModel = conn.model('User', User);
   }
 
   return UserModel;
 }
 
 export async function findUserByEmail(email) {
-  const User = await getUserModel();
   return User.findOne({ email });
 }
 
 export async function createUser(doc) {
-  const User = await getUserModel();
   return User.create(doc);
 }
 

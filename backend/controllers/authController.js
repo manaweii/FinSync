@@ -1,5 +1,12 @@
 import bcrypt from "bcrypt";
-import { findUserByEmail, createUser, updateLastLogin } from "../repositories/userRepo.js";
+import jwt from "jsonwebtoken";
+
+
+import {
+  findUserByEmail,
+  createUser,
+  updateLastLogin,
+} from "../repositories/userRepo.js";
 
 const SALT_ROUNDS = 10;
 
@@ -11,26 +18,32 @@ export const register = async (req, res) => {
     const userRole = role || "User";
 
     if (!email || !password || !userName) {
-      return res.status(400).json({ message: "Name, email and password are required" });
+      return res
+        .status(400)
+        .json({ message: "Name, email and password are required" });
     }
 
     const existing = await findUserByEmail(email);
-    if (existing) return res.status(409).json({ message: "User already exists" });
+    if (existing)
+      return res.status(409).json({ message: "User already exists" });
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
     const userDoc = await createUser({
       fullName: userName,
-      companyName: org,
+      orgName: org,
       email,
       passwordHash,
-      role: userRole,    });
-
+      role: userRole,
+    });
 
     res.status(201).json({
       message: "Account created",
-      token,
-      user: { id: userDoc._id, fullName: userDoc.fullName, email: userDoc.email },
+      user: {
+        id: userDoc._id,
+        fullName: userDoc.fullName,
+        email: userDoc.email,
+      },
     });
   } catch (err) {
     console.error("Register error:", err.message);
@@ -42,11 +55,12 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password)
-      return res.status(400).json({ message: "Email and password are required" });
+      return res
+        .status(400)
+        .json({ message: "Email and password are required" });
 
     const user = await findUserByEmail(email);
-    if (!user)
-      return res.status(401).json({ message: "Invalid credentials" });
+    if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch)
@@ -57,7 +71,7 @@ export const login = async (req, res) => {
     const token = jwt.sign(
       { userId: user._id, email: user.email },
       process.env.JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
+      { expiresIn: process.env.JWT_EXPIRES_IN }
     );
 
     res.json({

@@ -3,7 +3,7 @@ import { login, register } from "../controllers/authController.js";
 import { createUser, getUsers } from "../repositories/userRepo.js";
 import User from "../models/User.js";
 import Org from "../models/Organization.js";
-import { getImportsForTenant } from "../controllers/importController.js";
+import { uploadFile, pastImportData } from "../controllers/importController.js";
 
 const router = express.Router();
 
@@ -23,7 +23,7 @@ router.get("/users", async (req, res) => {
 // GET /api/orgs -> return all organizations (public for now)
 router.get("/orgs", async (req, res) => {
   try {
-    const orgs = await Org.find().select("name slug contactEmail plan status").lean();
+    const orgs = await Org.find();
     res.status(200).json(orgs);
   } catch (err) {
     console.error("Error fetching orgs:", err);
@@ -31,6 +31,7 @@ router.get("/orgs", async (req, res) => {
   }
 });
 
-router.get("/imports", getImportsForTenant);
+router.post("/upload", uploadFile);
+router.get("/past-imports", pastImportData);
 
 export default router;
