@@ -1,5 +1,4 @@
 import React from "react";
-import Navbar from "./Navbar";
 
 const plans = [
   {
@@ -54,7 +53,6 @@ const faqs = [
 const PricingPage = () => {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-      <Navbar isLoggedIn={false} />
       {/* Hero + pricing cards */}
       <main className="mx-auto max-w-6xl px-4 pt-12 pb-20 md:px-6 md:pt-16">
         {/* Hero */}

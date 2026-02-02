@@ -35,7 +35,7 @@ const features = [
 
 function FeaturesSection() {
   return (
-    <section className="bg-white py-16 px-4">
+    <section id="featureSection" className="bg-white py-16 px-4">
       <div className="max-w-5xl mx-auto text-center">
         {/* small label */}
         <span className="inline-flex items-center rounded-full bg-emerald-50 px-4 py-1 text-xs font-medium text-emerald-600 mb-4">

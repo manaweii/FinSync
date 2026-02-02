@@ -1,5 +1,4 @@
 import React from "react";
-import Navbar from "./Navbar";
 import { NavLink, Outlet } from "react-router-dom";
 
 function ReportsPage() {

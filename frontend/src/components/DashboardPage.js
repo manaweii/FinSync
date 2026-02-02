@@ -1,12 +1,9 @@
 import React from "react";
-import Navbar from "./Navbar";
 
 const DashboardPage = () => {
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Top navbar */}
-      <Navbar isLoggedIn={true} />
-
+      
       {/* Main area */}
       <div className="flex">
         {/* Sidebar */}

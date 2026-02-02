@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "./Navbar";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 

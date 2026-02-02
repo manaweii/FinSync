@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import Navbar from "./Navbar";
 import Papa from "papaparse";
 
 function FileImportPage() {
@@ -17,7 +16,7 @@ function FileImportPage() {
   useEffect(() => {
     const loadImports = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/imports");
+        const res = await fetch("http://localhost:5000/api/past-imports");
         if (!res.ok) {
           console.log("Fetch failed, status:", res.status);
           const text = await res.text();
@@ -34,7 +33,6 @@ function FileImportPage() {
 
     loadImports();
   }, []);
-
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -64,30 +62,39 @@ function FileImportPage() {
             console.log("PapaParse errors:", results.errors);
           } else {
             setParseError("");
-            const res = await fetch("http://localhost:5000/api/imports", {
+            const payload = {
+              fileName: selectedFile.name,
+              fileType: selectedFile.type,
+              records: results.data.length,
+              data: results.data,
+            };
+            const res = await fetch("http://localhost:5000/api/upload", {
               method: "POST",
-              body: JSON.stringify(results.data), // no Content-Type header, browser sets it
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(payload),
             });
-            console.log("CSV rows:", JSON.stringify(results.data));
+            // console.log("CSV rows:", JSON.stringify(results.data));
+
+            const createdImport = await res.json().catch(() => ({}));
 
             if (!res.ok) {
-              alert("Upload failed");
+              const msg = createdImport.message || "Upload failed";
+              alert(msg);
               return;
             }
-            
-            const createdImport = await res.json();
-            
+
             // add new import to top of list
             setImports((prev) => [createdImport, ...prev]);
             setSelectedFile(null);
             alert("File uploaded and saved");
           }
-            
+
           setCsvRows(results.data);
           console.log("Parsed CSV rows:", results.data);
         },
       });
-
     } catch (err) {
       console.error(err);
       alert("Network error during upload");

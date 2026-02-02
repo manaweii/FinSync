@@ -67,6 +67,7 @@ function CreateUser() {
         companyName: form.orgName,
         email: form.email,
         password: form.password,
+        role: form.role,
       };
 
       const response = await fetch(`${API_URL}/auth/register`, {
