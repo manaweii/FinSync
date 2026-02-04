@@ -67,6 +67,8 @@ function App() {
           }
         />
         <Route path="/ResetPassword" element={<ResetPasswordPage />} />
+        <Route path="/NewPassword" element={<NewPassword />} />
+
 
         {/* Dashboard (protected) */}
         <Route

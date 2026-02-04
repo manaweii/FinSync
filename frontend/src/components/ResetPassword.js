@@ -16,6 +16,14 @@ export default function ResetPassword() {
     setSuccess("");
     setLoading(true);
 
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+
+    setLoading(true);
+
     try {
       const res = await fetch(`${API_URL}/auth/reset-password`, {
         method: "POST",

@@ -15,8 +15,20 @@ export default function LoginPage() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
+  e.preventDefault();
+  setError("");
+
+  // simple email regex check
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailPattern.test(form.email)) {
+    setError("Please enter a valid email address.");
+    return;
+  }
+
+  if (!form.password) {
+    setError("Password is required.");
+    return;
+  }
     setLoading(true);
 
     try {

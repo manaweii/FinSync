@@ -6,7 +6,7 @@ const userSchema = new Schema(
   {
     // from CreateUser form
     fullName: { type: String, required: true },
-    // use orgName instead of companyName to match your frontend
+ 
     orgName: { type: String },
 
     // simple role and status for your app
@@ -39,11 +39,15 @@ const userSchema = new Schema(
     },
 
     lastLoginAt: { type: Date },
+
+    // password reset fields
+    resetPasswordToken: { type: String },
+    resetPasswordExpires: { type: Date },
   },
   { timestamps: true }
 );
 
-// Export the model, not just the schema
+// Export the model
 const User = mongoose.model("User", userSchema);
 
 export default User;

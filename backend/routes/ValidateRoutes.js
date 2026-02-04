@@ -10,6 +10,10 @@ const router = express.Router();
 router.post("/auth/login", login);
 router.post("/auth/createuser", createUser);
 router.post("/auth/register", register);
+router.post("/auth/reset-password", requestPasswordReset);
+router.post("/auth/new-password", confirmNewPassword);
+
+
 router.get("/users", async (req, res) => {
   try {
     const users = await User.find();
