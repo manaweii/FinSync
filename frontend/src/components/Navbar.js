@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import Initials from "./Initials";
 
 function Navbar() {
   const location = useLocation();
@@ -8,11 +9,11 @@ function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [role, setRole] = useState("user");
   const [isOpen, setIsOpen] = useState(false);
+  const token = localStorage.getItem("token");
+  const userString = localStorage.getItem("user");
+  const parsedUser = userString ? JSON.parse(userString) : null;
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const userString = localStorage.getItem("user");
-
     setIsLoggedIn(Boolean(token));
 
     if (userString) {
@@ -96,11 +97,11 @@ function Navbar() {
                 className="flex items-center gap-3 px-3 py-2 rounded-full border border-slate-100 shadow-sm bg-white"
               >
                 <div className="h-8 w-8 rounded-full bg-sky-500 text-white flex items-center justify-center text-xs font-semibold">
-                  S
+                  <Initials name={ parsedUser?.fullName || "U" } />
                 </div>
                 <div className="text-xs text-left">
                   <p className="font-medium text-slate-800 leading-tight">
-                    Sarah Chen
+                    { parsedUser?.fullName || "User" }
                   </p>
                 </div>
               </button>

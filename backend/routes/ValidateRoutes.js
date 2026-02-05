@@ -4,6 +4,7 @@ import { createUser, getUsers } from "../repositories/userRepo.js";
 import User from "../models/User.js";
 import Org from "../models/Organization.js";
 import { uploadFile, pastImportData } from "../controllers/importController.js";
+import { requestPasswordReset, confirmNewPassword } from "../controllers/authController.js";
 
 const router = express.Router();
 
