@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import useAuthStore from "../store/useAuthStore";
 
 const API_URL = "http://localhost:5000/api";
 
@@ -9,26 +10,28 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
+  const setAuth = useAuthStore((s) => s.setAuth);
+
   const handleChange = (e) => {
     const { name, type, checked, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError("");
+    e.preventDefault();
+    setError("");
 
-  // simple email regex check
-  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailPattern.test(form.email)) {
-    setError("Please enter a valid email address.");
-    return;
-  }
+    // simple email regex check
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(form.email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
 
-  if (!form.password) {
-    setError("Password is required.");
-    return;
-  }
+    if (!form.password) {
+      setError("Password is required.");
+      return;
+    }
     setLoading(true);
 
     try {
@@ -47,11 +50,10 @@ export default function LoginPage() {
         return;
       }
 
-      if (data.token) {
-        localStorage.setItem("token", data.token);
-      }
-      if (data.user) {
-        localStorage.setItem("user", JSON.stringify(data.user));
+      // Use zustand store to persist and broadcast auth state
+      if (data.token || data.user) {
+        console.log("Login successful, setting auth state:", { user: data.user });
+        setAuth(data.token || null, data.user || null);
       }
 
       navigate("/dashboard");

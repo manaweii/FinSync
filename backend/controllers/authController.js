@@ -15,7 +15,7 @@ const SALT_ROUNDS = 10;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // REGISTER
-export const register = async (req, res) => {
+export const CreateUser = async (req, res) => {
   try {
     const { fullName, organization, email, password, role } = req.body;
 
@@ -96,14 +96,16 @@ export const login = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN }
     );
-
+    
     res.json({
       message: "Logged in successfully",
       token,
       user: {
         id: user._id,
+        orgId: user.orgId,
         fullName: user.fullName,
         email: user.email,
+        role: user.role,
       },
     });
   } catch (err) {

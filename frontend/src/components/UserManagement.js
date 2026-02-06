@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import useAuthStore from "../store/useAuthStore";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
@@ -11,9 +12,9 @@ function UserManagement() {
 
   // for editing
   const [editingUser, setEditingUser] = useState(null);
+  const token = useAuthStore((s) => s.token);
 
   const getAuthHeaders = () => {
-    const token = localStorage.getItem("token");
     const headers = {};
     if (token) headers["Authorization"] = `Bearer ${token}`;
     return headers;
@@ -92,6 +93,7 @@ function UserManagement() {
       console.error(err);
       alert(err.message || "Could not update user.");
     } finally {
+      loadUsers();
       setLoading(false);
     }
   }
@@ -198,9 +200,7 @@ function UserManagement() {
 
           {/* EDIT PANEL */}
           <div className="bg-white rounded-2xl shadow border border-slate-100 px-6 py-6">
-            <h2 className="text-sm font-semibold text-slate-900 mb-4">
-              Edit User
-            </h2>
+            <h2 className="text-sm font-semibold text-slate-900 mb-4">Edit User</h2>
 
             {editingUser ? (
               <form
@@ -213,8 +213,8 @@ function UserManagement() {
                 <div>
                   <label className="block mb-1 text-slate-600">Name</label>
                   <input
-                    name="name"
-                    value={editingUser.fullName}
+                    name="fullName"
+                    value={editingUser.fullName || ''}
                     onChange={handleEditChange}
                     className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 focus:border-sky-500"
                   />
@@ -224,7 +224,7 @@ function UserManagement() {
                   <label className="block mb-1 text-slate-600">Email</label>
                   <input
                     name="email"
-                    value={editingUser.email}
+                    value={editingUser.email || ''}
                     onChange={handleEditChange}
                     className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 focus:border-sky-500"
                   />
@@ -232,22 +232,30 @@ function UserManagement() {
 
                 <div>
                   <label className="block mb-1 text-slate-600">Role</label>
-                  <input
+                  <select
                     name="role"
-                    value={editingUser.role}
+                    value={editingUser.role || ''}
                     onChange={handleEditChange}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 focus:border-sky-500"
-                  />
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:outline-none"
+                  >
+
+                    <option value="Superadmin">Super Admin</option>
+                    <option value="Admin">Admin</option>
+                    <option value="User">User</option>
+                  </select>
                 </div>
 
                 <div>
                   <label className="block mb-1 text-slate-600">Status</label>
-                  <input
+                  <select
                     name="status"
-                    value={editingUser.status}
+                    value={editingUser.status || 'Active'}
                     onChange={handleEditChange}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 focus:border-sky-500"
-                  />
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:outline-none"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Disabled">Disabled</option>
+                  </select>
                 </div>
 
                 <div className="flex gap-2 pt-2">
@@ -267,9 +275,7 @@ function UserManagement() {
                 </div>
               </form>
             ) : (
-              <p className="text-xs text-slate-500">
-                Click “Edit” on a user in the table to change their details.
-              </p>
+              <p className="text-xs text-slate-500">Click “Edit” on a user in the table to change their details.</p>
             )}
           </div>
         </div>

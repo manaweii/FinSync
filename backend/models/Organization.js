@@ -4,24 +4,21 @@ const { Schema } = mongoose;
 
 const orgSchema = new Schema(
   {
-    _id: { type: Schema.Types.ObjectId },
-
     // Basic identity
     name: { type: String, required: true, trim: true },
 
     // Contact / billing
-    contactEmail: { type: String, lowercase: true, trim: true },
-    phone: { type: String },
+    contactEmail: { type: String, required: true, lowercase: true, trim: true },
+    phone: { type: String, required: true, trim: true },
 
     // Plan / billing metadata
     plan: {
       type: String,
       enum: ["Starter", "Growth", "Professional", "Enterprise"],
-      default: "Starter",
-      status: { type: String, default: "active" },
+      default: "Starter"
     },
 
-    status: { type: String, enum: ["Active", "Disabled"], default: "Active" },
+    status: { type: String, enum: ["Active", "Disabled"] },
 });
 
 const Organization = mongoose.model("Organization", orgSchema);

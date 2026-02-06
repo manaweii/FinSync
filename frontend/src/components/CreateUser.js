@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import useAuthStore from "../store/useAuthStore";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
@@ -17,6 +18,8 @@ function CreateUser() {
   const [orgsLoading, setOrgsLoading] = useState(true);
   const [orgsError, setOrgsError] = useState("");
   const navigate = useNavigate();
+  const token = useAuthStore((s) => s.token);
+  const setAuth = useAuthStore((s) => s.setAuth);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -24,7 +27,6 @@ function CreateUser() {
   };
 
   const getAuthHeaders = () => {
-    const token = localStorage.getItem("token");
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
@@ -70,7 +72,7 @@ function CreateUser() {
         role: form.role,
       };
 
-      const response = await fetch(`${API_URL}/auth/register`, {
+      const response = await fetch(`${API_URL}/createUser`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -90,9 +92,9 @@ function CreateUser() {
 
       console.log("User created:", data);
 
-      // If backend returned token (registered user), optionally store it
+      // If backend returned token (registered user), store it in zustand
       if (data.token) {
-        localStorage.setItem("token", data.token);
+        setAuth(data.token, data.user || null);
       }
 
       // Clear form and navigate to users list

@@ -1,15 +1,18 @@
 import React, { useEffect, useState } from "react";
+import useAuthStore from "../store/useAuthStore";
+import { useNavigate } from "react-router-dom";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
 export default function OrganizationManagement() {
+  const navigate = useNavigate();
   const [orgs, setOrgs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editingOrg, setEditingOrg] = useState(null);
+  const token = useAuthStore((s) => s.token);
 
   const getAuthHeaders = () => {
-    const token = localStorage.getItem("token");
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
@@ -57,6 +60,8 @@ export default function OrganizationManagement() {
     } catch (err) {
       console.error(err);
       alert(err.message || "Could not update organization");
+    } finally {
+      loadOrgs(); // refresh list to get latest data and handle any discrepancies
     }
   }
 
@@ -80,6 +85,14 @@ export default function OrganizationManagement() {
       <div className="max-w-6xl mx-auto">
         <h1 className="text-2xl font-semibold text-slate-900 mb-2">Organization Management</h1>
         <p className="text-sm text-slate-500 mb-4">View and manage organizations.</p>
+
+        <button
+          onClick={() => navigate("/create-organization")}
+          className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-blue-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 transition"
+        >
+          <span className="text-lg leading-none">+</span>
+          <span>Add Organization</span>
+        </button>
 
         {loading && <p className="text-xs text-slate-500">Loading...</p>}
         {error && <p className="text-xs text-red-500 mb-2">{error}</p>}
@@ -133,6 +146,14 @@ export default function OrganizationManagement() {
                     <option>Growth</option>
                     <option>Professional</option>
                     <option>Enterprise</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block mb-1 text-slate-600">Status</label>
+                  <select name="status" value={editingOrg.status || 'Active'} onChange={handleEditChange} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+                    <option>Active</option>
+                    <option>Disabled</option>
                   </select>
                 </div>
 

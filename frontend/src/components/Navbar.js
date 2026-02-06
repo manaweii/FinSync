@@ -1,30 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import Initials from "./Initials";
+import useAuthStore from "../store/useAuthStore";
 
 function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [role, setRole] = useState("user");
   const [isOpen, setIsOpen] = useState(false);
-  const token = localStorage.getItem("token");
-  const userString = localStorage.getItem("user");
-  const parsedUser = userString ? JSON.parse(userString) : null;
-
-  useEffect(() => {
-    setIsLoggedIn(Boolean(token));
-
-    if (userString) {
-      try {
-        const user = JSON.parse(userString);
-        if (user.role) setRole(user.role);
-      } catch {
-        setRole("user");
-      }
-    }
-  }, []);
+  // replace localStorage-based auth with zustand store
+  const { token, user, isLoggedIn, role, clearAuth } = useAuthStore();
 
   if (location.pathname === "/Login") {
     return null;
@@ -52,10 +37,8 @@ function Navbar() {
   const logoPath = isLoggedIn ? "/dashboard" : "/";
 
   const handleLogoutClick = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    setIsLoggedIn(false);
-    setRole("user");
+    // use zustand to clear in-memory auth
+    clearAuth();
     setIsOpen(false);
     navigate("/Login");
   };
@@ -97,18 +80,18 @@ function Navbar() {
                 className="flex items-center gap-3 px-3 py-2 rounded-full border border-slate-100 shadow-sm bg-white"
               >
                 <div className="h-8 w-8 rounded-full bg-sky-500 text-white flex items-center justify-center text-xs font-semibold">
-                  <Initials name={ parsedUser?.fullName || "U" } />
+                  <Initials name={ user?.fullName || "U" } />
                 </div>
                 <div className="text-xs text-left">
                   <p className="font-medium text-slate-800 leading-tight">
-                    { parsedUser?.fullName || "User" }
+                    { user?.fullName || "User" }
                   </p>
                 </div>
               </button>
 
               {isOpen && (
                 <div className="absolute right-0 mt-2 w-44 bg-white border rounded-md shadow-lg py-1 text-sm">
-                  {role === "superadmin" && (
+                  {role === "Superadmin" && (
                     <Link
                       to={linkMap.Organization}
                       className="block px-4 py-2 text-slate-700 hover:bg-slate-50"
@@ -118,7 +101,7 @@ function Navbar() {
                     </Link>
                   )}
 
-                  {(role === "admin" || role === "superadmin") && (
+                  {(role === "Admin" || role === "Superadmin") && (
                     <Link
                       to={linkMap.Users}
                       className="block px-4 py-2 text-slate-700 hover:bg-slate-50"
