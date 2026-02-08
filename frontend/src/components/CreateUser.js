@@ -19,12 +19,35 @@ function CreateUser() {
   const [orgsError, setOrgsError] = useState("");
   const navigate = useNavigate();
   const token = useAuthStore((s) => s.token);
-  const setAuth = useAuthStore((s) => s.setAuth);
+  // const setAuth = useAuthStore((s) => s.setAuth);
+  const currentUser = useAuthStore((s) => s.user);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+  // Determine allowed role options based on the creator's role
+  const getRoleOptions = () => {
+    if (currentUser?.role === "Superadmin") {
+      return [
+      { value: "Superadmin", label: "Super Admin" },
+      { value: "Admin", label: "Admin" },
+      { value: "User", label: "User" },
+    ];
+    }
+    if (currentUser?.role === "Admin") {
+      return [
+        { value: "Admin", label: "Admin" },
+        { value: "User", label: "User" },
+      ];
+    }
   };
+
+  const roleOptions = getRoleOptions();
+
+  // if only one allowed option, preselect it
+  React.useEffect(() => {
+    const options = getRoleOptions();
+    if (options.length === 1) {
+      setForm((prev) => ({ ...prev, role: options[0].value }));
+    }
+  }, [currentUser?.role]);
 
   const getAuthHeaders = () => {
     return token ? { Authorization: `Bearer ${token}` } : {};
@@ -33,17 +56,33 @@ function CreateUser() {
   // load organizations for dropdown
   useEffect(() => {
     let mounted = true;
+
     const loadOrgs = async () => {
       try {
         setOrgsLoading(true);
         setOrgsError("");
+
+        if (currentUser?.role === "Admin") {
+          const singleOrg = {
+            _id: currentUser.orgId,
+            name: currentUser.orgName,
+          };
+          if (!mounted) return;
+          setOrgs([singleOrg]);
+          setForm((prev) => ({ ...prev, orgName: currentUser.orgName }));
+          return;
+        }
+
         const res = await fetch(`${API_URL}/orgs`, {
-          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         });
+
         if (!res.ok) throw new Error("Failed to load organizations");
         const data = await res.json();
         if (!mounted) return;
-        // data expected as array of { _id, name }
         setOrgs(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error(err);
@@ -52,11 +91,12 @@ function CreateUser() {
         if (mounted) setOrgsLoading(false);
       }
     };
+
     loadOrgs();
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [currentUser, token]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -66,7 +106,7 @@ function CreateUser() {
       // Map frontend fields to backend register payload
       const payload = {
         fullName: form.fullName,
-        companyName: form.orgName,
+        organization: form.orgName,
         email: form.email,
         password: form.password,
         role: form.role,
@@ -84,7 +124,8 @@ function CreateUser() {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        const msg = data.message || "Something went wrong while creating the user";
+        const msg =
+          data.message || "Something went wrong while creating the user";
         alert(msg);
         setIsLoading(false);
         return;
@@ -93,9 +134,9 @@ function CreateUser() {
       console.log("User created:", data);
 
       // If backend returned token (registered user), store it in zustand
-      if (data.token) {
-        setAuth(data.token, data.user || null);
-      }
+      // if (data.token) {
+      //   setAuth(data.token, data.user || null);
+      // }
 
       // Clear form and navigate to users list
       setForm({ fullName: "", orgName: "", email: "", password: "", role: "" });
@@ -107,6 +148,11 @@ function CreateUser() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
   return (
@@ -153,7 +199,9 @@ function CreateUser() {
                 Organization
               </label>
               {orgsLoading ? (
-                <div className="text-xs text-slate-500">Loading organizations...</div>
+                <div className="text-xs text-slate-500">
+                  Loading organizations...
+                </div>
               ) : orgsError ? (
                 <div className="text-xs text-rose-500">{orgsError}</div>
               ) : (
@@ -230,12 +278,15 @@ function CreateUser() {
                   name="role"
                   value={form.role}
                   onChange={handleChange}
+                  disabled={roleOptions.length === 1}
                   className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 pr-8 text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
                 >
                   <option value="">Select role</option>
-                  <option value="Superadmin">Super Admin</option>
-                  <option value="Admin">Admin</option>
-                  <option value="User">User</option>
+                  {roleOptions.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
                 </select>
                 <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400 text-[10px]">
                   ▼

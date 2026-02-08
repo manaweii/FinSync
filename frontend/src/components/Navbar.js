@@ -9,7 +9,7 @@ function Navbar() {
 
   const [isOpen, setIsOpen] = useState(false);
   // replace localStorage-based auth with zustand store
-  const { token, user, isLoggedIn, role, clearAuth } = useAuthStore();
+  const { user, isLoggedIn, role, clearAuth } = useAuthStore();
 
   if (location.pathname === "/Login") {
     return null;

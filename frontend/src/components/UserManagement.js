@@ -6,13 +6,13 @@ const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
 function UserManagement() {
   const navigate = useNavigate();
+  const { user, role, token } = useAuthStore();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   // for editing
   const [editingUser, setEditingUser] = useState(null);
-  const token = useAuthStore((s) => s.token);
 
   const getAuthHeaders = () => {
     const headers = {};
@@ -29,8 +29,9 @@ function UserManagement() {
     try {
       setLoading(true);
       setError("");
-      const res = await fetch(`${API_URL}/users`, {
-        headers: { ...getAuthHeaders() },
+      const res = await fetch(`${API_URL}/users?role=${role}&orgId=${user?.orgId}`, {
+        method: "GET",
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" }
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -153,6 +154,7 @@ function UserManagement() {
           <div className="col-span-2 bg-white rounded-2xl shadow border border-slate-100">
             <div className="grid grid-cols-[2fr,2fr,1fr,1fr,80px] px-5 py-3 text-[11px] font-medium text-slate-500 border-b border-slate-100">
               <span>Name</span>
+              <span>Organization</span>
               <span>Email</span>
               <span>Role</span>
               <span>Status</span>
@@ -168,7 +170,7 @@ function UserManagement() {
                   <div className="flex items-center gap-3">
                     <span className="text-slate-800">{user.fullName}</span>
                   </div>
-
+                  <span className="text-slate-500">{user.orgName}</span>
                   <span className="text-slate-500">{user.email}</span>
                   <span className="text-slate-700">{user.role}</span>
                   <span className="text-slate-700">{user.status}</span>

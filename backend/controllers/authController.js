@@ -8,7 +8,11 @@ import {
   updateLastLogin,
 } from "../repositories/userRepo.js";
 
-import User from "../models/User.js"; 
+import User from "../models/User.js";
+import Organization from "../models/Organization.js";
+import UserOrgRelation from "../models/UserOrgRelation.js";
+import Role from "../models/Role.js";
+import UserRoleRelation from "../models/UserRoleRelation.js";
 
 const SALT_ROUNDS = 10;
 
@@ -18,9 +22,9 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const CreateUser = async (req, res) => {
   try {
     const { fullName, organization, email, password, role } = req.body;
-
+    console.log("CreateUser body:", req.user);
     const userName = fullName || "";
-    const org = organization || "";
+    // const org = organization || "";
     const userRole = role || "User";
 
     if (!email || !password || !userName) {
@@ -44,14 +48,36 @@ export const CreateUser = async (req, res) => {
         .json({ message: "Password must be at least 8 characters long" });
     }
 
+    // decide orgId based on creator
+    let orgId = null;
+
+    if (!organization) {
+      return res.status(400).json({ message: "Organization is required" });
+    }
+    const orgDoc = await Organization.findOne({ name: organization });
+    if (!orgDoc) {
+      return res.status(400).json({ message: "Organization not found" });
+    }
+    orgId = orgDoc._id;
+
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
     const userDoc = await createUser({
       fullName: userName,
-      orgName: org,
       email,
       passwordHash,
-      role: userRole,
+    });
+
+    UserOrgRelation.create({
+      userId: userDoc._id,
+      orgId: orgId,
+    });
+
+    const roleDetail = await Role.findOne({ name: userRole });
+
+    UserRoleRelation.create({
+      userId: userDoc._id,
+      roleId: roleDetail._id,
     });
 
     res.status(201).json({
@@ -91,21 +117,47 @@ export const login = async (req, res) => {
 
     await updateLastLogin(user._id).catch(() => {});
 
+    // Find active relation for this user
+    const userOrgRelation = await UserOrgRelation.findOne({
+      userId: user._id,
+    });
+
+    const orgDetail = await Organization.findOne({
+      _id: userOrgRelation.orgId,
+    });
+
+    const userRoleRelation = await UserRoleRelation.findOne({
+      userId: user._id,
+    });
+
+    const roleDetail = await Role.findOne({ _id: userRoleRelation.roleId });
+
+    // Prevent login for disabled users or orgs
+    if (user.status !== "Active") {
+      return res.status(403).json({ message: "User account is inactive" });
+    }
+    if (orgDetail && orgDetail.status !== "Active") {
+      return res.status(403).json({ message: "Organization is inactive" });
+    }
+
     const token = jwt.sign(
       { userId: user._id, email: user.email },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
+      { expiresIn: process.env.JWT_EXPIRES_IN },
     );
-    
+
     res.json({
       message: "Logged in successfully",
       token,
       user: {
         id: user._id,
-        orgId: user.orgId,
         fullName: user.fullName,
         email: user.email,
-        role: user.role,
+        userStatus: user.status,
+        role: roleDetail.name,
+        orgId: orgDetail ? orgDetail._id : null,
+        orgName: orgDetail ? orgDetail.name : null,
+        orgStatus: orgDetail ? orgDetail.status : null,
       },
     });
   } catch (err) {
@@ -114,7 +166,7 @@ export const login = async (req, res) => {
   }
 };
 
-// REQUEST PASSWORD RESET 
+// REQUEST PASSWORD RESET
 export const requestPasswordReset = async (req, res) => {
   try {
     const { email } = req.body;

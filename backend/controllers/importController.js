@@ -6,6 +6,7 @@ export const uploadFile = async (req, res) => {
     const userId = req.user?._id;                   // from auth middleware
     const userName = req.user?.name;
     const orgId = req.user?.orgId || req.headers["x-org-id"];
+    // orgname
     
     if (!fileName || !data || !Array.isArray(data)) {
       return res.status(400).json({ message: "Invalid payload" });
@@ -33,6 +34,7 @@ export const uploadFile = async (req, res) => {
   }
 };
 
+// Get past imports for the organization
 export const pastImportData = async (req, res) => {
   try {
     const orgId = req.user?.orgId || req.headers["x-org-id"];

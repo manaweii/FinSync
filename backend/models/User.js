@@ -6,14 +6,7 @@ const userSchema = new Schema(
   {
     // from CreateUser form
     fullName: { type: String, required: true },
- 
-    orgName: { type: String },
-
-    // simple role and status for your app
-    role: {
-      type: String,
-      default: "User",
-    },
+        
     status: {
       type: String,
       default: "Active",

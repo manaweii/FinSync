@@ -14,25 +14,25 @@ function FileImportPage() {
 
   // load past imports when page opens
   useEffect(() => {
-    const loadImports = async () => {
-      try {
-        const res = await fetch("http://localhost:5000/api/past-imports");
-        if (!res.ok) {
-          console.log("Fetch failed, status:", res.status);
-          const text = await res.text();
-          console.log("Response text:", text);
-          throw new Error("Failed to fetch imports");
-        }
-        const data = await res.json();
-        setImports(data);
-      } catch (err) {
-        console.error("Error loading imports:", err);
-        setError("Could not load past imports.");
-      }
-    };
-
     loadImports();
   }, []);
+  
+  const loadImports = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/api/past-imports");
+      if (!res.ok) {
+        console.log("Fetch failed, status:", res.status);
+        const text = await res.text();
+        console.log("Response text:", text);
+        throw new Error("Failed to fetch imports");
+      }
+      const data = await res.json();
+      setImports(data);
+    } catch (err) {
+      console.error("Error loading imports:", err);
+      setError("Could not load past imports.");
+    }
+  };
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];

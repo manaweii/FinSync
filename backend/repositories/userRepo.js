@@ -1,5 +1,9 @@
 import { connectAuthDB } from '../config/db.js';
 import User from '../models/User.js';
+import Role from '../models/Role.js';
+import UserRoleRelation from '../models/UserRoleRelation.js';
+import UserOrgRelation from '../models/UserOrgRelation.js';
+import Organization from '../models/Organization.js';
 
 let UserModel;
 
@@ -28,8 +32,39 @@ export function createUser(doc) {
 
 export async function getUsers(req, res) {
   try {
-    const users = await User.find();
-    res.status(200).json(users);
+    const { role, orgId } = req.query; // role of current user, and org to filter
+
+    const UserModel = await getUserModel();
+    const users = await UserModel.find().lean();
+
+    const enhanced = await Promise.all(
+      users.map(async (u) => {
+        // find role relation for the user
+        const relation = await UserRoleRelation.findOne({ userId: u._id }).lean();
+        const roleDetail = relation ? await Role.findById(relation.roleId).lean() : null;
+
+        // find org relation for the user
+        const orgRelation = await UserOrgRelation.findOne({ userId: u._id }).lean();
+        const orgDetail = orgRelation ? await Organization.findById(orgRelation.orgId).lean() : null;
+
+        const { passwordHash, ...rest } = u;
+        return {
+          ...rest,
+          id: rest._id,
+          role: roleDetail ? roleDetail.name : 'User',
+          orgId: orgDetail ? orgDetail._id : null,
+          orgName: orgDetail ? orgDetail.name : null,
+          orgStatus: orgDetail ? orgDetail.status : null,
+        };
+      })
+    );
+    // if admin → filter to its org; if superadmin (or no role) → see all
+    let filtered = enhanced;
+    if (role === "Admin" && orgId) {
+      filtered = enhanced.filter((u) => u.orgId?.toString() === orgId.toString());
+    }
+
+    res.status(200).json(filtered);
   } catch (err) {
     console.error("Error getting users:", err);
     res.status(500).json({ message: "Failed to get users" });
@@ -55,6 +90,19 @@ export async function UpdateUser(req, res) {
     // remove sensitive fields before returning
     if (updated.passwordHash) delete updated.passwordHash;
 
+    // if role changed, update UserRoleRelation
+    if (updates.role) {
+      const roleName = updates.role;
+      const roleDoc = await Role.findOne({ name: roleName });
+      if (roleDoc) {
+        await UserRoleRelation.findOneAndUpdate(
+          { userId: id },
+          { $set: { roleId: roleDoc._id } },
+          { upsert: true }
+        );
+      }
+    }
+
     res.status(200).json({ message: 'User updated', user: updated });
   } catch (err) {
     console.error('Error updating user:', err);
@@ -73,6 +121,10 @@ export async function DeleteUser(req, res) {
     if (!deleted) return res.status(404).json({ message: 'User not found' });
 
     if (deleted.passwordHash) delete deleted.passwordHash;
+
+    // remove role and org relations
+    await UserRoleRelation.deleteOne({ userId: id });
+    await UserOrgRelation.deleteOne({ userId: id });
 
     res.status(200).json({ message: 'User deleted', user: deleted });
   } catch (err) {
