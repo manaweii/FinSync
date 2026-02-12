@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Papa from "papaparse";
+import useAuthStore from "../store/useAuthStore";
 
 function FileImportPage() {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -12,14 +13,36 @@ function FileImportPage() {
   const [csvRows, setCsvRows] = useState([]);
   const [parseError, setParseError] = useState("");
 
+  // modal / preview state
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [viewImport, setViewImport] = useState(null);
+
+  const openPreview = (imp) => {
+    setViewImport(imp);
+    setViewModalOpen(true);
+  };
+
+  const closePreview = () => {
+    setViewImport(null);
+    setViewModalOpen(false);
+  };
+
+  const token = useAuthStore((s) => s.token);
+  const currentUser = useAuthStore((s) => s.user);
+
+  const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+
   // load past imports when page opens
   useEffect(() => {
     loadImports();
   }, []);
-  
+
   const loadImports = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/past-imports");
+      const res = await fetch(`${API_BASE}/past-imports/${currentUser?.orgId || null}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
       if (!res.ok) {
         console.log("Fetch failed, status:", res.status);
         const text = await res.text();
@@ -48,15 +71,10 @@ function FileImportPage() {
     try {
       setUploading(true);
 
-      // const formData = new FormData();
-      // formData.append("file", selectedFile);
-
       Papa.parse(selectedFile, {
         header: true,
         skipEmptyLines: true,
         complete: async (results) => {
-          // results.data = array of objects (columns become keys)
-          // results.errors = parsing errors (if any)
           if (results.errors && results.errors.length > 0) {
             setParseError("CSV parsed with errors. Check console for details.");
             console.log("PapaParse errors:", results.errors);
@@ -67,15 +85,20 @@ function FileImportPage() {
               fileType: selectedFile.type,
               records: results.data.length,
               data: results.data,
+              userId: currentUser?.id || currentUser?._id || null,
+              userName: currentUser?.fullName || currentUser?.name || null,
+              orgId: currentUser?.orgId || currentUser?.orgId || null,
+              orgName: currentUser?.orgName || currentUser?.orgName || null,
             };
-            const res = await fetch("http://localhost:5000/api/upload", {
+
+            const res = await fetch(`${API_BASE}/upload`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
               },
               body: JSON.stringify(payload),
             });
-            // console.log("CSV rows:", JSON.stringify(results.data));
 
             const createdImport = await res.json().catch(() => ({}));
 
@@ -203,7 +226,7 @@ function FileImportPage() {
                   }`}
                 >
                   <span className="text-slate-800">{imp.fileName}</span>
-                  <span className="text-slate-500">{imp.type}</span>
+                  <span className="text-slate-500">{imp.fileType}</span>
                   <span className="text-slate-500">{imp.importedOn}</span>
                   <span className="text-slate-500">{imp.records ?? "—"}</span>
 
@@ -217,7 +240,7 @@ function FileImportPage() {
                     {imp.status}
                   </span>
 
-                  <button className="text-right text-slate-400 text-xs hover:text-slate-700">
+                  <button onClick={() => openPreview(imp)} className="text-right text-slate-400 text-xs hover:text-slate-700">
                     View
                   </button>
                 </div>
@@ -249,6 +272,68 @@ function FileImportPage() {
           </div>
         </div>
       </div>
+
+      {/* Preview modal */}
+      {viewModalOpen && viewImport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-[95%] md:w-3/4 max-h-[85vh] overflow-auto bg-white rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold">Preview: {viewImport.fileName}</h3>
+                <p className="text-xs text-slate-500">Imported on: {new Date(viewImport.importedOn).toLocaleString()}</p>
+              </div>
+              <button onClick={closePreview} className="text-slate-500 hover:text-slate-800">Close</button>
+            </div>
+
+            <div className="overflow-auto">
+              {(() => {
+                // determine rows: importedData may be JSON string, or the import may include `importedData` or `importedDataParsed`
+                let rows = [];
+                try {
+                  if (viewImport.importedData) {
+                    rows = JSON.parse(viewImport.importedData);
+                  } else if (viewImport.data) {
+                    rows = viewImport.data;
+                  }
+                } catch (e) {
+                  console.error('Failed to parse import data for preview', e);
+                }
+
+                if (!Array.isArray(rows) || rows.length === 0) {
+                  return <p className="text-sm text-slate-500">No preview data available.</p>;
+                }
+
+                const cols = Object.keys(rows[0]);
+                return (
+                  <div className="text-xs">
+                    <div className="overflow-auto">
+                      <table className="w-full border-collapse text-left">
+                        <thead>
+                          <tr>
+                            {cols.map((c) => (
+                              <th key={c} className="border-b px-2 py-1 bg-slate-50 text-slate-600 text-[11px]">{c}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.slice(0, 200).map((r, i) => (
+                            <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                              {cols.map((c) => (
+                                <td key={c} className="px-2 py-1 align-top text-slate-700">{String(r[c] ?? '')}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {rows.length > 200 && <p className="text-xs text-slate-400 mt-2">Showing first 200 rows of {rows.length}.</p>}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

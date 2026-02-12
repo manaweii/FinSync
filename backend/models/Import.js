@@ -16,11 +16,12 @@ const importSchema = new Schema(
     },
 
     // who imported
-    importedByName: { type: String },                
-    importedByUserId: { type: Schema.Types.ObjectId, ref: "User" },
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    userName: { type: String, required: true },
 
     // which organization
-    orgId: { type: String },                      
+    orgId: { type: Schema.Types.ObjectId, ref: "Org", required: true },
+    orgName: { type: String, required: true },
 
     // additional notes
     notes: { type: String },

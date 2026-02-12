@@ -25,6 +25,6 @@ router.delete("/orgs/:id", DeleteOrganization);
 
 // Import routes
 router.post("/upload", uploadFile);
-router.get("/past-imports", pastImportData);
+router.get("/past-imports/:orgId", pastImportData);
 
 export default router;

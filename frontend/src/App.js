@@ -61,7 +61,7 @@ function App() {
           }
         />
 
-        {/* Organization (protected) */}
+        {/* Organization */}
         <Route
           path="/organizations"
           element={
