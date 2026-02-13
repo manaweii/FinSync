@@ -1,6 +1,102 @@
-import React from "react";
+import { useState, useEffect } from 'react';
+import useAuthStore from "../store/useAuthStore";
 
-export default function ProfilePage() {
+const API_URL = "http://localhost:5000/api";
+
+export default function ProfileSettings() {
+  const token = useAuthStore((s) => s.token);
+  const storeUser = useAuthStore((s) => s.user);
+  const setAuth = useAuthStore((s) => s.setAuth);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
+
+  const [profile, setProfile] = useState(storeUser || null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        if (!token && !storeUser) {
+          setError('Not authenticated');
+          setProfile(null);
+          return;
+        }
+
+        // If store already has user, use it while we refresh in background
+        if (storeUser) setProfile(storeUser);
+
+        // Only fetch from backend if we have a token
+        if (token) {
+          const res = await fetch(`${API_URL}/auth/profile`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            // clear auth on 401
+            if (res.status === 401) {
+              clearAuth();
+            }
+            throw new Error(data?.message || 'Failed to load profile');
+          }
+
+          // Backend returns { user: { ... } }
+          const fetched = data.user || data;
+          setProfile(fetched);
+
+          // Sync to store so other components see updated profile
+          setAuth(token, fetched);
+        }
+      } catch (err) {
+        console.error('Failed to load profile data', err);
+        setError(err.message || 'Failed to load profile data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUserData();
+    // run when token changes
+  }, [token]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-lg text-slate-500">Loading profile...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-lg text-red-500">{error}</div>
+      </div>
+    );
+  }
+
+  // Fallback if no user data
+  const displayName = profile?.fullName || profile?.name || 'User Name';
+  const displayEmail = profile?.email || 'user@example.com';
+  const displayRole = profile?.role || 'User';
+  const displayCompany = profile?.orgName || profile?.company || 'Tech Innovations Pvt. Ltd.';
+
+  // Avatar initials
+  const initials = (displayName || 'U')
+    .split(' ')
+    .slice(0, 2)
+    .map(n => n[0] || '')
+    .join('')
+    .toUpperCase();
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       {/* Top pill label */}
@@ -29,16 +125,16 @@ export default function ProfilePage() {
             <div className="mt-6 flex flex-col items-center text-center">
               {/* Avatar */}
               <div className="h-20 w-20 rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 flex items-center justify-center text-white text-2xl font-semibold">
-                AS
+                {initials}
               </div>
 
               <h2 className="mt-4 text-xl font-semibold text-slate-900">
-                Anjali Singh
+                {displayName}
               </h2>
 
               {/* Role pill */}
               <span className="mt-2 inline-flex items-center rounded-full bg-sky-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-sky-600">
-                Admin
+                {displayRole}
               </span>
 
               {/* Company */}
@@ -56,7 +152,7 @@ export default function ProfilePage() {
                     d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"
                   />
                 </svg>
-                <span>Tech Innovations Pvt. Ltd.</span>
+                <span>{displayCompany}</span>
               </div>
 
               {/* Divider */}
@@ -81,13 +177,13 @@ export default function ProfilePage() {
                       d="M4 6h16M4 6l8 7 8-7M4 6v12h16V6"
                     />
                   </svg>
-                  <span>anjali.singh@techinnovations.com</span>
+                  <span>{displayEmail}</span>
                 </div>
               </div>
             </div>
           </section>
 
-          {/* Platform security card */}
+          {/* Platform security card - unchanged */}
           <section className="bg-white rounded-3xl shadow-sm border border-slate-100 px-8 py-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
               <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50">

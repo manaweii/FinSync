@@ -252,3 +252,67 @@ export const confirmNewPassword = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
+// GET current authenticated user's profile
+export const getProfile = async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization || req.headers.Authorization;
+    if (!authHeader)
+      return res.status(401).json({ message: "Authorization header missing" });
+
+    const token = authHeader.startsWith("Bearer ")
+      ? authHeader.split(" ")[1]
+      : authHeader;
+    if (!token) return res.status(401).json({ message: "Token missing" });
+
+    let payload;
+    try {
+      payload = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: "Invalid or expired token" });
+    }
+
+    const userId = payload.userId;
+    if (!userId) return res.status(400).json({ message: "Invalid token payload" });
+
+    const user = await User.findById(userId).lean();
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Load user's organization relation
+    const userOrgRelation = await UserOrgRelation.findOne({ userId: user._id });
+    const orgDetail = userOrgRelation
+      ? await Organization.findById(userOrgRelation.orgId).lean()
+      : null;
+
+    // Load user's role relation
+    const userRoleRelation = await UserRoleRelation.findOne({ userId: user._id });
+    const roleDetail = userRoleRelation
+      ? await Role.findById(userRoleRelation.roleId).lean()
+      : null;
+
+    // Prevent access for disabled users/orgs
+    if (user.status && user.status !== "Active") {
+      return res.status(403).json({ message: "User account is inactive" });
+    }
+    if (orgDetail && orgDetail.status && orgDetail.status !== "Active") {
+      return res.status(403).json({ message: "Organization is inactive" });
+    }
+
+    return res.json({
+      message: "Profile fetched",
+      user: {
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        userStatus: user.status || "Active",
+        role: roleDetail ? roleDetail.name : "User",
+        orgId: orgDetail ? orgDetail._id : null,
+        orgName: orgDetail ? orgDetail.name : null,
+        orgStatus: orgDetail ? orgDetail.status : null,
+      },
+    });
+  } catch (err) {
+    console.error("getProfile error:", err.message);
+    return res.status(500).json({ message: "Server error" });
+  }
+};

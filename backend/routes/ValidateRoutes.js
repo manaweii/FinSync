@@ -1,5 +1,5 @@
 import express from "express";
-import { login, requestPasswordReset, confirmNewPassword, CreateUser } from "../controllers/authController.js";
+import { login, requestPasswordReset, confirmNewPassword, CreateUser, getProfile } from "../controllers/authController.js";
 import { getUsers, UpdateUser, DeleteUser } from "../repositories/userRepo.js";
 import { CreateOrganization, LoadOrganization, UpdateOrganization, DeleteOrganization } from "../repositories/organizationRepo.js";
 import { uploadFile, pastImportData } from "../controllers/importController.js";
@@ -10,6 +10,9 @@ const router = express.Router();
 router.post("/auth/login", login);
 router.post("/auth/reset-password", requestPasswordReset);
 router.post("/auth/new-password", confirmNewPassword);
+
+// Profile
+router.get('/auth/profile', getProfile);
 
 // User Management
 router.get("/users", getUsers);

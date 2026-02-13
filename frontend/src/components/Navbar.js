@@ -8,13 +8,12 @@ function Navbar() {
   const navigate = useNavigate();
 
   const [isOpen, setIsOpen] = useState(false);
-  // replace localStorage-based auth with zustand store
   const { user, isLoggedIn, role, clearAuth } = useAuthStore();
 
   if (location.pathname === "/Login") {
     return null;
   }
-
+  
   const publicLinks = ["Home", "Features", "Platform", "Pricing", "Contact"];
   const privateLinks = ["Dashboard", "Analytics", "Import", "Report"];
   const linksToShow = isLoggedIn ? privateLinks : publicLinks;

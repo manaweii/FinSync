@@ -12,6 +12,7 @@ import UserManagement from "./components/UserManagement";
 import CreateUser from "./components/CreateUser";
 import OrganizationManagement from "./components/OrganizationManagement";
 import CreateOrganization from "./components/CreateOrganization";
+import Profile from "./components/Profile";
 import RequireAuth from "./components/RequireAuth";
 import NewPassword from "./components/NewPassword";
 import useAuthStore from "./store/useAuthStore";
@@ -29,7 +30,7 @@ function App() {
         <Route path="/ResetPassword" element={<ResetPasswordPage />} />
         <Route path="/NewPassword" element={<NewPassword />} />
 
-        {/* Dashboard (protected) */}
+        {/* Dashboard */}
         <Route
           path="/dashboard"
           element={
@@ -39,11 +40,22 @@ function App() {
           }
         />
 
+        {/* Profile */}
+        <Route
+          path="/profile"
+          element={
+            <RequireAuth>
+              <Profile />
+            </RequireAuth>
+          }
+        />
+
+
         {/* App pages */}
         <Route path="/pricing" element={<PricingPage />} />
         <Route path="/contact" element={<ContactPage />} />
 
-        {/* Admin (protected) */}
+        {/* Admin */}
         <Route
           path="/users"
           element={
