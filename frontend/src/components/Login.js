@@ -192,11 +192,18 @@ export default function LoginPage() {
                   </Link>
                 </div>
 
+                {error && (
+                  <div className="text-sm text-red-500 mb-2" role="alert">
+                    {error}
+                  </div>
+                )}
+
                 <button
                   type="submit"
-                  className="mt-2 w-full rounded-lg bg-emerald-600 py-2 text-[11px] font-medium text-white shadow-[0_10px_24px_rgba(16,185,129,0.45)] hover:bg-emerald-700 transition-colors"
+                  disabled={loading}
+                  className={`mt-2 w-full rounded-lg py-2 text-[11px] font-medium text-white shadow-[0_10px_24px_rgba(16,185,129,0.45)] transition-colors ${loading ? 'bg-emerald-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'}`}
                 >
-                  Log In
+                  {loading ? 'Signing in...' : 'Log In'}
                 </button>
               </form>
             </div>
