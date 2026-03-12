@@ -1,4 +1,6 @@
-import React from "react";
+import React, { useMemo } from "react";
+import { useOutletContext } from "react-router-dom";
+import { parseISO, isWithinInterval } from 'date-fns';
 
 function SummaryCard({ label, value, change }) {
   return (
@@ -10,93 +12,184 @@ function SummaryCard({ label, value, change }) {
   );
 }
 
-function BalanceSheetReport() {
+function safeNumber(v) {
+  if (typeof v === "number") return v;
+  if (v == null) return NaN;
+  const parsed = parseFloat(String(v).replace(/[ ,\u00A0]/g, ""));
+  return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+function sumColumns(rows, candidates) {
+  if (!rows || rows.length === 0) return 0;
+  let total = 0;
+  for (const r of rows) {
+    for (const key of Object.keys(r)) {
+      const k = key.toLowerCase();
+      if (candidates.some((c) => k.includes(c))) {
+        const n = safeNumber(r[key]);
+        if (!Number.isNaN(n)) total += n;
+      }
+    }
+  }
+  return total;
+}
+
+function applyFilters(rows, filters) {
+  if (!rows) return [];
+  return rows.filter((r) => {
+    if (filters?.from || filters?.to) {
+      const dateKey = Object.keys(r).find((k) => k.toLowerCase().includes('date'));
+      if (dateKey && r[dateKey]) {
+        try {
+          const d = parseISO(String(r[dateKey]));
+          const from = filters.from ? parseISO(filters.from) : null;
+          const to = filters.to ? parseISO(filters.to) : null;
+          if (from && to) {
+            if (!isWithinInterval(d, { start: from, end: to })) return false;
+          } else if (from) {
+            if (d < from) return false;
+          } else if (to) {
+            if (d > to) return false;
+          }
+        } catch (e) {}
+      }
+    }
+
+    if (filters?.categories && filters.categories.length > 0) {
+      const catKey = Object.keys(r).find((k) => k.toLowerCase().includes('category') || k.toLowerCase().includes('segment'));
+      if (catKey) {
+        const val = String(r[catKey] || '').toLowerCase();
+        const match = filters.categories.some((c) => val.includes(String(c).toLowerCase()));
+        if (!match) return false;
+      }
+    }
+
+    if (filters?.regions && filters.regions.length > 0) {
+      const regKey = Object.keys(r).find((k) => k.toLowerCase().includes('region') || k.toLowerCase().includes('location'));
+      if (regKey) {
+        const val = String(r[regKey] || '').toLowerCase();
+        const match = filters.regions.some((c) => val.includes(String(c).toLowerCase()));
+        if (!match) return false;
+      }
+    }
+
+    return true;
+  });
+}
+
+export default function BalanceSheetReport() {
+  const ctx = useOutletContext() || {};
+  const importDetail = ctx.importDetail || null;
+  const filters = ctx.filters || {};
+  const rows = importDetail?.previewRows || [];
+  const totals = importDetail?.totals || null;
+
+  const filteredRows = useMemo(() => applyFilters(rows, filters), [rows, filters]);
+
+  const { currentAssets, nonCurrentAssets, currentLiabilities, longTermLiabilities, totalAssets, totalLiabilities, totalEquity, workingCapital, balanceDiff } = useMemo(() => {
+    // candidate keywords
+    const currentAssetCandidates = ["cash", "bank", "receivable", "accounts receivable", "inventory", "prepaid"];
+    const nonCurrentAssetCandidates = ["property", "equipment", "ppe", "fixed", "long-term asset", "long term asset"];
+    const currentLiabilityCandidates = ["payable", "accounts payable", "short-term", "short term", "accrued"];
+    const longTermLiabilityCandidates = ["loan", "long-term", "long term", "mortgage"];
+
+    const ca = sumColumns(filteredRows, currentAssetCandidates);
+    const nca = sumColumns(filteredRows, nonCurrentAssetCandidates);
+    const cl = sumColumns(filteredRows, currentLiabilityCandidates);
+    const ltl = sumColumns(filteredRows, longTermLiabilityCandidates);
+
+    const taFromTotals = totals?.Assets ?? totals?.assets ?? null;
+    const tlFromTotals = totals?.Liabilities ?? totals?.liabilities ?? null;
+
+    const ta = Number.isFinite(taFromTotals) ? Number(taFromTotals) : (ca + nca);
+    const tl = Number.isFinite(tlFromTotals) ? Number(tlFromTotals) : (cl + ltl);
+    const equity = Number.isFinite(ta) && Number.isFinite(tl) ? ta - tl : NaN;
+
+    return {
+      currentAssets: Number.isFinite(ca) ? ca : 0,
+      nonCurrentAssets: Number.isFinite(nca) ? nca : 0,
+      currentLiabilities: Number.isFinite(cl) ? cl : 0,
+      longTermLiabilities: Number.isFinite(ltl) ? ltl : 0,
+      totalAssets: Number.isFinite(ta) ? ta : 0,
+      totalLiabilities: Number.isFinite(tl) ? tl : 0,
+      totalEquity: Number.isFinite(equity) ? equity : 0,
+      workingCapital: Number.isFinite(ca) && Number.isFinite(cl) ? ca - cl : 0,
+      balanceDiff: Number.isFinite(ta) && Number.isFinite(tl) ? ta - tl : 0,
+    };
+  }, [filteredRows, totals]);
+
+  const fmt = (v) => {
+    if (v == null || Number.isNaN(v)) return "—";
+    return v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const title = filters?.preset && filters?.from && filters?.to ? `Balance Sheet — ${filters.preset}` : 'Balance Sheet';
+
+  if (!filteredRows || filteredRows.length === 0) {
+    return (
+      <div className="p-6">
+        <h2 className="text-xl font-semibold mb-3">{title}</h2>
+        <div className="rounded-lg border border-slate-100 bg-white p-6 text-center">
+          <p className="text-sm text-slate-600">No balance sheet data available for the selected filters.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const balanced = Math.abs(balanceDiff) < 0.01;
+
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-4 gap-4">
-        <SummaryCard label="Total Assets" value="NPR 152,000" change="+4.8%" />
-        <SummaryCard label="Current Assets" value="NPR 85,000" change="+6.2%" />
-        <SummaryCard label="Total Liabilities" value="NPR 40,000" change="-2.4%" />
-        <SummaryCard label="Total Equity" value="NPR 112,000" change="+7.1%" />
+      <div className="px-2 py-3 flex items-center justify-between">
+        <h2 className="text-xl font-semibold">{title}</h2>
+        <div className="flex gap-2">
+          <button className="text-xs px-3 py-1 rounded-lg border">Export PDF</button>
+          <button className="text-xs px-3 py-1 rounded-lg border">Export Excel</button>
+        </div>
       </div>
 
-      <div className="mt-2 rounded-2xl border border-slate-100 px-5 py-4 text-xs">
-        <p className="text-sm font-semibold text-slate-900 mb-3">Detailed accounts</p>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 px-2">
+        <SummaryCard label="Total Assets" value={`NPR ${fmt(totalAssets)}`} />
+        <SummaryCard label="Current Assets" value={`NPR ${fmt(currentAssets)}`} />
+        <SummaryCard label="Total Liabilities" value={`NPR ${fmt(totalLiabilities)}`} />
+        <SummaryCard label="Total Equity" value={`NPR ${fmt(totalEquity)}`} />
+      </div>
 
-        <div className="grid grid-cols-2 gap-8">
-          {/* Assets column */}
+      <div className="mt-2 rounded-2xl border border-slate-100 bg-white px-5 py-4 text-xs">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <Section title="Current Assets">
-              <Line label="Cash & Equivalents" value="NPR 63,500" />
-              <Line label="Accounts Receivable" value="NPR 18,000" />
-              <Line label="Inventory" value="NPR 3,500" />
-              <Line label="Total Current Assets" value="NPR 85,000" bold />
-            </Section>
-
-            <Section title="Fixed Assets">
-              <Line label="Property & Equipment" value="NPR 67,000" />
-              <Line label="Total Fixed Assets" value="NPR 67,000" bold />
-            </Section>
-
-            <HighlightRow label="Total Assets" value="NPR 152,000" />
+            <p className="text-sm font-semibold text-slate-900 mb-3">Assets</p>
+            <div className="space-y-2">
+              <div className="flex justify-between"><span className="text-slate-500">Current Assets</span><span className="text-slate-700">NPR {fmt(currentAssets)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Non-current Assets</span><span className="text-slate-700">NPR {fmt(nonCurrentAssets)}</span></div>
+              <div className="mt-3"><strong>Total Assets:</strong> NPR {fmt(totalAssets)}</div>
+            </div>
           </div>
 
-          {/* Liabilities + Equity column */}
           <div>
-            <Section title="Current Liabilities">
-              <Line label="Accounts Payable" value="NPR 18,000" />
-              <Line label="Short-term Debt" value="NPR 7,000" />
-              <Line label="Total Current Liabilities" value="NPR 25,000" bold />
-            </Section>
+            <p className="text-sm font-semibold text-slate-900 mb-3">Liabilities & Equity</p>
+            <div className="space-y-2">
+              <div className="flex justify-between"><span className="text-slate-500">Current Liabilities</span><span className="text-slate-700">NPR {fmt(currentLiabilities)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Long-term Liabilities</span><span className="text-slate-700">NPR {fmt(longTermLiabilities)}</span></div>
+              <div className="mt-3"><strong>Total Liabilities:</strong> NPR {fmt(totalLiabilities)}</div>
+              <div className="mt-2"><strong>Total Equity:</strong> NPR {fmt(totalEquity)}</div>
+            </div>
+          </div>
+        </div>
 
-            <Section title="Long-term Liabilities">
-              <Line label="Long-term Debt" value="NPR 15,000" />
-              <Line label="Total Long-term Liabilities" value="NPR 15,000" bold />
-            </Section>
-
-            <Section title="Equity">
-              <Line label="Owner's Equity" value="NPR 89,000" />
-              <Line label="Retained Earnings" value="NPR 23,000" />
-              <Line label="Total Equity" value="NPR 112,000" bold />
-            </Section>
-
-            <HighlightRow label="Total Liabilities & Equity" value="NPR 152,000" />
+        <div className="mt-4 p-3 rounded-lg border border-slate-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold">Balance check</p>
+              <p className={`text-xs ${balanced ? 'text-emerald-600' : 'text-rose-600'}`}>{balanced ? 'Assets and Liabilities are balanced' : `Difference: NPR ${fmt(balanceDiff)}`}</p>
+            </div>
+            <div>
+              <p className="text-sm font-semibold">Working capital</p>
+              <p className="text-xs text-slate-700">NPR {fmt(workingCapital)}</p>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
 }
-
-function Section({ title, children }) {
-  return (
-    <div className="mb-4">
-      <p className="text-[11px] font-semibold text-slate-700 mb-2">{title}</p>
-      <div className="space-y-1">{children}</div>
-    </div>
-  );
-}
-
-function Line({ label, value, bold }) {
-  return (
-    <div className="flex justify-between">
-      <span className={bold ? "font-semibold text-slate-800" : "text-slate-500"}>
-        {label}
-      </span>
-      <span className={bold ? "font-semibold text-slate-800" : "text-slate-700"}>
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function HighlightRow({ label, value }) {
-  return (
-    <div className="mt-3 rounded-xl bg-sky-50/60 border border-sky-100 px-4 py-3 flex justify-between items-center">
-      <span className="text-[11px] font-semibold text-slate-700">{label}</span>
-      <span className="text-sm font-semibold text-sky-700">{value}</span>
-    </div>
-  );
-}
-
-export default BalanceSheetReport;

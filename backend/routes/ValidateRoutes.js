@@ -2,7 +2,7 @@ import express from "express";
 import { login, requestPasswordReset, confirmNewPassword, CreateUser, getProfile } from "../controllers/authController.js";
 import { getUsers, UpdateUser, DeleteUser } from "../repositories/userRepo.js";
 import { CreateOrganization, LoadOrganization, UpdateOrganization, DeleteOrganization } from "../repositories/organizationRepo.js";
-import { uploadFile, pastImportData } from "../controllers/importController.js";
+import { uploadFile, pastImportData, getImportById } from "../controllers/importController.js";
 
 const router = express.Router();
 
@@ -29,5 +29,6 @@ router.delete("/orgs/:id", DeleteOrganization);
 // Import routes
 router.post("/upload", uploadFile);
 router.get("/past-imports/:orgId", pastImportData);
+router.get('/imports/:id', getImportById);
 
 export default router;
