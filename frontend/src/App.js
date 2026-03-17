@@ -5,11 +5,12 @@ import LoginPage from "./components/Login";
 import ResetPasswordPage from "./components/ResetPassword";
 import PricingPage from "./components/PricingPage";
 import DashboardPage from "./components/DashboardPage";
+import AnalyticsPage from "./components/AnalyticsPage";
 import ContactPage from "./components/ContactPage";
 import ReportsPage from "./components/ReportsPage";
 import PLReport from "./components/PLReport";
-import BalanceSheetReport from "./components/BalanceSheetReport";
 import CashFlowReport from "./components/CashFlowReport";
+import BalanceSheetReport from "./components/BalanceSheetReport";
 import FileImportPage from "./components/FileImportPage";
 import UserManagement from "./components/UserManagement";
 import CreateUser from "./components/CreateUser";
@@ -43,6 +44,16 @@ function App() {
           }
         />
 
+        {/* Analytics */}
+        <Route
+          path="/analytics"
+          element={
+            <RequireAuth>
+              <AnalyticsPage />
+            </RequireAuth>
+          }
+        />
+
         {/* Profile */}
         <Route
           path="/profile"
@@ -52,7 +63,6 @@ function App() {
             </RequireAuth>
           }
         />
-
 
         {/* App pages */}
         <Route path="/pricing" element={<PricingPage />} />

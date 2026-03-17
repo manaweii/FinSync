@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
+import * as XLSX from 'xlsx';
 import { parseISO, isWithinInterval } from 'date-fns';
 
 function CFCard({ label, value, change }) {
@@ -82,12 +83,63 @@ function applyFilters(rows, filters) {
 
 export default function CashFlowReport() {
   const ctx = useOutletContext() || {};
+  const { exportToExcel, exportToPDF } = ctx;
   const importDetail = ctx.importDetail || null;
   const filters = ctx.filters || {};
   const rows = importDetail?.previewRows || [];
   const totals = importDetail?.totals || null;
 
   const filteredRows = useMemo(() => applyFilters(rows, filters), [rows, filters]);
+
+  // Build report summary rows (Metric / Value) to export
+  const buildSummaryRows = () => {
+    const summary = [];
+    summary.push({ Metric: 'Operating Cash Flow', Value: operating ?? 0 });
+    summary.push({ Metric: 'Investing Cash Flow', Value: investing ?? 0 });
+    summary.push({ Metric: 'Financing Cash Flow', Value: financing ?? 0 });
+    summary.push({ Metric: 'Net Change in Cash', Value: netChange ?? 0 });
+    summary.push({ Metric: 'Ending Cash Balance', Value: endingCash ?? 0 });
+    return summary.map(r => ({ Metric: r.Metric, Value: String(r.Value) }));
+  };
+
+  // Export helpers use filteredRows (report view)
+  const onExportExcel = () => {
+    const reportRows = buildSummaryRows();
+    const filename = (importDetail?.fileName || 'cashflow').replace(/\s+/g, '_');
+    if (exportToExcel) return exportToExcel(reportRows, filename);
+
+    if (!reportRows || reportRows.length === 0) { alert('No data to export'); return; }
+    try {
+      const ws = XLSX.utils.json_to_sheet(reportRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'CashFlow_Summary');
+      XLSX.writeFile(wb, `${filename}.xlsx`);
+    } catch (err) {
+      console.error('Excel export failed', err);
+      alert('Failed to export Excel');
+    }
+  };
+
+  const onExportPDF = () => {
+    const reportRows = buildSummaryRows();
+    const title = importDetail?.fileName || 'Cash Flow';
+    if (exportToPDF) return exportToPDF(reportRows, ['Metric','Value'], title);
+
+    if (!reportRows || reportRows.length === 0) { alert('No data to export'); return; }
+    try {
+      const cols = ['Metric','Value'];
+      const rowsHtml = reportRows.map(r => `<tr>${cols.map(c => `<td>${String(r[c] ?? '')}</td>`).join('')}</tr>`).join('');
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>body{font-family:Inter,Arial,Helvetica,sans-serif;padding:18px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:12px}th{background:#f8fafc}</style></head><body><h2>${title}</h2><table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`;
+      const w = window.open('about:blank','_blank');
+      if (!w) { alert('Popup blocked — allow popups to export PDF'); return; }
+      w.document.write(html);
+      w.document.close();
+      setTimeout(()=>{ w.focus(); w.print(); }, 500);
+    } catch (err) {
+      console.error('PDF export failed', err);
+      alert('Failed to export PDF');
+    }
+  };
 
   const { operating, investing, financing, netChange, endingCash } = useMemo(() => {
     const operatingCandidates = ["sales", "revenue", "cash", "received", "cash from customers", "cash_received"];
@@ -140,8 +192,8 @@ export default function CashFlowReport() {
       <div className="px-2 py-3 flex items-center justify-between">
         <h2 className="text-xl font-semibold">{title}</h2>
         <div className="flex gap-2">
-          <button className="text-xs px-3 py-1 rounded-lg border">Export PDF</button>
-          <button className="text-xs px-3 py-1 rounded-lg border">Export Excel</button>
+          <button onClick={onExportPDF} className="text-xs px-3 py-1 rounded-lg border">Export PDF</button>
+          <button onClick={onExportExcel} className="text-xs px-3 py-1 rounded-lg border">Export Excel</button>
         </div>
       </div>
 

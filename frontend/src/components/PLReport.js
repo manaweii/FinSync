@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
 import { parseISO, isWithinInterval } from 'date-fns';
+import * as XLSX from 'xlsx';
 
 function StatCard({ label, value, change, changeColor }) {
   return (
@@ -79,10 +80,54 @@ function findTotalFromTotalsObject(totals, keywordCandidates) {
 
 export default function PLReport() {
   const ctx = useOutletContext() || {};
-  const importDetail = ctx.importDetail || null;
-  const filters = ctx.filters || {};
-  const rows = importDetail?.previewRows || [];
-  const totals = importDetail?.totals || null;
+  const { exportToExcel, exportToPDF } = ctx;
+   const importDetail = ctx.importDetail || null;
+   const filters = ctx.filters || {};
+   const rows = importDetail?.previewRows || [];
+   const totals = importDetail?.totals || null;
+
+  // Build report summary rows (Metric / Value) to export
+  const buildSummaryRows = () => {
+    const summary = [];
+    summary.push({ Metric: 'Total Revenue', Value: revenueTotal ?? 0 });
+    summary.push({ Metric: 'COGS', Value: cogsTotal ?? 0 });
+    summary.push({ Metric: 'Gross Profit', Value: (revenueTotal - cogsTotal) ?? 0 });
+    summary.push({ Metric: 'Sales & Marketing', Value: salesAndMarketing ?? 0 });
+    summary.push({ Metric: 'General & Admin', Value: generalAndAdmin ?? 0 });
+    summary.push({ Metric: 'R&D', Value: rnd ?? 0 });
+    summary.push({ Metric: 'Other Income', Value: otherIncome ?? 0 });
+    summary.push({ Metric: 'Tax', Value: tax ?? 0 });
+    summary.push({ Metric: 'Operating Profit', Value: operatingProfit ?? 0 });
+    summary.push({ Metric: 'Net Profit', Value: netProfit ?? 0 });
+    return summary.map(r => ({ Metric: r.Metric, Value: String(r.Value) }));
+  };
+
+  const handleExportExcel = () => {
+    const reportRows = buildSummaryRows();
+    const filename = (importDetail?.fileName || 'pl_report').replace(/\s+/g, '_');
+    if (exportToExcel) return exportToExcel(reportRows, filename);
+    // fallback local XLSX
+    try {
+      const ws = XLSX.utils.json_to_sheet(reportRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Summary');
+      XLSX.writeFile(wb, `${filename}.xlsx`);
+    } catch (err) { console.error(err); alert('Failed to export Excel'); }
+  };
+
+  const handleExportPDF = () => {
+    const reportRows = buildSummaryRows();
+    const title = importDetail?.fileName || 'P&L Report';
+    if (exportToPDF) return exportToPDF(reportRows, ['Metric','Value'], title);
+    // fallback: simple print
+    try {
+      const cols = ['Metric','Value'];
+      const rowsHtml = reportRows.map(r => `<tr>${cols.map(c=>`<td>${String(r[c]??'')}</td>`).join('')}</tr>`).join('');
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>body{font-family:Inter,Arial,Helvetica,sans-serif;padding:18px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:6px;text-align:left;font-size:12px}th{background:#f8fafc}</style></head><body><h2>${title}</h2><table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`;
+      const w = window.open('about:blank','_blank'); if (!w){ alert('Popup blocked — allow popups to export PDF'); return; }
+      w.document.write(html); w.document.close(); setTimeout(()=>{ w.focus(); w.print(); }, 500);
+    } catch (err) { console.error(err); alert('Failed to export PDF'); }
+  };
 
   // Apply filters: date range, categories, regions
   const filteredRows = useMemo(() => {
@@ -216,8 +261,8 @@ export default function PLReport() {
       <div className="px-2 py-3 flex items-center justify-between">
         <h2 className="text-xl font-semibold">{title}</h2>
         <div className="flex gap-2">
-          <button className="text-xs px-3 py-1 rounded-lg border">Export PDF</button>
-          <button className="text-xs px-3 py-1 rounded-lg border">Export Excel</button>
+          <button onClick={handleExportPDF} className="text-xs px-3 py-1 rounded-lg border">Export PDF</button>
+          <button onClick={handleExportExcel} className="text-xs px-3 py-1 rounded-lg border">Export Excel</button>
         </div>
       </div>
 

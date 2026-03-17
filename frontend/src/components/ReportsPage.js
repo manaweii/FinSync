@@ -14,6 +14,14 @@ function ReportsPage() {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [error, setError] = useState(null);
 
+  // Filters state
+  const [filterInput, setFilterInput] = useState({
+    preset: "",
+    from: "",
+    to: ""
+  });
+  const [appliedFilters, setAppliedFilters] = useState({});
+
   useEffect(() => {
     loadImports();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -83,6 +91,20 @@ function ReportsPage() {
     if (id) loadImportDetail(id);
   };
 
+  const handleFilterChange = (e) => {
+    setFilterInput({ ...filterInput, [e.target.name]: e.target.value });
+  };
+
+  const applyFilters = () => {
+    setAppliedFilters({ ...filterInput });
+  };
+
+  const resetFilters = () => {
+    const empty = { preset: "", from: "", to: "" };
+    setFilterInput(empty);
+    setAppliedFilters(empty);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-50 via-emerald-50/40 to-slate-50 py-12 px-4">
       <div className="max-w-5xl mx-auto text-center mb-8">
@@ -148,8 +170,8 @@ function ReportsPage() {
         <div className="grid grid-cols-[2.3fr,1fr] gap-0 px-6 py-6">
           {/* left: each page injects its own cards and table */}
           <div className="pr-6 border-r border-slate-100">
-            {/* Pass importDetail to child routes so they can build reports from it */}
-            <Outlet context={{ importDetail, refresh: () => loadImports() }} />
+            {/* Pass importDetail and filters to child routes so they can build reports */}
+            <Outlet context={{ importDetail, filters: appliedFilters, refresh: () => loadImports() }} />
           </div>
 
           {/* right: filters panel */}
@@ -181,6 +203,9 @@ function ReportsPage() {
                 <label className="block mb-1 text-slate-600">Report Period</label>
                 <input
                   type="text"
+                  name="preset"
+                  value={filterInput.preset}
+                  onChange={handleFilterChange}
                   placeholder="This Month"
                   className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-500"
                 />
@@ -191,18 +216,24 @@ function ReportsPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <input
                     type="date"
+                    name="from"
+                    value={filterInput.from}
+                    onChange={handleFilterChange}
                     className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-500"
                   />
                   <input
                     type="date"
+                    name="to"
+                    value={filterInput.to}
+                    onChange={handleFilterChange}
                     className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-500"
                   />
                 </div>
               </div>
 
               <div className="flex gap-2 pt-1">
-                <button type="button" className="flex-1 rounded-lg bg-emerald-600 py-2 text-xs font-medium text-white hover:bg-emerald-700">Apply</button>
-                <button type="button" className="flex-1 rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50">Reset</button>
+                <button type="button" onClick={applyFilters} className="flex-1 rounded-lg bg-emerald-600 py-2 text-xs font-medium text-white hover:bg-emerald-700">Apply</button>
+                <button type="button" onClick={resetFilters} className="flex-1 rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50">Reset</button>
               </div>
 
               <div className="pt-4 text-[11px] text-slate-500 space-y-1">
@@ -214,13 +245,6 @@ function ReportsPage() {
               {error && <div className="text-xs text-rose-600 mt-3">{error}</div>}
             </form>
           </aside>
-        </div>
-
-        {/* export buttons */}
-        <div className="flex justify-center gap-3 border-t border-slate-100 px-6 py-4">
-          <button className="px-4 py-2 rounded-lg border border-slate-200 bg-white text-xs text-slate-600 hover:bg-slate-50">Export as PDF</button>
-          <button className="px-4 py-2 rounded-lg border border-slate-200 bg-white text-xs text-slate-600 hover:bg-slate-50">Export as CSV</button>
-          <button className="px-4 py-2 rounded-lg border border-slate-200 bg-white text-xs text-slate-600 hover:bg-slate-50">Print</button>
         </div>
       </div>
     </div>
