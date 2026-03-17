@@ -105,7 +105,7 @@ function ReportsPage() {
         <div className="flex items-center justify-between px-6 pt-4 pb-3 border-b border-slate-100">
           <div className="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-medium">
             <NavLink
-              to="/pl"
+              to="/reports/pl"
               className={({ isActive }) =>
                 "px-4 py-1.5 rounded-lg " +
                 (isActive
@@ -116,7 +116,7 @@ function ReportsPage() {
               P&L
             </NavLink>
             <NavLink
-              to="/balance-sheet"
+              to="/reports/balance-sheet"
               className={({ isActive }) =>
                 "px-4 py-1.5 rounded-lg " +
                 (isActive
@@ -127,7 +127,7 @@ function ReportsPage() {
               Balance Sheet
             </NavLink>
             <NavLink
-              to="/cash-flow"
+              to="/reports/cash-flow"
               className={({ isActive }) =>
                 "px-4 py-1.5 rounded-lg " +
                 (isActive

@@ -7,6 +7,9 @@ import PricingPage from "./components/PricingPage";
 import DashboardPage from "./components/DashboardPage";
 import ContactPage from "./components/ContactPage";
 import ReportsPage from "./components/ReportsPage";
+import PLReport from "./components/PLReport";
+import BalanceSheetReport from "./components/BalanceSheetReport";
+import CashFlowReport from "./components/CashFlowReport";
 import FileImportPage from "./components/FileImportPage";
 import UserManagement from "./components/UserManagement";
 import CreateUser from "./components/CreateUser";
@@ -99,7 +102,13 @@ function App() {
               <ReportsPage />
             </RequireAuth>
           }
-        />
+        >
+          {/* Nested report routes */}
+          <Route index element={<PLReport />} />
+          <Route path="pl" element={<PLReport />} />
+          <Route path="balance-sheet" element={<BalanceSheetReport />} />
+          <Route path="cash-flow" element={<CashFlowReport />} />
+        </Route>
         <Route
           path="/import"
           element={
