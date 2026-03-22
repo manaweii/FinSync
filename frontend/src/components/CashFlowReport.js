@@ -198,10 +198,10 @@ export default function CashFlowReport() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 px-2">
-        <CFCard label="Operating Cash Flow" value={`NPR ${fmt(operating)}`} />
-        <CFCard label="Investing Cash Flow" value={`NPR ${fmt(investing)}`} />
-        <CFCard label="Financing Cash Flow" value={`NPR ${fmt(financing)}`} />
-        <CFCard label="Net Change" value={`NPR ${fmt(netChange)}`} />
+        <CFCard label="Operating Cash Flow" value={`Rs. ${fmt(operating)}`} />
+        <CFCard label="Investing Cash Flow" value={`Rs. ${fmt(investing)}`} />
+        <CFCard label="Financing Cash Flow" value={`Rs. ${fmt(financing)}`} />
+        <CFCard label="Net Change" value={`Rs. ${fmt(netChange)}`} />
       </div>
 
       <div className="mt-2 rounded-2xl border border-slate-100 bg-white px-5 py-4 text-xs">

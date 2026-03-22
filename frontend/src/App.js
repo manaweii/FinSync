@@ -5,7 +5,7 @@ import LoginPage from "./components/Login";
 import ResetPasswordPage from "./components/ResetPassword";
 import PricingPage from "./components/PricingPage";
 import DashboardPage from "./components/DashboardPage";
-import AnalyticsPage from "./components/AnalyticsPage";
+import RecordPage from "./components/RecordPage";
 import ContactPage from "./components/ContactPage";
 import ReportsPage from "./components/ReportsPage";
 import PLReport from "./components/PLReport";
@@ -20,6 +20,7 @@ import Profile from "./components/Profile";
 import RequireAuth from "./components/RequireAuth";
 import NewPassword from "./components/NewPassword";
 import useAuthStore from "./store/useAuthStore";
+import DashboardSettings from "./components/DashboardSettings";
 
 function App() {
   const { isLoggedIn, role } = useAuthStore();
@@ -44,12 +45,12 @@ function App() {
           }
         />
 
-        {/* Analytics */}
+        {/* Record */}
         <Route
-          path="/analytics"
+          path="/record"
           element={
             <RequireAuth>
-              <AnalyticsPage />
+              <RecordPage />
             </RequireAuth>
           }
         />
@@ -60,6 +61,16 @@ function App() {
           element={
             <RequireAuth>
               <Profile />
+            </RequireAuth>
+          }
+        />
+
+        {/* Dashboard Settings */}
+        <Route
+          path="/dashboard-settings"
+          element={
+            <RequireAuth>
+              <DashboardSettings />
             </RequireAuth>
           }
         />

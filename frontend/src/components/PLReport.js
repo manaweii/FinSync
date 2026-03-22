@@ -268,10 +268,10 @@ export default function PLReport() {
 
       {/* top summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 px-2">
-        <StatCard label="Total Revenue" value={`NPR ${fmt(revenueTotal)}`} change={pctOf(revenueTotal, Math.max(1, revenueTotal))} changeColor="green" />
-        <StatCard label="Gross Profit" value={`NPR ${fmt(revenueTotal - cogsTotal)}`} change={pctOf(revenueTotal - cogsTotal, Math.max(1, revenueTotal))} changeColor="green" />
-        <StatCard label="Operating Profit" value={`NPR ${fmt(operatingProfit)}`} change={pctOf(operatingProfit, Math.max(1, revenueTotal))} changeColor={operatingProfit>=0 ? 'green' : 'red'} />
-        <StatCard label="Net Profit" value={`NPR ${fmt(netProfit)}`} change={pctOf(netProfit, Math.max(1, revenueTotal))} changeColor={netProfit>=0 ? 'green' : 'red'} />
+        <StatCard label="Total Revenue" value={`Rs. ${fmt(revenueTotal)}`} change={pctOf(revenueTotal, Math.max(1, revenueTotal))} changeColor="green" />
+        <StatCard label="Gross Profit" value={`Rs. ${fmt(revenueTotal - cogsTotal)}`} change={pctOf(revenueTotal - cogsTotal, Math.max(1, revenueTotal))} changeColor="green" />
+        <StatCard label="Operating Profit" value={`Rs. ${fmt(operatingProfit)}`} change={pctOf(operatingProfit, Math.max(1, revenueTotal))} changeColor={operatingProfit>=0 ? 'green' : 'red'} />
+        <StatCard label="Net Profit" value={`Rs. ${fmt(netProfit)}`} change={pctOf(netProfit, Math.max(1, revenueTotal))} changeColor={netProfit>=0 ? 'green' : 'red'} />
       </div>
 
       {/* detailed accounts */}

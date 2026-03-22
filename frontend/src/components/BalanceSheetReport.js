@@ -196,10 +196,10 @@ export default function BalanceSheetReport() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 px-2">
-        <SummaryCard label="Total Assets" value={`NPR ${fmt(totalAssets)}`} />
-        <SummaryCard label="Current Assets" value={`NPR ${fmt(currentAssets)}`} />
-        <SummaryCard label="Total Liabilities" value={`NPR ${fmt(totalLiabilities)}`} />
-        <SummaryCard label="Total Equity" value={`NPR ${fmt(totalEquity)}`} />
+        <SummaryCard label="Total Assets" value={`Rs. ${fmt(totalAssets)}`} />
+        <SummaryCard label="Current Assets" value={`Rs. ${fmt(currentAssets)}`} />
+        <SummaryCard label="Total Liabilities" value={`Rs. ${fmt(totalLiabilities)}`} />
+        <SummaryCard label="Total Equity" value={`Rs. ${fmt(totalEquity)}`} />
       </div>
 
       <div className="mt-2 rounded-2xl border border-slate-100 bg-white px-5 py-4 text-xs">
