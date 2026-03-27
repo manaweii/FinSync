@@ -5,7 +5,7 @@ import LoginPage from "./components/Login";
 import ResetPasswordPage from "./components/ResetPassword";
 import PricingPage from "./components/PricingPage";
 import DashboardPage from "./components/DashboardPage";
-import RecordPage from "./components/RecordPage";
+import RecordsPage from "./components/RecordsPage";
 import ContactPage from "./components/ContactPage";
 import ReportsPage from "./components/ReportsPage";
 import PLReport from "./components/PLReport";
@@ -47,10 +47,10 @@ function App() {
 
         {/* Record */}
         <Route
-          path="/record"
+          path="/records"
           element={
             <RequireAuth>
-              <RecordPage />
+              <RecordsPage />
             </RequireAuth>
           }
         />

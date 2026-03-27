@@ -46,7 +46,7 @@ const faqs = [
   },
   {
     q: "Is there a free trial available?",
-    a: "Yes! We offer a 14-day free trial with full access to all features. No credit card required.",
+    a: "No! We don't offer a free trial with full access to all features. Payment is required.",
   },
 ];
 

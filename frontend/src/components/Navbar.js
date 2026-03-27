@@ -15,7 +15,7 @@ function Navbar() {
   }
   
   const publicLinks = ["Home", "Features", "Platform", "Pricing", "Contact"];
-  const privateLinks = ["Dashboard", "Analytics", "Import", "Report"];
+  const privateLinks = ["Dashboard", "Import", "Record", "Report"];
   const linksToShow = isLoggedIn ? privateLinks : publicLinks;
 
   const linkMap = {
@@ -25,7 +25,7 @@ function Navbar() {
     Pricing: "/pricing",
     Contact: "/contact",
     Dashboard: "/dashboard",
-    Analytics: "/analytics",
+    Record: "/record",
     Import: "/import",
     Report: "/reports",
     Users: "/users",
@@ -43,7 +43,7 @@ function Navbar() {
   };
 
   return (
-    <nav className="w-full bg-white/80 backdrop-blur shadow-sm">
+    <nav className="w-full bg-white/80 backdrop-blur shadow-sm sticky top-0 z-50">
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         {/* left: logo */}
         <div className="flex items-center gap-3">
@@ -116,6 +116,14 @@ function Navbar() {
                     onClick={() => setIsOpen(false)}
                   >
                     Profile
+                  </Link>
+
+                  <Link
+                    to="/dashboard-settings"
+                    className="block px-4 py-2 text-slate-700 hover:bg-slate-50"
+                    onClick={() => { setIsOpen(false); navigate('/dashboard-settings'); }}
+                  >
+                    Settings
                   </Link>
 
                   <button

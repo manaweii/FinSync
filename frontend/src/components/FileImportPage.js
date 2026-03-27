@@ -335,7 +335,7 @@ function FileImportPage() {
           <label className="block cursor-pointer rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 hover:bg-slate-50 transition-colors">
             <div className="flex flex-col items-center justify-center py-12">
               <div className="mb-3 h-12 w-12 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center text-xl">
-                ⬆
+                
               </div>
               <p className="text-sm text-slate-700">
                 Drag and drop CSV or Excel here

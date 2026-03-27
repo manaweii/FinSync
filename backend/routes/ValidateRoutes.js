@@ -3,6 +3,7 @@ import { login, requestPasswordReset, confirmNewPassword, CreateUser, getProfile
 import { getUsers, UpdateUser, DeleteUser } from "../repositories/userRepo.js";
 import { CreateOrganization, LoadOrganization, UpdateOrganization, DeleteOrganization } from "../repositories/organizationRepo.js";
 import { uploadFile, pastImportData, getImportById } from "../controllers/importController.js";
+import { saveDashboardSettings, getDashboardSettings } from "../controllers/dashboardController.js";
 
 const router = express.Router();
 
@@ -30,5 +31,9 @@ router.delete("/orgs/:id", DeleteOrganization);
 router.post("/upload", uploadFile);
 router.get("/past-imports/:orgId", pastImportData);
 router.get('/imports/:id', getImportById);
+
+// Dashboard settings
+router.post('/dashboard-settings', saveDashboardSettings);
+router.get('/dashboard-settings/:id', getDashboardSettings);
 
 export default router;
