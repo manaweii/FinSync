@@ -2,7 +2,8 @@ import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import { connectAuthDB } from './config/db.js';
-import authRoutes from './routes/ValidateRoutes.js';
+import authRoutes from './routes/ValidateRoutes.js'; 
+import subscriptionRoutes from './routes/SubscriptionRoutes.js';
 
 // Load env
 dotenv.config();
@@ -24,6 +25,9 @@ connectAuthDB();
 
 // Routes
 app.use('/api', authRoutes);
+
+// Subscription
+app.use('/api/subscription', subscriptionRoutes);
 
 // Start server
 const PORT = process.env.PORT || 5000;

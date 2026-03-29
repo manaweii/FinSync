@@ -1,26 +1,33 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
+import Profile from "./components/Profile";
+
 import HomePage from "./components/LandingPage";
-import LoginPage from "./components/Login";
-import ResetPasswordPage from "./components/ResetPassword";
-import PricingPage from "./components/PricingPage";
-import DashboardPage from "./components/DashboardPage";
-import RecordsPage from "./components/RecordsPage";
 import ContactPage from "./components/ContactPage";
+import PricingPage from "./components/PricingPage";
+import SubscriptionDetail from "./components/SubscriptionDetail";
+import SubscriptionSuccess from "./components/SubscriptionSuccess";
+import SubscriptionLogs from "./components/SubscriptionLogs";
+
+import LoginPage from "./components/Login";
+import RequireAuth from "./components/RequireAuth";
+import NewPassword from "./components/NewPassword";
+import useAuthStore from "./store/useAuthStore";
+import ResetPasswordPage from "./components/ResetPassword";
+
+import UserManagement from "./components/UserManagement";
+import CreateUser from "./components/CreateUser";
+import OrganizationManagement from "./components/OrganizationManagement";
+import CreateOrganization from "./components/CreateOrganization";
+
+import DashboardPage from "./components/DashboardPage";
+import DashboardSettings from "./components/DashboardSettings";
+import RecordsPage from "./components/RecordsPage";
 import ReportsPage from "./components/ReportsPage";
 import PLReport from "./components/PLReport";
 import CashFlowReport from "./components/CashFlowReport";
 import BalanceSheetReport from "./components/BalanceSheetReport";
 import FileImportPage from "./components/FileImportPage";
-import UserManagement from "./components/UserManagement";
-import CreateUser from "./components/CreateUser";
-import OrganizationManagement from "./components/OrganizationManagement";
-import CreateOrganization from "./components/CreateOrganization";
-import Profile from "./components/Profile";
-import RequireAuth from "./components/RequireAuth";
-import NewPassword from "./components/NewPassword";
-import useAuthStore from "./store/useAuthStore";
-import DashboardSettings from "./components/DashboardSettings";
 
 function App() {
   const { isLoggedIn, role } = useAuthStore();
@@ -34,6 +41,16 @@ function App() {
         <Route path="/Login" element={<LoginPage />} />
         <Route path="/ResetPassword" element={<ResetPasswordPage />} />
         <Route path="/NewPassword" element={<NewPassword />} />
+
+          {/* Subscription routes */}
+        <Route path="/subscription-detail" element={<SubscriptionDetail />} />
+        <Route path="/subscription-success" element={<SubscriptionSuccess />} />
+        <Route path="/subscription-logs" element={
+          <RequireAuth>
+            <SubscriptionLogs />
+          </RequireAuth>
+        } />
+
 
         {/* Dashboard */}
         <Route

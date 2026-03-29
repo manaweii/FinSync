@@ -1,23 +1,27 @@
 import React from "react";
+import { useNavigate } from "react-router-dom"; 
 
 const plans = [
   {
     name: "Starter",
-    price: "NPR 1,500",
+    price: "1500", 
+    currency: "NPR",
     period: "/ month",
     badge: "",
     badgeColor: "",
   },
   {
     name: "Growth",
-    price: "NPR 3,900",
+    price: "3900",
+    currency: "NPR",
     period: "/ 3 months",
     badge: "Save 13%",
     badgeColor: "bg-emerald-100 text-emerald-600",
   },
   {
     name: "Professional",
-    price: "NPR 7,200",
+    price: "7200",
+    currency: "NPR",
     period: "/ 6 months",
     badge: "Save 20%",
     badgeColor: "bg-emerald-100 text-emerald-600",
@@ -26,7 +30,8 @@ const plans = [
   },
   {
     name: "Enterprise",
-    price: "NPR 13,000",
+    price: "13000",
+    currency: "NPR",
     period: "/ year",
     badge: "Best Value",
     badgeColor: "bg-amber-100 text-amber-600",
@@ -51,11 +56,17 @@ const faqs = [
 ];
 
 const PricingPage = () => {
+  const navigate = useNavigate(); 
+
+  // Handler to pass selected plan data to the subscription page
+  const handleSelectPlan = (plan) => {
+    navigate("/subscription-detail", { state: { plan } }); 
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-      {/* Hero + pricing cards */}
       <main className="mx-auto max-w-6xl px-4 pt-12 pb-20 md:px-6 md:pt-16">
-        {/* Hero */}
+        {/* Hero Section */}
         <section className="text-center">
           <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-600">
             Pricing
@@ -79,18 +90,13 @@ const PricingPage = () => {
                   : "border-slate-100"
               }`}
             >
-              {/* Top highlight label (Most Popular / Best Value) */}
-              {plan.highlight && plan.name === "Professional" && (
+              {/* Highlight Labels */}
+              {plan.highlight && (
                 <div className="absolute inset-x-0 -top-4 flex justify-center">
-                  <span className="rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold text-white shadow-md">
-                    Most Popular
-                  </span>
-                </div>
-              )}
-              {plan.highlight && plan.name === "Enterprise" && (
-                <div className="absolute inset-x-0 -top-4 flex justify-center">
-                  <span className="rounded-full bg-amber-500 px-3 py-1 text-xs font-semibold text-white shadow-md">
-                    Best Value
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold text-white shadow-md ${
+                    plan.name === "Enterprise" ? "bg-amber-500" : "bg-emerald-500"
+                  }`}>
+                    {plan.highlight}
                   </span>
                 </div>
               )}
@@ -100,50 +106,39 @@ const PricingPage = () => {
               </h3>
               <div className="mt-3 flex items-baseline gap-1">
                 <span className="text-2xl font-bold text-slate-900">
-                  {plan.price}
+                  {plan.currency} {plan.price}
                 </span>
                 <span className="text-sm text-slate-500">{plan.period}</span>
               </div>
 
               {plan.badge && (
-                <span
-                  className={`mt-2 inline-flex w-fit items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
-                    plan.badgeColor
-                  }`}
-                >
+                <span className={`mt-2 inline-flex w-fit items-center rounded-full px-2.5 py-1 text-xs font-semibold ${plan.badgeColor}`}>
                   {plan.badge}
                 </span>
               )}
 
               <ul className="mt-5 space-y-2 text-sm text-slate-600">
                 <li className="flex items-center gap-2">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-emerald-500 text-xs">
-                    ✓
-                  </span>
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-emerald-500 text-xs">✓</span>
                   Core financial dashboards
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-emerald-500 text-xs">
-                    ✓
-                  </span>
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-emerald-500 text-xs">✓</span>
                   CSV/Excel import
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-emerald-500 text-xs">
-                    ✓
-                  </span>
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-emerald-500 text-xs">✓</span>
                   Basic reports and analytics
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-emerald-500 text-xs">
-                    ✓
-                  </span>
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-emerald-500 text-xs">✓</span>
                   Email support
                 </li>
               </ul>
 
               <button
-                className={`mt-6 w-full rounded-full px-4 py-2.5 text-sm font-semibold ${
+                onClick={() => handleSelectPlan(plan)} // Trigger navigation with state
+                className={`mt-6 w-full rounded-full px-4 py-2.5 text-sm font-semibold transition-all ${
                   plan.name === "Professional"
                     ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/30 hover:brightness-105"
                     : "border border-emerald-100 bg-white text-emerald-600 hover:bg-emerald-50"
@@ -157,11 +152,8 @@ const PricingPage = () => {
 
         {/* Bottom section: custom plan + FAQ */}
         <section className="mt-16 grid gap-8 rounded-2xl bg-white p-8 shadow-sm md:grid-cols-[1.1fr,1.4fr]">
-          {/* Custom plan */}
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">
-              Need a custom plan?
-            </h2>
+            <h2 className="text-lg font-semibold text-slate-900">Need a custom plan?</h2>
             <p className="mt-2 text-sm text-slate-600">
               We offer tailored solutions for enterprises with specific requirements. Get in touch with our sales team to discuss your needs.
             </p>
@@ -170,17 +162,12 @@ const PricingPage = () => {
             </button>
           </div>
 
-          {/* FAQ */}
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">
-              Frequently Asked Questions
-            </h2>
+            <h2 className="text-lg font-semibold text-slate-900">Frequently Asked Questions</h2>
             <div className="mt-4 space-y-5">
               {faqs.map((item) => (
                 <div key={item.q}>
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    {item.q}
-                  </h3>
+                  <h3 className="text-sm font-semibold text-slate-900">{item.q}</h3>
                   <p className="mt-1 text-sm text-slate-600">{item.a}</p>
                 </div>
               ))}

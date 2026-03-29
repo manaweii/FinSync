@@ -7,6 +7,7 @@ import {
   createUser,
   updateLastLogin,
 } from "../repositories/userRepo.js";
+import { connectSubscriptionDB } from '../config/db.js';
 
 import User from "../models/User.js";
 import Organization from "../models/Organization.js";
@@ -138,6 +139,23 @@ export const login = async (req, res) => {
     }
     if (orgDetail && orgDetail.status !== "Active") {
       return res.status(403).json({ message: "Organization is inactive" });
+    }
+
+    // Additional payment check for Admin users: ensure payment is active
+    if (roleDetail && roleDetail.name === 'Admin') {
+      try {
+        const subConn = await connectSubscriptionDB();
+        const subsColl = subConn.db.collection('subscriptions');
+        const recent = await subsColl.find({ billingEmail: user.email }).sort({ createdAt: -1 }).limit(1).toArray();
+        const last = recent && recent.length > 0 ? recent[0] : null;
+        if (!last || last.status !== 'active') {
+          return res.status(403).json({ message: 'Payment required to activate account' });
+        }
+      } catch (e) {
+        console.error('Subscription check failed', e);
+        // allow login to proceed on subscription DB error? safer to block
+        return res.status(500).json({ message: 'Payment verification failed' });
+      }
     }
 
     const token = jwt.sign(
