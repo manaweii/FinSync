@@ -129,156 +129,163 @@ function UserManagement() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 py-8 px-6">
+    <div className="min-h-screen bg-slate-50 py-8 px-4 sm:px-6">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-2xl font-semibold text-slate-900 mb-2">
-          User Management
-        </h1>
-        <p className="text-sm text-slate-500 mb-4">
-          Read, edit, and delete users from your backend.
-        </p>
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-900">User Management</h1>
+            <p className="text-sm text-slate-500">Read, edit, and delete users from your backend.</p>
+          </div>
+          
+          <button
+            onClick={() => navigate("/create-user")}
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-blue-700 transition w-full md:w-auto"
+          >
+            <span className="text-lg leading-none">+</span>
+            <span>Add User</span>
+          </button>
+        </div>
 
-        <button
-          onClick={() => navigate("/create-user")}
-          className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-blue-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 transition"
-        >
-          <span className="text-lg leading-none">+</span>
-          <span>Add User</span>
-        </button>
+        {loading && <p className="text-xs text-slate-500 mb-4 animate-pulse">Loading users...</p>}
+        {error && <p className="text-xs text-red-500 mb-4 bg-red-50 p-3 rounded-lg border border-red-100">{error}</p>}
 
-        {loading && <p className="text-xs text-slate-500">Loading...</p>}
-        {error && <p className="text-xs text-red-500 mb-2">{error}</p>}
-
-        <div className="grid grid-cols-3 gap-6">
-          {/* TABLE */}
-          <div className="col-span-2 bg-white rounded-2xl shadow border border-slate-100">
-            <div className="grid grid-cols-[2fr,2fr,1fr,1fr,80px] px-5 py-3 text-[11px] font-medium text-slate-500 border-b border-slate-100">
-              <span>Name</span>
-              <span>Organization</span>
-              <span>Email</span>
-              <span>Role</span>
-              <span>Status</span>
-              <span className="text-right">Actions</span>
-            </div>
-
-            <div className="text-xs">
-              {users.map((user) => (
-                <div
-                  key={user.id}
-                  className="grid grid-cols-[2fr,2fr,1fr,1fr,80px] px-5 py-3 items-center border-b border-slate-50"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-slate-800">{user.fullName}</span>
-                  </div>
-                  <span className="text-slate-500">{user.orgName}</span>
-                  <span className="text-slate-500">{user.email}</span>
-                  <span className="text-slate-700">{user.role}</span>
-                  <span className="text-slate-700">{user.status}</span>
-
-                  <div className="flex justify-end gap-2 text-[11px]">
-                    <button
-                      className="text-sky-600 hover:text-sky-700"
-                      onClick={() => startEdit(user)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="text-red-600 hover:text-red-700"
-                      onClick={() => deleteUser(user.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main List Column */}
+          <div className="lg:col-span-2 order-2 lg:order-1">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100">
+                      <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">User</th>
+                      <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Organization</th>
+                      <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">Role</th>
+                      <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                      <th className="px-5 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-xs divide-y divide-slate-50">
+                    {users.map((user) => (
+                      <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-5 py-4">
+                          <div className="flex flex-col">
+                            <span className="font-medium text-slate-800">{user.fullName}</span>
+                            <span className="text-[10px] text-slate-400">{user.email}</span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4 text-slate-500 hidden md:table-cell">{user.orgName}</td>
+                        <td className="px-5 py-4 hidden sm:table-cell">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700">
+                            {user.role}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${user.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                            {user.status}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <div className="flex justify-end gap-3">
+                            <button className="text-blue-600 hover:text-blue-800 font-medium" onClick={() => startEdit(user)}>Edit</button>
+                            <button className="text-red-600 hover:text-red-800 font-medium" onClick={() => deleteUser(user.id)}>Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
               {!loading && users.length === 0 && !error && (
-                <p className="px-5 py-3 text-xs text-slate-500">
-                  No users found.
-                </p>
+                <div className="p-10 text-center">
+                  <p className="text-sm text-slate-500">No users found.</p>
+                </div>
               )}
             </div>
           </div>
 
-          {/* EDIT PANEL */}
-          <div className="bg-white rounded-2xl shadow border border-slate-100 px-6 py-6">
-            <h2 className="text-sm font-semibold text-slate-900 mb-4">Edit User</h2>
+          {/* Edit Side Panel */}
+          <div className="order-1 lg:order-2">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sticky top-8">
+              <h2 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                Edit User
+              </h2>
 
-            {editingUser ? (
-              <form
-                className="space-y-3 text-xs"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  saveEdit();
-                }}
-              >
-                <div>
-                  <label className="block mb-1 text-slate-600">Name</label>
-                  <input
-                    name="fullName"
-                    value={editingUser.fullName || ''}
-                    onChange={handleEditChange}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 focus:border-sky-500"
-                  />
+              {editingUser ? (
+                <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); saveEdit(); }}>
+                  <div>
+                    <label className="block mb-1.5 text-[11px] font-medium text-slate-500 uppercase tracking-tight">Full Name</label>
+                    <input
+                      name="fullName"
+                      value={editingUser.fullName || ''}
+                      onChange={handleEditChange}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block mb-1.5 text-[11px] font-medium text-slate-500 uppercase tracking-tight">Email Address</label>
+                    <input
+                      name="email"
+                      value={editingUser.email || ''}
+                      onChange={handleEditChange}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block mb-1.5 text-[11px] font-medium text-slate-500 uppercase tracking-tight">Role</label>
+                      <select
+                        name="role"
+                        value={editingUser.role || ''}
+                        onChange={handleEditChange}
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
+                      >
+                        <option value="Superadmin">Super Admin</option>
+                        <option value="Admin">Admin</option>
+                        <option value="User">User</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block mb-1.5 text-[11px] font-medium text-slate-500 uppercase tracking-tight">Status</label>
+                      <select
+                        name="status"
+                        value={editingUser.status || 'Active'}
+                        onChange={handleEditChange}
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
+                      >
+                        <option value="Active">Active</option>
+                        <option value="Disabled">Disabled</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-4">
+                    <button
+                      type="submit"
+                      className="flex-1 rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition"
+                    >
+                      Save Changes
+                    </button>
+                    <button
+                      type="button"
+                      className="flex-1 rounded-lg border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition"
+                      onClick={() => setEditingUser(null)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="py-12 text-center border-2 border-dashed border-slate-100 rounded-xl">
+                  <p className="text-xs text-slate-400 px-4">Select a user from the list to modify their account details.</p>
                 </div>
-
-                <div>
-                  <label className="block mb-1 text-slate-600">Email</label>
-                  <input
-                    name="email"
-                    value={editingUser.email || ''}
-                    onChange={handleEditChange}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-100 focus:border-sky-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block mb-1 text-slate-600">Role</label>
-                  <select
-                    name="role"
-                    value={editingUser.role || ''}
-                    onChange={handleEditChange}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:outline-none"
-                  >
-
-                    <option value="Superadmin">Super Admin</option>
-                    <option value="Admin">Admin</option>
-                    <option value="User">User</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block mb-1 text-slate-600">Status</label>
-                  <select
-                    name="status"
-                    value={editingUser.status || 'Active'}
-                    onChange={handleEditChange}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:outline-none"
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Disabled">Disabled</option>
-                  </select>
-                </div>
-
-                <div className="flex gap-2 pt-2">
-                  <button
-                    type="submit"
-                    className="flex-1 rounded-lg bg-sky-600 py-2 text-xs font-medium text-white hover:bg-sky-700"
-                  >
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    className="flex-1 rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50"
-                    onClick={() => setEditingUser(null)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <p className="text-xs text-slate-500">Click “Edit” on a user in the table to change their details.</p>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>
