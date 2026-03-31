@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import useAuthStore from "../store/useAuthStore";
+import useAuthStore from "../../store/useAuthStore";
 
 const API_URL = "http://localhost:5000/api";
 

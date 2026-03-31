@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import Initials from "./Initials";
-import useAuthStore from "../store/useAuthStore";
+import useAuthStore from "../../store/useAuthStore";
 
 function Navbar() {
   const location = useLocation();
@@ -13,7 +13,7 @@ function Navbar() {
   if (location.pathname === "/Login") {
     return null;
   }
-  
+
   const publicLinks = ["Home", "Features", "Platform", "Pricing", "Contact"];
   const privateLinks = ["Dashboard", "Import", "Record", "Report"];
   const linksToShow = isLoggedIn ? privateLinks : publicLinks;
@@ -48,12 +48,14 @@ function Navbar() {
         {/* left: logo */}
         <div className="flex items-center gap-3">
           <Link to={logoPath} className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-2xl bg-gradient-to-br from-emerald-500 to-sky-500 flex items-center justify-center text-white font-semibold">
-              F
-            </div>
-            <span className="text-lg font-semibold text-slate-900">
-              Fin<span className="text-emerald-600">Sync</span>
-            </span>
+            <img
+              src="./FinSync.png"
+              alt="FinSync Logo"
+              className="h-40 w-40 object-contain"
+            />
+            {/* <span className="text-lg font-semibold text-slate-900">
+              Fin<span className="text-teal-600">Sync</span>
+            </span> */}
           </Link>
         </div>
 
@@ -79,11 +81,11 @@ function Navbar() {
                 className="flex items-center gap-3 px-3 py-2 rounded-full border border-slate-100 shadow-sm bg-white"
               >
                 <div className="h-8 w-8 rounded-full bg-sky-500 text-white flex items-center justify-center text-xs font-semibold">
-                  <Initials name={ user?.fullName || "U" } />
+                  <Initials name={user?.fullName || "U"} />
                 </div>
                 <div className="text-xs text-left">
                   <p className="font-medium text-slate-800 leading-tight">
-                    { user?.fullName || "User" }
+                    {user?.fullName || "User"}
                   </p>
                 </div>
               </button>
@@ -121,7 +123,10 @@ function Navbar() {
                   <Link
                     to="/dashboard-settings"
                     className="block px-4 py-2 text-slate-700 hover:bg-slate-50"
-                    onClick={() => { setIsOpen(false); navigate('/dashboard-settings'); }}
+                    onClick={() => {
+                      setIsOpen(false);
+                      navigate("/dashboard-settings");
+                    }}
                   >
                     Settings
                   </Link>

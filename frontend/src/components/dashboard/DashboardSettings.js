@@ -1,5 +1,5 @@
 import React from 'react';
-import useDashboardSettings from '../store/useDashboardSettings';
+import useDashboardSettings from '../../store/useDashboardSettings';
 
 export default function DashboardSettings() {
   const {

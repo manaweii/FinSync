@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import useAuthStore from "../store/useAuthStore";
+import useAuthStore from "../../store/useAuthStore";
 
 const API_URL = "http://localhost:5000/api";
 

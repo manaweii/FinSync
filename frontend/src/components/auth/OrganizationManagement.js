@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import useAuthStore from "../store/useAuthStore";
+import useAuthStore from "../../store/useAuthStore";
 import { useNavigate } from "react-router-dom";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";

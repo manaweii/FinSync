@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom"; 
+
 
 const plans = [
   {
@@ -16,7 +17,7 @@ const plans = [
     currency: "NPR",
     period: "/ 3 months",
     badge: "Save 13%",
-    badgeColor: "bg-emerald-100 text-emerald-600",
+    badgeColor: "",
   },
   {
     name: "Professional",
@@ -24,9 +25,9 @@ const plans = [
     currency: "NPR",
     period: "/ 6 months",
     badge: "Save 20%",
-    badgeColor: "bg-emerald-100 text-emerald-600",
+    badgeColor: "bg-teal-100 text-teal-600",
     highlight: "Most Popular",
-    highlightColor: "bg-emerald-100 text-emerald-600",
+    highlightColor: "bg-teal-100 text-teal-600",
   },
   {
     name: "Enterprise",
@@ -68,7 +69,7 @@ const PricingPage = () => {
       <main className="mx-auto max-w-6xl px-4 pt-12 pb-20 md:px-6 md:pt-16">
         {/* Hero Section */}
         <section className="text-center">
-          <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-600">
+          <span className="inline-flex items-center rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-teal-600">
             Pricing
           </span>
           <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
@@ -86,7 +87,7 @@ const PricingPage = () => {
               key={plan.name}
               className={`relative flex flex-col rounded-2xl border bg-white p-6 shadow-sm ${
                 plan.name === "Professional" || plan.name === "Enterprise"
-                  ? "border-emerald-100 shadow-emerald-50"
+                  ? "border-teal-100 shadow-teal-50"
                   : "border-slate-100"
               }`}
             >
@@ -94,7 +95,7 @@ const PricingPage = () => {
               {plan.highlight && (
                 <div className="absolute inset-x-0 -top-4 flex justify-center">
                   <span className={`rounded-full px-3 py-1 text-xs font-semibold text-white shadow-md ${
-                    plan.name === "Enterprise" ? "bg-amber-500" : "bg-emerald-500"
+                    plan.name === "Enterprise" ? "bg-amber-500" : "bg-teal-500"
                   }`}>
                     {plan.highlight}
                   </span>
@@ -119,19 +120,19 @@ const PricingPage = () => {
 
               <ul className="mt-5 space-y-2 text-sm text-slate-600">
                 <li className="flex items-center gap-2">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-emerald-500 text-xs">✓</span>
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-teal-50 text-teal-500 text-xs">✓</span>
                   Core financial dashboards
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-emerald-500 text-xs">✓</span>
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-teal-50 text-teal-500 text-xs">✓</span>
                   CSV/Excel import
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-emerald-500 text-xs">✓</span>
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-teal-50 text-teal-500 text-xs">✓</span>
                   Basic reports and analytics
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-emerald-500 text-xs">✓</span>
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-teal-50 text-teal-500 text-xs">✓</span>
                   Email support
                 </li>
               </ul>
@@ -139,9 +140,9 @@ const PricingPage = () => {
               <button
                 onClick={() => handleSelectPlan(plan)} // Trigger navigation with state
                 className={`mt-6 w-full rounded-full px-4 py-2.5 text-sm font-semibold transition-all ${
-                  plan.name === "Professional"
-                    ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/30 hover:brightness-105"
-                    : "border border-emerald-100 bg-white text-emerald-600 hover:bg-emerald-50"
+                  plan.name === ""
+                    ? "bg-teal-500 text-white shadow-md shadow-teal-500/30 hover:brightness-105"
+                    : "border border-teal-100 bg-white text-teal-600 hover:bg-teal-50"
                 }`}
               >
                 Get Started

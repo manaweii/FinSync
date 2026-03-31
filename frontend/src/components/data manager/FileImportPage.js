@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
-import useAuthStore from "../store/useAuthStore";
+import useAuthStore from "../../store/useAuthStore";
 
 function FileImportPage() {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -386,9 +386,10 @@ function FileImportPage() {
 
           {/* table */}
           <div className="overflow-hidden rounded-2xl border border-slate-100">
-            <div className="grid grid-cols-[2fr,1fr,2fr,1fr,1fr,40px] bg-slate-50 px-5 py-3 text-[11px] font-medium text-slate-500">
+            <div className="grid grid-cols-[2fr,1fr,1.5fr,2fr,1fr,1fr,40px] bg-slate-50 px-5 py-3 text-[11px] font-medium text-slate-500">
               <span>File name</span>
               <span>Type</span>
+              <span>Uploaded by</span>
               <span>Imported on</span>
               <span>Records</span>
               <span>Status</span>
@@ -399,7 +400,7 @@ function FileImportPage() {
               {imports.map((imp, index) => (
                 <div
                   key={imp._id || imp.id}
-                  className={`grid grid-cols-[2fr,1fr,2fr,1fr,1fr,40px] px-5 py-3 items-center ${
+                  className={`grid grid-cols-[2fr,1fr,1.5fr,2fr,1fr,1fr,40px] px-5 py-3 items-center ${
                     index !== imports.length - 1
                       ? "border-b border-slate-100"
                       : ""
@@ -407,6 +408,7 @@ function FileImportPage() {
                 >
                   <span className="text-slate-800">{imp.fileName}</span>
                   <span className="text-slate-500">{imp.fileType}</span>
+                  <span className="text-slate-500">{imp.userName || imp.user || '—'}</span>
                   <span className="text-slate-500">{imp.importedOn}</span>
                   <span className="text-slate-500">{imp.records ?? "—"}</span>
 
@@ -466,8 +468,7 @@ function FileImportPage() {
                   Preview: {viewImport.fileName}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Imported on:{" "}
-                  {new Date(viewImport.importedOn).toLocaleString()}
+                  Imported on: {new Date(viewImport.importedOn).toLocaleString()} • Imported by: {viewImport.userName || viewImport.user || '—'}
                 </p>
               </div>
               <button

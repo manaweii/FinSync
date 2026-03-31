@@ -10,9 +10,8 @@ export default function HeroSection() {
           <img
             src="/FinSync_Icon.png"
             alt="FinSync Logo"
-            className="h-14 w-14 mr2"
+            className="h-20 w-20"
           />
-          <span className="text-2xl font-semibold text-green-600">FinSync</span>
         </div>
         <h1 className="text-5xl font-bold mb-4 text-blue-700 leading-tight">
           Make Smarter Financial <br /> Decisions — All in One Place
