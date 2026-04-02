@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import useAuthStore from "../../store/useAuthStore";
 
 const API_URL = "http://localhost:5000/api";
@@ -20,7 +21,7 @@ export default function ProfileSettings() {
         setError(null);
 
         if (!token && !storeUser) {
-          setError('Not authenticated');
+          setError("Not authenticated");
           setProfile(null);
           return;
         }
@@ -31,9 +32,9 @@ export default function ProfileSettings() {
         // Only fetch from backend if we have a token
         if (token) {
           const res = await fetch(`${API_URL}/auth/profile`, {
-            method: 'GET',
+            method: "GET",
             headers: {
-              'Content-Type': 'application/json',
+              "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
           });
@@ -45,7 +46,7 @@ export default function ProfileSettings() {
             if (res.status === 401) {
               clearAuth();
             }
-            throw new Error(data?.message || 'Failed to load profile');
+            throw new Error(data?.message || "Failed to load profile");
           }
 
           // Backend returns { user: { ... } }
@@ -56,8 +57,8 @@ export default function ProfileSettings() {
           setAuth(token, fetched);
         }
       } catch (err) {
-        console.error('Failed to load profile data', err);
-        setError(err.message || 'Failed to load profile data');
+        console.error("Failed to load profile data", err);
+        setError(err.message || "Failed to load profile data");
       } finally {
         setLoading(false);
       }
@@ -84,17 +85,18 @@ export default function ProfileSettings() {
   }
 
   // Fallback if no user data
-  const displayName = profile?.fullName || profile?.name || 'User Name';
-  const displayEmail = profile?.email || 'user@example.com';
-  const displayRole = profile?.role || 'User';
-  const displayCompany = profile?.orgName || profile?.company || 'Tech Innovations Pvt. Ltd.';
+  const displayName = profile?.fullName || profile?.name || "User Name";
+  const displayEmail = profile?.email || "user@example.com";
+  const displayRole = profile?.role || "User";
+  const displayCompany =
+    profile?.orgName || profile?.company || "Tech Innovations Pvt. Ltd.";
 
   // Avatar initials
-  const initials = (displayName || 'U')
-    .split(' ')
+  const initials = (displayName || "U")
+    .split(" ")
     .slice(0, 2)
-    .map(n => n[0] || '')
-    .join('')
+    .map((n) => n[0] || "")
+    .join("")
     .toUpperCase();
 
   return (
@@ -183,7 +185,7 @@ export default function ProfileSettings() {
             </div>
           </section>
 
-          {/* Platform security card - unchanged */}
+          {/* Platform security card */}
           <section className="bg-white rounded-3xl shadow-sm border border-slate-100 px-8 py-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
               <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50">
@@ -211,18 +213,18 @@ export default function ProfileSettings() {
                   Platform Security
                 </h3>
                 <p className="mt-1 text-xs text-slate-500">
-                  Manage your session and access protection.
+                  Manage your access protection.
                 </p>
               </div>
             </div>
 
             <div className="flex gap-3 sm:gap-4">
-              <button className="text-xs font-semibold text-sky-600 hover:text-sky-700">
+              <Link
+                to="/reset-password"
+                className="text-xs font-semibold text-sky-600 hover:text-sky-700"
+              >
                 Change Password
-              </button>
-              <button className="rounded-full bg-sky-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-sky-700">
-                Enable 2FA
-              </button>
+              </Link>
             </div>
           </section>
         </div>

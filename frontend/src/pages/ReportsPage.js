@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
-import useAuthStore from "../../store/useAuthStore";
+import useAuthStore from "../store/useAuthStore";
 
 function ReportsPage() {
   const token = useAuthStore((s) => s.token);

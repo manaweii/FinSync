@@ -5,7 +5,11 @@ import useAuthStore from "../../store/useAuthStore";
 const API_URL = "http://localhost:5000/api";
 
 export default function LoginPage() {
-  const [form, setForm] = useState({ email: "", password: "", remember: false });
+  const [form, setForm] = useState({
+    email: "",
+    password: "",
+    remember: false,
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
@@ -14,7 +18,10 @@ export default function LoginPage() {
 
   const handleChange = (e) => {
     const { name, type, checked, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+    setForm((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -52,7 +59,9 @@ export default function LoginPage() {
 
       // Use zustand store to persist and broadcast auth state
       if (data.token || data.user) {
-        console.log("Login successful, setting auth state:", { user: data.user });
+        console.log("Login successful, setting auth state:", {
+          user: data.user,
+        });
         setAuth(data.token || null, data.user || null);
       }
 
@@ -76,7 +85,8 @@ export default function LoginPage() {
               <span className="text-emerald-600">all in one place</span>
             </h1>
             <p className="text-[12px] text-slate-500 mb-6 max-w-md">
-              Track, analyze, and optimize your finances with powerful analytics.
+              Track, analyze, and optimize your finances with powerful
+              analytics.
             </p>
 
             <div className="bg-white rounded-2xl shadow-[0_24px_60px_rgba(15,118,110,0.18)] p-4 w-[420px]">
@@ -114,12 +124,13 @@ export default function LoginPage() {
           <div className="flex-1 flex justify-end">
             <div className="w-[380px] bg-white rounded-2xl shadow-[0_24px_60px_rgba(15,23,42,0.12)] px-7 py-6">
               <div className="flex items-center gap-2 mb-5">
-                <div className="h-7 w-7 rounded-lg bg-emerald-600 flex items-center justify-center text-white text-[12px]">
-                  ↑
+                <div className="flex items-center gap-2 mb-5">
+                  <img
+                    src="./FinSync.png"
+                    alt="FinSync Logo"
+                    className="h-22 w-22 object-contain"
+                  />
                 </div>
-                <span className="text-[14px] font-semibold text-slate-900">
-                  Fin<span className="text-emerald-600">Sync</span>
-                </span>
               </div>
 
               <h2 className="text-[20px] font-semibold text-slate-900 mb-1">
@@ -138,7 +149,6 @@ export default function LoginPage() {
                     Email address
                   </label>
                   <div className="relative">
-
                     <input
                       id="email"
                       name="email"
@@ -201,9 +211,9 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className={`mt-2 w-full rounded-lg py-2 text-[11px] font-medium text-white shadow-[0_10px_24px_rgba(16,185,129,0.45)] transition-colors ${loading ? 'bg-emerald-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                  className={`mt-2 w-full rounded-lg py-2 text-[11px] font-medium text-white shadow-[0_10px_24px_rgba(16,185,129,0.45)] transition-colors ${loading ? "bg-emerald-400 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700"}`}
                 >
-                  {loading ? 'Signing in...' : 'Log In'}
+                  {loading ? "Signing in..." : "Log In"}
                 </button>
               </form>
             </div>

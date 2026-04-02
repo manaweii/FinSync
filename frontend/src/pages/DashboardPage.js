@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, memo } from "react";
 import { useNavigate } from "react-router-dom";
-import useAuthStore from "../../store/useAuthStore";
-import useDashboardSettings from "../../store/useDashboardSettings";
+import useAuthStore from "../store/useAuthStore";
+import useDashboardSettings from "../store/useDashboardSettings";
 import { Line, Bar, Pie } from "react-chartjs-2";
 import {
   Chart as ChartJS,

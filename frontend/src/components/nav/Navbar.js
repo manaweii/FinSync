@@ -53,9 +53,6 @@ function Navbar() {
               alt="FinSync Logo"
               className="h-40 w-40 object-contain"
             />
-            {/* <span className="text-lg font-semibold text-slate-900">
-              Fin<span className="text-teal-600">Sync</span>
-            </span> */}
           </Link>
         </div>
 

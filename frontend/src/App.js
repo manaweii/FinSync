@@ -2,9 +2,9 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navbar from "./components/nav/Navbar";
 import Profile from "./components/nav/Profile";
 
-import HomePage from "./components/homepage/LandingPage";
-import ContactPage from "./components/homepage/ContactPage";
-import PricingPage from "./components/homepage/PricingPage";
+import HomePage from "./pages/LandingPage";
+import ContactPage from "./pages/ContactPage";
+import PricingPage from "./pages/PricingPage";
 import SubscriptionDetail from "./components/payment/SubscriptionDetail";
 import SubscriptionSuccess from "./components/payment/SubscriptionSuccess";
 import SubscriptionLogs from "./components/payment/SubscriptionLogs";
@@ -13,21 +13,21 @@ import LoginPage from "./components/auth/Login";
 import RequireAuth from "./components/auth/RequireAuth";
 import NewPassword from "./components/auth/NewPassword";
 import useAuthStore from "./store/useAuthStore";
-import ResetPasswordPage from "./components/auth/ResetPassword";
+import ResetPassword from "./components/auth/ResetPassword";
 
 import UserManagement from "./components/auth/UserManagement";
 import CreateUser from "./components/auth/CreateUser";
 import OrganizationManagement from "./components/auth/OrganizationManagement";
 import CreateOrganization from "./components/auth/CreateOrganization";
 
-import DashboardPage from "./components/dashboard/DashboardPage";
+import DashboardPage from "./pages/DashboardPage";
 import DashboardSettings from "./components/dashboard/DashboardSettings";
-import RecordsPage from "./components/data manager/RecordsPage";
-import ReportsPage from "./components/data manager/ReportsPage";
-import PLReport from "./components/data manager/PLReport";
-import CashFlowReport from "./components/data manager/CashFlowReport";
-import BalanceSheetReport from "./components/data manager/BalanceSheetReport";
-import FileImportPage from "./components/data manager/FileImportPage";
+import RecordsPage from "./pages/RecordsPage";
+import ReportsPage from "./pages/ReportsPage";
+import PLReport from "./components/datamanager/PLReport";
+import CashFlowReport from "./components/datamanager/CashFlowReport";
+import BalanceSheetReport from "./components/datamanager/BalanceSheetReport";
+import FileImportPage from "./pages/FileImportPage";
 
 function App() {
   const { isLoggedIn, role } = useAuthStore();
@@ -39,7 +39,7 @@ function App() {
       <Routes>
         {/* Public auth routes */}
         <Route path="/Login" element={<LoginPage />} />
-        <Route path="/ResetPassword" element={<ResetPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/NewPassword" element={<NewPassword />} />
 
           {/* Subscription routes */}

@@ -7,9 +7,56 @@ import Organization from '../models/Organization.js';
 import Role from '../models/Role.js';
 import UserOrgRelation from '../models/UserOrgRelation.js';
 import UserRoleRelation from '../models/UserRoleRelation.js';
+import { ObjectId } from 'mongodb';
 
 const router = express.Router();
 const SALT_ROUNDS = 10;
+
+// GET /api/subscription/verify
+router.get('/subscription/verify', async (req, res) => {
+  // eSewa sends a 'data' query parameter in the URL
+  const { data } = req.query;
+
+  if (!data) {
+    return res.status(400).json({ error: "No payment data received from eSewa" });
+  }
+
+  try {
+    // 1. Decode the Base64 string natively (No library needed)
+    const decodedString = Buffer.from(data, 'base64').toString('utf-8');
+    
+    // 2. Convert string to JSON object
+    const paymentInfo = JSON.parse(decodedString);
+
+    // 3. Check if status is COMPLETE
+    if (paymentInfo.status === "COMPLETE") {
+      /* 
+         MOCK LOGIC: 
+         Find the organization/user by the transaction_uuid 
+         and flip their isActive status to true.
+      */
+      
+      // Example (commented out until you connect your model):
+      // const db = await connectSubscriptionDB();
+      // await db.collection('users').updateOne(
+      //   { transactionUuid: paymentInfo.transaction_uuid },
+      //   { $set: { isActive: true, paymentStatus: 'paid' } }
+      // );
+
+      return res.json({
+        success: true,
+        message: "Payment verified and account activated",
+        details: paymentInfo
+      });
+    } else {
+      return res.status(400).json({ error: "Payment was not completed" });
+    }
+  } catch (error) {
+    console.error("Verification Error:", error.message);
+    // This prevents the "app crashed" error if decoding fails
+    return res.status(500).json({ error: "Failed to parse payment data" });
+  }
+});
 
 // Complete subscription endpoint
 router.post('/subscription/complete', async (req, res) => {
@@ -51,7 +98,7 @@ router.post('/subscription/complete', async (req, res) => {
   }
 });
 
-// NEW: Get subscription logs endpoint
+// Get subscription logs endpoint
 router.get('/subscription/logs', async (req, res) => {
   try {
     const { search, from, to } = req.query;
@@ -309,6 +356,67 @@ router.post('/upgrade', async (req, res) => {
   } catch (err) {
     console.error('Upgrade initiate error:', err);
     return res.status(500).json({ success: false, error: 'Server error initiating upgrade' });
+  }
+});
+
+// Verify subscription lookup endpoint
+router.get('/verify', async (req, res) => {
+  try {
+    const { data } = req.query;
+    if (!data) return res.status(400).json({ success: false, error: 'data query param is required' });
+
+    const subConn = await connectSubscriptionDB();
+    const subsColl = subConn.db.collection('subscriptions');
+
+    // Try direct lookup by transactionUuid
+    let sub = await subsColl.findOne({ transactionUuid: data });
+
+    // Try lookup by ObjectId
+    if (!sub) {
+      try {
+        if (ObjectId.isValid(data)) {
+          sub = await subsColl.findOne({ _id: new ObjectId(data) });
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    // Try base64-decoded JSON payload that may contain transactionUuid
+    if (!sub) {
+      try {
+        const decoded = Buffer.from(data, 'base64').toString('utf8');
+        const parsed = JSON.parse(decoded);
+        if (parsed && parsed.transactionUuid) {
+          sub = await subsColl.findOne({ transactionUuid: parsed.transactionUuid });
+        }
+      } catch (e) {
+        // not base64/json — ignore
+      }
+    }
+
+    if (!sub) return res.status(404).json({ success: false, error: 'Subscription not found' });
+
+    // Remove sensitive fields before returning
+    if (sub.password) delete sub.password;
+    if (sub.passwordHash) delete sub.passwordHash;
+
+    // Return minimal subscription info
+    const result = {
+      orgName: sub.orgName,
+      billingEmail: sub.billingEmail,
+      amount: sub.amount,
+      planName: sub.planName,
+      transactionUuid: sub.transactionUuid,
+      orgId: sub.orgId || null,
+      status: sub.status || 'pending',
+      createdAt: sub.createdAt,
+    };
+
+    return res.json({ success: true, subscription: result });
+  } catch (err) {
+    console.error('Verify endpoint error', err);
+    return res.status(500).json({ success: false, error: 'Server error during verify' });
   }
 });
 
