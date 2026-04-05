@@ -8,6 +8,8 @@ import Role from "../models/Role.js";
 import UserRoleRelation from "../models/UserRoleRelation.js";
 import UserOrgRelation from "../models/UserOrgRelation.js";
 import ImportModel from "../models/Import.js";
+import Subscription from "../models/Subscription.js";
+import DashboardSetting from "../models/DashboardSetting.js";
 
 export async function connectAuthDB() {
   // Reuse existing connection when possible

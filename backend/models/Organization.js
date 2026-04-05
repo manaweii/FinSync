@@ -18,7 +18,7 @@ const orgSchema = new Schema(
       default: "Starter"
     },
 
-    status: { type: String, enum: ["Active", "Disabled"] },
+    status: { type: String, enum: ["Active", "Disabled", "Pending"] },
 });
 
 const Organization = mongoose.model("Organization", orgSchema);

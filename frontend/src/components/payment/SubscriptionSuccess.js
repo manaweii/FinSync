@@ -111,7 +111,7 @@ const SubscriptionSuccess = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" />
                   </svg>
                 </span>
-                Invite team members
+                Add team members
               </li>
             </ul>
           </div>

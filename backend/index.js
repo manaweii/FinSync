@@ -27,7 +27,7 @@ connectAuthDB();
 app.use('/api', authRoutes);
 
 // Subscription
-app.use('/api/subscription', subscriptionRoutes);
+app.use('/api', subscriptionRoutes);
 
 // Start server
 const PORT = process.env.PORT || 5000;
