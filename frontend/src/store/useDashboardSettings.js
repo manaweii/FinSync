@@ -1,6 +1,29 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+const DEFAULT_LAYOUT = [
+  'kpis',
+  'trend',
+  'expensePie',
+  'categoryBar',
+  'dataPreview',
+  'alertsSection',
+  'quickActions',
+  'supportCard',
+];
+
+const normalizeLayout = (layout) => {
+  const incoming = Array.isArray(layout) ? layout.filter((item) => DEFAULT_LAYOUT.includes(item)) : [];
+  const seen = new Set();
+  const deduped = incoming.filter((item) => {
+    if (seen.has(item)) return false;
+    seen.add(item);
+    return true;
+  });
+  const missing = DEFAULT_LAYOUT.filter((item) => !seen.has(item));
+  return [...deduped, ...missing];
+};
+
 // Simple dashboard settings store. Persisted so user preferences survive reloads.
 const useDashboardSettings = create(
   persist(
@@ -11,15 +34,15 @@ const useDashboardSettings = create(
       showCategoryBar: true,
       showDataPreview: true,
       // layout is an ordered list of widget keys
-      layout: ['kpis', 'trend', 'expensePie', 'categoryBar', 'dataPreview'],
+      layout: DEFAULT_LAYOUT,
 
-      setLayout: (layout) => set(() => ({ layout })),
+      setLayout: (layout) => set(() => ({ layout: normalizeLayout(layout) })),
       moveWidget: (fromIndex, toIndex) =>
         set((state) => {
           const l = Array.from(state.layout);
           const [moved] = l.splice(fromIndex, 1);
           l.splice(toIndex, 0, moved);
-          return { layout: l };
+          return { layout: normalizeLayout(l) };
         }),
 
       // Save current settings + layout to server
@@ -73,10 +96,15 @@ const useDashboardSettings = create(
               showDataPreview: data.settings.showDataPreview ?? get().showDataPreview,
             });
           }
-          if (data?.layout && Array.isArray(data.layout)) set({ layout: data.layout });
+          if (data?.layout && Array.isArray(data.layout)) {
+            set({ layout: normalizeLayout(data.layout) });
+          } else {
+            set({ layout: normalizeLayout(get().layout) });
+          }
           return data;
         } catch (err) {
           console.error('loadFromServer error', err);
+          set({ layout: normalizeLayout(get().layout) });
           return null;
         }
       },
@@ -90,7 +118,7 @@ const useDashboardSettings = create(
           showExpensePie: true,
           showCategoryBar: true,
           showDataPreview: true,
-          layout: ['kpis', 'trend', 'expensePie', 'categoryBar', 'dataPreview'],
+          layout: DEFAULT_LAYOUT,
         }),
     }),
     {

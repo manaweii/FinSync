@@ -25,7 +25,7 @@ function Navbar() {
     Pricing: "/pricing",
     Contact: "/contact",
     Dashboard: "/dashboard",
-    Record: "/record",
+    Record: "/records",
     Import: "/import",
     Report: "/reports",
     Users: "/users",
