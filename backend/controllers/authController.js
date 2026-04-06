@@ -14,10 +14,33 @@ import Organization from "../models/Organization.js";
 import UserOrgRelation from "../models/UserOrgRelation.js";
 import Role from "../models/Role.js";
 import UserRoleRelation from "../models/UserRoleRelation.js";
+import { sendPasswordResetOtpEmail } from "../services/emailService.js";
 
 const SALT_ROUNDS = 10;
+const OTP_LENGTH = 6;
+const OTP_EXPIRY_MS = 1000 * 60 * 10;
+const OTP_RESEND_GAP_MS = 1000 * 60;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function normalizeEmail(email = "") {
+  return email.trim().toLowerCase();
+}
+
+function generateNumericOtp(length = OTP_LENGTH) {
+  const digits = "0123456789";
+  let otp = "";
+
+  for (let i = 0; i < length; i += 1) {
+    otp += digits[crypto.randomInt(0, digits.length)];
+  }
+
+  return otp;
+}
+
+function hashOtp(otp) {
+  return crypto.createHash("sha256").update(otp).digest("hex");
+}
 
 // REGISTER
 export const CreateUser = async (req, res) => {
@@ -34,11 +57,13 @@ export const CreateUser = async (req, res) => {
         .json({ message: "Name, email and password are required" });
     }
 
-    if (!EMAIL_PATTERN.test(email)) {
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!EMAIL_PATTERN.test(normalizedEmail)) {
       return res.status(400).json({ message: "Invalid email format" });
     }
 
-    const existing = await findUserByEmail(email);
+    const existing = await findUserByEmail(normalizedEmail);
     if (existing)
       return res.status(409).json({ message: "User already exists" });
 
@@ -65,7 +90,7 @@ export const CreateUser = async (req, res) => {
 
     const userDoc = await createUser({
       fullName: userName,
-      email,
+      email: normalizedEmail,
       passwordHash,
     });
 
@@ -105,11 +130,13 @@ export const login = async (req, res) => {
         .status(400)
         .json({ message: "Email and password are required" });
 
-    if (!EMAIL_PATTERN.test(email)) {
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!EMAIL_PATTERN.test(normalizedEmail)) {
       return res.status(400).json({ message: "Invalid email format" });
     }
 
-    const user = await findUserByEmail(email);
+    const user = await findUserByEmail(normalizedEmail);
     if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
     const isMatch = await bcrypt.compare(password, user.passwordHash);
@@ -193,35 +220,55 @@ export const requestPasswordReset = async (req, res) => {
       return res.status(400).json({ message: "Email is required" });
     }
 
-    if (!EMAIL_PATTERN.test(email)) {
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!EMAIL_PATTERN.test(normalizedEmail)) {
       return res.status(400).json({ message: "Invalid email format" });
     }
 
-    const user = await findUserByEmail(email);
+    const user = await findUserByEmail(normalizedEmail);
 
     // Do not reveal whether user exists
     if (!user) {
       return res.json({
         message:
-          "If an account exists, a reset link has been sent to your email.",
+          "If an account exists, an OTP has been sent to your email.",
       });
     }
 
-    const token = crypto.randomBytes(32).toString("hex");
-    const expires = Date.now() + 1000 * 60 * 15; // 15 minutes
+    if (
+      user.resetPasswordOtpRequestedAt &&
+      Date.now() - new Date(user.resetPasswordOtpRequestedAt).getTime() <
+        OTP_RESEND_GAP_MS
+    ) {
+      return res.status(429).json({
+        message: "Please wait a minute before requesting another OTP.",
+      });
+    }
 
-    user.resetPasswordToken = token;
-    user.resetPasswordExpires = expires;
+    const otp = generateNumericOtp();
+    user.resetPasswordOtpHash = hashOtp(otp);
+    user.resetPasswordOtpExpires = new Date(Date.now() + OTP_EXPIRY_MS);
+    user.resetPasswordOtpRequestedAt = new Date();
+
+    try {
+      await sendPasswordResetOtpEmail({
+        email: user.email,
+        otp,
+      });
+    } catch (mailError) {
+      console.error("Failed to send password reset OTP:", mailError.message);
+      return res.status(500).json({
+        message:
+          "We could not send the OTP email right now. Try again.",
+      });
+    }
+
     await user.save();
-
-    const resetUrl = `http://localhost:3000/new-password?token=${token}`;
-
-    // TODO: send real email. For now, log to server
-    console.log("Password reset link:", resetUrl);
 
     return res.json({
       message:
-        "If an account exists, a reset link has been sent to your email.",
+        "If an account exists, an OTP has been sent to your email.",
     });
   } catch (err) {
     console.error("requestPasswordReset error:", err.message);
@@ -232,12 +279,21 @@ export const requestPasswordReset = async (req, res) => {
 // CONFIRM NEW PASSWORD (called by NewPassword.js)
 export const confirmNewPassword = async (req, res) => {
   try {
-    const { token, password } = req.body;
+    const { email, otp, password } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
-    if (!token || !password) {
+    if (!normalizedEmail || !otp || !password) {
       return res
         .status(400)
-        .json({ message: "Token and new password are required" });
+        .json({ message: "Email, OTP and new password are required" });
+    }
+
+    if (!EMAIL_PATTERN.test(normalizedEmail)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
+
+    if (!/^\d{6}$/.test(otp)) {
+      return res.status(400).json({ message: "OTP must be 6 digits" });
     }
 
     // same password rule used at register
@@ -247,21 +303,33 @@ export const confirmNewPassword = async (req, res) => {
         .json({ message: "Password must be at least 8 characters long" });
     }
 
-    const user = await User.findOne({
-      resetPasswordToken: token,
-      resetPasswordExpires: { $gt: Date.now() },
-    });
+    const user = await User.findOne({ email: normalizedEmail });
 
     if (!user) {
       return res
         .status(400)
-        .json({ message: "Reset link is invalid or has expired" });
+        .json({ message: "Invalid email, OTP, or expired reset request" });
+    }
+
+    if (
+      !user.resetPasswordOtpHash ||
+      !user.resetPasswordOtpExpires ||
+      user.resetPasswordOtpExpires.getTime() <= Date.now()
+    ) {
+      return res
+        .status(400)
+        .json({ message: "OTP is invalid or has expired" });
+    }
+
+    if (user.resetPasswordOtpHash !== hashOtp(otp)) {
+      return res.status(400).json({ message: "OTP is invalid or has expired" });
     }
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
     user.passwordHash = passwordHash;
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
+    user.resetPasswordOtpHash = undefined;
+    user.resetPasswordOtpExpires = undefined;
+    user.resetPasswordOtpRequestedAt = undefined;
     await user.save();
 
     return res.json({ message: "Password has been updated successfully" });

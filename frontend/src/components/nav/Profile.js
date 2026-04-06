@@ -185,6 +185,44 @@ export default function ProfileSettings() {
             </div>
           </section>
 
+          {/* Subscription card */}
+          <section className="bg-white rounded-3xl shadow-sm border border-slate-100 px-8 py-6 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-sky-50">
+                <svg
+                  className="h-5 w-5 text-sky-600"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M21 12V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h14a2 2 0 002-2v-1M18 12a2 2 0 002 2h1v-4h-1a2 2 0 00-2 2zm-7 1h.01"
+                  />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">
+                  Subscription
+                </h3>
+                <p className="mt-1 text-xs text-slate-500 max-w-md">
+                  Continue your organization plan and head to billing details to
+                  renew your subscription plan.
+                </p>
+              </div>
+            </div>
+
+            <Link
+              to="/subscription-detail"
+              className="inline-flex items-center justify-center rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+            >
+              Renew Subscription
+            </Link>
+          </section>
+
           {/* Platform security card */}
           <section className="bg-white rounded-3xl shadow-sm border border-slate-100 px-8 py-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">

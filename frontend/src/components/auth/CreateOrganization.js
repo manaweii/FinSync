@@ -145,18 +145,11 @@ export default function CreateOrganization() {
               >
                 {isLoading ? "Creating..." : "Create organization"}
               </button>
+
               <button
                 type="button"
-                className="w-full text-xs text-teal-600"
-                onClick={() =>
-                  setForm({
-                    name: "",
-                    contactEmail: "",
-                    phone: "",
-                    plan: "Starter",
-                    status: "Active",
-                  })
-                }
+                className="w-full text-xs text-teal-600 hover:underline"
+                onClick={() => navigate("/organizations")}
               >
                 Cancel
               </button>

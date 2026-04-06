@@ -33,14 +33,14 @@ export default function ResetPassword() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data?.message || "Failed to send reset link");
+        setError(data?.message || "Failed to send OTP");
         return;
       }
 
       setSuccess(
-        data?.message || "If an account exists, a reset link has been sent.",
+        data?.message || "If an account exists, an OTP has been sent.",
       );
-      setTimeout(() => navigate("/Login"), 2500);
+      setTimeout(() => navigate(`/NewPassword?email=${encodeURIComponent(email)}`), 1500);
     } catch (err) {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -94,7 +94,7 @@ export default function ResetPassword() {
           Reset your password
         </h2>
         <p className="mt-2 text-center text-sm text-slate-400 leading-relaxed">
-          Enter your email to receive a secure password reset link.
+          Enter your email to receive a 6-digit OTP for password reset.
         </p>
 
         <form className="mt-8" onSubmit={handleSubmit}>
@@ -150,16 +150,16 @@ export default function ResetPassword() {
                 : "bg-emerald-600 hover:bg-emerald-700"
             }`}
           >
-            {loading ? "Sending..." : "Send reset link"}
+            {loading ? "Sending..." : "Send OTP"}
           </button>
 
           <div className="mt-8 text-center text-[13px] text-slate-400 font-medium">
             Remembered your password?{" "}
             <Link
-              to="/Login"
+              to="/profile"
               className="text-[#29ccb1] hover:underline underline-offset-4 ml-1"
             >
-              Log in
+              Cancel
             </Link>
           </div>
         </form>

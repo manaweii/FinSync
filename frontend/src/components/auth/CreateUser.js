@@ -26,10 +26,10 @@ function CreateUser() {
   const getRoleOptions = () => {
     if (currentUser?.role === "Superadmin") {
       return [
-      { value: "Superadmin", label: "Super Admin" },
-      { value: "Admin", label: "Admin" },
-      { value: "User", label: "User" },
-    ];
+        { value: "Superadmin", label: "Super Admin" },
+        { value: "Admin", label: "Admin" },
+        { value: "User", label: "User" },
+      ];
     }
     if (currentUser?.role === "Admin") {
       return [
@@ -299,23 +299,15 @@ function CreateUser() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full rounded-full bg-gradient-to-r from-teal-500 to-sky-500 py-2 text-xs font-medium text-white shadow-[0_18px_40px_rgba(45,212,191,0.55)] hover:opacity-95 disabled:opacity-60"
+                className="w-full rounded-full bg-gradient-to-r from-teal-500 to-sky-500 py-2 text-xs font-medium text-white shadow-sm hover:opacity-90 transition-opacity"
               >
                 {isLoading ? "Creating..." : "Create user"}
               </button>
 
               <button
                 type="button"
-                className="w-full text-xs font-medium text-teal-600 hover:text-teal-700"
-                onClick={() =>
-                  setForm({
-                    fullName: "",
-                    orgName: "",
-                    email: "",
-                    password: "",
-                    role: "",
-                  })
-                }
+                className="w-full text-xs text-teal-600 hover:underline"
+                onClick={() => navigate("/users")}
               >
                 Cancel
               </button>

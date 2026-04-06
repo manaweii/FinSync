@@ -278,9 +278,6 @@ const DashboardPage = () => {
     }
   };
 
-  // downloadChart is imported from utils/chartUtils and used by child components
-  // (shared implementation handles Chart.js, Plotly and SVG exports)
-
   // local chart type for trend widget
   const [trendChartType, setTrendChartType] = useState("line");
 

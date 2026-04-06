@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import useAuthStore from "../../store/useAuthStore";
+import MiniChart from "./MiniChart";
 
 const API_URL = "http://localhost:5000/api";
 
@@ -74,7 +75,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-slate-50 flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-b from-teal-50 to-slate-50 flex items-center justify-center">
       <div className="max-w-6xl w-full flex items-center justify-center">
         <div className="w-[1050px] flex gap-16">
           {/* LEFT PANEL */}
@@ -111,11 +112,24 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <p className="text-[10px] font-medium text-slate-600 mb-2">
-                Revenue vs Expenses
-              </p>
-              <div className="h-28 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-[9px] text-slate-400">
-                Chart placeholder
+              <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                {/* Custom Legend */}
+                <div className="flex justify-center gap-4 mb-2">
+                  <div className="flex items-center gap-1">
+                    <span className="w-4 h-2 border-2 border-teal-500 rounded-full"></span>
+                    <span className="text-[9px] text-slate-600">Revenue</span>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <span className="w-4 h-2 border-2 border-blue-500 rounded-full"></span>
+                    <span className="text-[9px] text-slate-600">Expenses</span>
+                  </div>
+                </div>
+
+                {/* Chart */}
+                <div className="h-32">
+                  <MiniChart />
+                </div>
               </div>
             </div>
           </div>
@@ -123,12 +137,34 @@ export default function LoginPage() {
           {/* RIGHT LOGIN CARD */}
           <div className="flex-1 flex justify-end">
             <div className="w-[380px] bg-white rounded-2xl shadow-[0_24px_60px_rgba(15,23,42,0.12)] px-7 py-6">
+              <div className="mb-6">
+                <Link
+                  to="/"
+                  className="group inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition-colors hover:text-slate-900"
+                  aria-label="Go back to landing page"
+                >
+                  <svg
+                    className="h-4 w-4 transition-transform group-hover:-translate-x-1"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
+                    />
+                  </svg>
+                  <span>Back to home</span>
+                </Link>
+              </div>
               <div className="flex items-center gap-2 mb-5">
                 <div className="flex items-center gap-2 mb-5">
                   <img
                     src="./FinSync.png"
                     alt="FinSync Logo"
-                    className="h-22 w-22 object-contain"
+                    className="h-12 w-12 object-contain"
                   />
                 </div>
               </div>

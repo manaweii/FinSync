@@ -33,9 +33,10 @@ const userSchema = new Schema(
 
     lastLoginAt: { type: Date },
 
-    // password reset fields
-    resetPasswordToken: { type: String },
-    resetPasswordExpires: { type: Date },
+    // password reset OTP fields
+    resetPasswordOtpHash: { type: String },
+    resetPasswordOtpExpires: { type: Date },
+    resetPasswordOtpRequestedAt: { type: Date },
   },
   { timestamps: true }
 );
