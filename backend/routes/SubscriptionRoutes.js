@@ -8,16 +8,59 @@ import Role from "../models/Role.js";
 import UserOrgRelation from "../models/UserOrgRelation.js";
 import UserRoleRelation from "../models/UserRoleRelation.js";
 import { ObjectId } from "mongodb";
+import { sendSuperadminSignupAlertEmail } from "../services/emailService.js";
 
 const router = express.Router();
 const SALT_ROUNDS = 10;
+
+async function notifySuperadminsOfPaidActivation({
+  organizationName,
+  adminEmail,
+  planName,
+  amount,
+  transactionUuid,
+  paidAt,
+}) {
+  const superAdminRole = await Role.findOne({ name: "SuperAdmin" });
+  if (!superAdminRole) {
+    return;
+  }
+
+  const relations = await UserRoleRelation.find({ roleId: superAdminRole._id });
+  if (!relations.length) {
+    return;
+  }
+
+  const superadminIds = relations.map((relation) => relation.userId);
+  const superadmins = await User.find(
+    { _id: { $in: superadminIds }, status: "Active" },
+    { email: 1 },
+  );
+  const recipientEmails = [
+    ...new Set(superadmins.map((user) => user.email).filter(Boolean)),
+  ];
+
+  if (!recipientEmails.length) {
+    return;
+  }
+
+  await sendSuperadminSignupAlertEmail({
+    recipients: recipientEmails,
+    organizationName,
+    adminEmail,
+    planName,
+    amount,
+    transactionUuid,
+    paidAt,
+  });
+}
 
 // GET /api/subscription/verify
 router.get("/subscription/verify", async (req, res) => {
   // eSewa sends a 'data' query parameter in the URL
   console.log("Verification request received with data:", req.query);
   const { data } = req.query;
-
+  
   if (!data) {
     return res
       .status(400)
@@ -312,13 +355,14 @@ router.post("/esewa/callback", async (req, res) => {
     }
 
     // mark subscription active
+    const paidAt = new Date().toISOString();
     await subsColl.updateOne(
       { transactionUuid },
       {
         $set: {
           status: "active",
           esewaRefId: esewaRefId || null,
-          paidAt: new Date().toISOString(),
+          paidAt,
         },
       },
     );
@@ -372,6 +416,22 @@ router.post("/esewa/callback", async (req, res) => {
       { transactionUuid },
       { $set: { orgId: org._id, userId: user._id } },
     );
+
+    try {
+      await notifySuperadminsOfPaidActivation({
+        organizationName: org.name,
+        adminEmail: user.email,
+        planName: pending.planName,
+        amount: pending.amount,
+        transactionUuid,
+        paidAt,
+      });
+    } catch (mailError) {
+      console.error(
+        "Failed to notify superadmins about paid activation:",
+        mailError.message,
+      );
+    }
 
     return res.json({
       success: true,

@@ -14,7 +14,7 @@ const SubscriptionSchema = new mongoose.Schema({
   // Payment Details
   amount: { type: Number, required: true },
   planName: { type: String, default: 'Starter' },
-  transactionUuid: { type: String, required: true, unique: true },
+  transactionId: { type: String, required: true, unique: true },
   esewaRefId: { type: String }, // Provided by eSewa after success
   
   // Status Management

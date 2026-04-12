@@ -1,17 +1,46 @@
-import React from 'react';
+import {useEffect, React, useState} from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import useAuthStore from '../../store/useAuthStore';
 
 const SubscriptionSuccess = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [paymentData, setPaymentData] = useState(null);
 
-  const data = location.state || {
-    orgId: "org_abc123XYZ",
-    transactionId: "txn_789def456GHI",
-    planName: "Growth Plan",
-    price: "NPR 990/month",
-    nextBilling: "April 29, 2026"
+  const { token, user: currentUser } = useAuthStore();
+
+  // Get the query string 
+const queryString = window.location.search;
+
+// Create a URLSearchParams object
+const urlParams = new URLSearchParams(queryString);
+  const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+
+  useEffect(() => {
+  const verifyPayment = async () => {
+    const paymentData = urlParams.get('data'); // Get 'data' from current page URL
+    if (!paymentData) return;
+
+    try {
+      // Append the data as a query string ?data=...
+      const res = await fetch(`${API_BASE}/subscription/verify?data=${encodeURIComponent(paymentData)}`, {
+        method: 'GET',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
+      const result = await res.json();
+      console.log("Server Response:", result);
+      setPaymentData(result);
+    } catch (err) {
+      console.error("Verification failed:", err);
+    }
   };
+
+  verifyPayment();
+}, [token]);
+
+console.log("Payment Data for display:", paymentData);
+  const data = paymentData 
 
   return (
     <div className="min-h-screen bg-[#f0f9ff] flex flex-col items-center justify-center p-4">

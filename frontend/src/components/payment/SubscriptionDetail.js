@@ -108,8 +108,8 @@ const SubscriptionDetail = () => {
           product_code: "EPAYTEST",
           product_service_charge: "0",
           product_delivery_charge: "0",
-          success_url: "http://localhost:5000/subscription/verify",
-          failure_url: "http://localhost:5000/subscription-failure",
+          success_url: "http://localhost:3000/subscription-success",
+          failure_url: "http://localhost:3000/subscription-failure",
           signed_field_names: "total_amount,transaction_uuid,product_code",
           signature: data.signature,
         };
