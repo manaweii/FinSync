@@ -32,11 +32,11 @@ export default function HeroSection() {
         {/* Statistics Section */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mt-8">
           <div>
-            <div className="text-3xl font-bold text-green-600">500+</div>
+            <div className="text-3xl font-bold text-green-600">50+</div>
             <div className="text-sm text-gray-500 mt-1">Active Users</div>
           </div>
           <div>
-            <div className="text-3xl font-bold text-blue-600">$2B+</div>
+            <div className="text-3xl font-bold text-blue-600">Rs. 1Cr+</div>
             <div className="text-sm text-gray-500 mt-1">Transactions Processed</div>
           </div>
           <div>
