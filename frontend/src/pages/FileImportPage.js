@@ -1,18 +1,76 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  ArrowDownTrayIcon,
+  ArrowUpTrayIcon,
+} from "@heroicons/react/24/outline";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import useAuthStore from "../store/useAuthStore";
 
+const TEMPLATE_FILES = {
+  csv: "/ImportTemplate/financial_template.csv",
+  excel: "/ImportTemplate/financial_template.xlsx",
+};
+
+const IMPORTS_PER_PAGE = 8;
+
+const REQUIRED_IMPORT_COLUMNS = [
+  "Date",
+  "Account",
+  "Account Type",
+  "Amount",
+  "Description",
+  "Category",
+];
+
+const TEXT_REQUIRED_COLUMNS = [
+  "Account",
+  "Account Type",
+  "Description",
+  "Category",
+];
+
+const ALLOWED_ACCOUNT_TYPES = ["income", "expense", "asset", "liability", "equity"];
+
+const normalizeHeader = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+const isBlankValue = (value) => value == null || String(value).trim() === "";
+
+const isValidDateValue = (value) => {
+  if (isBlankValue(value)) return false;
+  const text = String(value).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
+
+  const parsed = new Date(`${text}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return false;
+
+  const [year, month, day] = text.split("-").map(Number);
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() + 1 === month &&
+    parsed.getUTCDate() === day
+  );
+};
+
+const isValidNumberValue = (value) => {
+  if (isBlankValue(value)) return false;
+  const cleaned = String(value).replace(/[ ,\u00A0]/g, "");
+  return !Number.isNaN(Number.parseFloat(cleaned));
+};
+
 function FileImportPage() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [imports, setImports] = useState([]); // from backend
+  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
-
-  // parsed CSV rows will be stored here
-  const [importedFileData, setImportedFileData] = useState([]);
-  const [parseError, setParseError] = useState("");
+  const [showDownloadOptions, setShowDownloadOptions] = useState(false);
+  const downloadMenuRef = useRef(null);
 
   // modal / preview state
   const [viewModalOpen, setViewModalOpen] = useState(false);
@@ -36,14 +94,38 @@ function FileImportPage() {
   const currentUser = useAuthStore((s) => s.user);
 
   const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+  const totalPages = Math.max(1, Math.ceil(imports.length / IMPORTS_PER_PAGE));
+  const paginatedImports = imports.slice(
+    (currentPage - 1) * IMPORTS_PER_PAGE,
+    currentPage * IMPORTS_PER_PAGE,
+  );
 
   // load past imports when page opens
   useEffect(() => {
     loadImports();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        downloadMenuRef.current &&
+        !downloadMenuRef.current.contains(event.target)
+      ) {
+        setShowDownloadOptions(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, []);
 
   const loadImports = async () => {
     try {
+      setLoading(true);
       const res = await fetch(
         `${API_BASE}/past-imports/${currentUser?.orgId || null}`,
         {
@@ -59,15 +141,31 @@ function FileImportPage() {
       }
       const data = await res.json();
       setImports(data);
+      setCurrentPage(1);
     } catch (err) {
       console.error("Error loading imports:", err);
       setError("Could not load past imports.");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     setSelectedFile(file || null);
+  };
+
+  const handleDownloadTemplate = (format) => {
+    const fileUrl =
+      format === "excel" ? TEMPLATE_FILES.excel : TEMPLATE_FILES.csv;
+    const fileName =
+      format === "excel" ? "financial_template.xlsx" : "financial_template.csv";
+
+    const link = document.createElement("a");
+    link.href = fileUrl;
+    link.download = fileName;
+    link.click();
+    setShowDownloadOptions(false);
   };
 
   const handleUpload = async () => {
@@ -87,16 +185,11 @@ function FileImportPage() {
             skipEmptyLines: true,
             complete: async (results) => {
               if (results.errors && results.errors.length > 0) {
-                setParseError(
-                  "CSV parsed with errors. Check console for details.",
-                );
                 console.log("PapaParse errors:", results.errors);
               }
 
-              setParseError("");
               const rows = results.data;
               // don't upload immediately; run a scan and require confirmation
-              setImportedFileData(rows);
               openScanModalFor(rows, "CSV");
               console.log("Parsed CSV rows:", rows);
             },
@@ -111,13 +204,11 @@ function FileImportPage() {
                 workbook.Sheets[workbook.SheetNames[0]],
               );
               const rows = json;
-              setParseError("");
-              setImportedFileData(rows);
               openScanModalFor(rows, "Excel");
               console.log("Parsed Excel rows:", rows);
             } catch (err) {
               console.error("Error parsing Excel:", err);
-              setParseError("Failed to parse Excel file.");
+              alert("Failed to parse Excel file.");
             }
           };
           reader.readAsArrayBuffer(selectedFile);
@@ -138,15 +229,22 @@ function FileImportPage() {
       columns: [],
       sample: Array.isArray(rows) ? rows.slice(0, 5) : [],
       issues: [],
+      blockingIssues: [],
       duplicateCount: 0,
       dateColumns: [],
       numericColumns: [],
+      invalidRows: [],
       missingRows: [], // { rowIndex, missingColumns }
+      missingColumns: [],
+      extraColumns: [],
       duplicateGroups: [], // array of arrays of row indices
+      duplicateRule: "Date + Account + Description + Amount",
+      canImport: true,
     };
 
     if (!Array.isArray(rows) || rows.length === 0) {
-      report.issues.push("No rows found in file");
+      report.blockingIssues.push("No rows found in file.");
+      report.canImport = false;
       return report;
     }
 
@@ -154,11 +252,42 @@ function FileImportPage() {
     const cols = new Set();
     for (const r of rows) Object.keys(r || {}).forEach((c) => cols.add(c));
     report.columns = Array.from(cols);
+    const normalizedColumnMap = Object.fromEntries(
+      report.columns.map((column) => [normalizeHeader(column), column]),
+    );
+
+    report.missingColumns = REQUIRED_IMPORT_COLUMNS.filter(
+      (column) => !normalizedColumnMap[normalizeHeader(column)],
+    );
+    report.extraColumns = report.columns.filter(
+      (column) =>
+        !REQUIRED_IMPORT_COLUMNS.some(
+          (requiredColumn) =>
+            normalizeHeader(requiredColumn) === normalizeHeader(column),
+        ),
+    );
+
+    if (report.missingColumns.length > 0) {
+      report.blockingIssues.push(
+        `Missing required columns: ${report.missingColumns.join(", ")}`,
+      );
+    }
+
+    if (report.extraColumns.length > 0) {
+      report.blockingIssues.push(
+        `Unexpected columns found: ${report.extraColumns.join(", ")}`,
+      );
+    }
 
     // inconsistencies in column counts
-    const counts = new Set(rows.map((r) => Object.keys(r || {}).length));
-    if (counts.size > 1)
-      report.issues.push("Inconsistent number of columns across rows");
+    const counts = new Set(
+      rows.map((r) =>
+        Object.values(r || {}).filter((value) => !isBlankValue(value)).length,
+      ),
+    );
+    if (counts.size > 1) {
+      report.issues.push("Some rows have fewer filled cells than others.");
+    }
 
     // detect likely date and numeric columns by sampling values
     const dateCols = [];
@@ -186,77 +315,80 @@ function FileImportPage() {
     report.dateColumns = dateCols;
     report.numericColumns = numericCols;
 
-    // determine mandatory fields heuristically: prefer common names
-    const lowerCols = report.columns.map((c) => c.toLowerCase());
-    const mandatoryCandidates = [
-      "date",
-      "amount",
-      "debit",
-      "credit",
-      "description",
-      "desc",
-    ];
-    const mandatoryFields = [];
-    for (const mc of mandatoryCandidates) {
-      const match = report.columns.find((c) => c.toLowerCase().includes(mc));
-      if (match && !mandatoryFields.includes(match))
-        mandatoryFields.push(match);
-    }
-    // if none discovered, try to pick a likely date + a numeric column
-    if (mandatoryFields.length === 0) {
-      const dateCol = report.columns.find((c) =>
-        c.toLowerCase().includes("date"),
-      );
-      const numCol = report.columns.find(
-        (c) =>
-          c.toLowerCase().includes("amount") ||
-          c.toLowerCase().includes("value") ||
-          c.toLowerCase().includes("total"),
-      );
-      if (dateCol) mandatoryFields.push(dateCol);
-      if (numCol && !mandatoryFields.includes(numCol))
-        mandatoryFields.push(numCol);
-    }
+    const requiredColumns = REQUIRED_IMPORT_COLUMNS.map(
+      (column) => normalizedColumnMap[normalizeHeader(column)],
+    ).filter(Boolean);
+    const dateColumn = normalizedColumnMap[normalizeHeader("Date")];
+    const amountColumn = normalizedColumnMap[normalizeHeader("Amount")];
+    const textColumns = TEXT_REQUIRED_COLUMNS.map(
+      (column) => normalizedColumnMap[normalizeHeader(column)],
+    ).filter(Boolean);
 
-    // detect missing mandatory fields per row
-    if (mandatoryFields.length > 0) {
-      rows.forEach((r, idx) => {
-        const missing = [];
-        for (const mf of mandatoryFields) {
-          const v = r[mf];
-          if (v == null || String(v).trim() === "") missing.push(mf);
+    rows.forEach((row, idx) => {
+      const missing = [];
+      const invalid = [];
+
+      for (const column of requiredColumns) {
+        if (isBlankValue(row[column])) missing.push(column);
+      }
+
+      if (dateColumn && !isBlankValue(row[dateColumn]) && !isValidDateValue(row[dateColumn])) {
+        invalid.push(`${dateColumn} must be in YYYY-MM-DD format`);
+      }
+
+      if (amountColumn && !isBlankValue(row[amountColumn]) && !isValidNumberValue(row[amountColumn])) {
+        invalid.push(`${amountColumn} must be a valid number`);
+      }
+
+      for (const column of textColumns) {
+        if (!isBlankValue(row[column]) && typeof row[column] !== "string") {
+          invalid.push(`${column} must be text`);
         }
-        if (missing.length > 0)
-          report.missingRows.push({ rowIndex: idx, missingColumns: missing });
-      });
-      if (report.missingRows.length > 0)
-        report.issues.push(
-          `${report.missingRows.length} rows missing mandatory fields: ${mandatoryFields.join(", ")}`,
+      }
+
+      const accountTypeColumn = normalizedColumnMap[normalizeHeader("Account Type")];
+      if (
+        accountTypeColumn &&
+        !isBlankValue(row[accountTypeColumn]) &&
+        !ALLOWED_ACCOUNT_TYPES.includes(String(row[accountTypeColumn]).trim().toLowerCase())
+      ) {
+        invalid.push(
+          `${accountTypeColumn} must be one of: ${ALLOWED_ACCOUNT_TYPES.join(", ")}`,
         );
+      }
+
+      if (missing.length > 0) {
+        report.missingRows.push({ rowIndex: idx, missingColumns: missing });
+      }
+
+      if (invalid.length > 0) {
+        report.invalidRows.push({ rowIndex: idx, invalidColumns: invalid });
+      }
+    });
+
+    if (report.missingRows.length > 0) {
+      report.blockingIssues.push(
+        `${report.missingRows.length} row(s) have missing required values.`,
+      );
     }
 
-    // duplicate detection using a rule: prefer (date, description, amount) if available
-    const preferredKeys = [
-      "date",
-      "description",
-      "desc",
-      "amount",
-      "value",
-      "total",
-    ];
-    const presentKeys = report.columns.map((c) => c.toLowerCase());
-    const dupKeyCols = [];
-    // choose up to three keys from preferredKeys that exist in columns
-    for (const pk of preferredKeys) {
-      const found = report.columns.find((c) => c.toLowerCase().includes(pk));
-      if (found && !dupKeyCols.includes(found)) dupKeyCols.push(found);
-      if (dupKeyCols.length >= 3) break;
+    if (report.invalidRows.length > 0) {
+      report.blockingIssues.push(
+        `${report.invalidRows.length} row(s) have invalid date, amount, or text values.`,
+      );
     }
+
+    const duplicateColumns = [
+      normalizedColumnMap[normalizeHeader("Date")],
+      normalizedColumnMap[normalizeHeader("Account")],
+      normalizedColumnMap[normalizeHeader("Description")],
+      normalizedColumnMap[normalizeHeader("Amount")],
+    ].filter(Boolean);
 
     const groups = Object.create(null);
-    if (dupKeyCols.length > 0) {
+    if (duplicateColumns.length > 0) {
       rows.forEach((r, idx) => {
-        const key = dupKeyCols
+        const key = duplicateColumns
           .map((c) =>
             String(r[c] ?? "")
               .trim()
@@ -283,13 +415,16 @@ function FileImportPage() {
       );
       report.duplicateCount = dupCount;
       report.issues.push(
-        `${dupCount} duplicate rows detected by rule (${dupKeyCols.join(", ") || "full-row"})`,
+        `${dupCount} duplicate row(s) detected by rule (${duplicateColumns.join(", ") || "full-row"})`,
       );
     }
 
-    // limit number of reported issues for brevity
-    if (report.issues.length === 0)
-      report.issues.push("No obvious issues detected");
+    report.canImport = report.blockingIssues.length === 0;
+
+    if (report.blockingIssues.length === 0 && report.issues.length === 0) {
+      report.issues.push("No obvious issues detected.");
+    }
+
     return report;
   };
 
@@ -344,6 +479,7 @@ function FileImportPage() {
 
     setImports((prev) => [createdImport, ...prev]);
     setSelectedFile(null);
+    setCurrentPage(1);
     alert("File uploaded and saved");
   };
 
@@ -366,6 +502,48 @@ function FileImportPage() {
 
       {/* main card */}
       <div className="max-w-5xl mx-auto bg-white rounded-3xl shadow-[0_32px_80px_rgba(15,23,42,0.12)] border border-slate-100 px-8 py-8">
+        <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-teal-100 bg-teal-50/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">
+              Download import format
+            </h2>
+            <p className="text-xs text-slate-500">
+              Use this template if you want the dashboard, reports, and records
+              pages to work with the expected columns.
+            </p>
+          </div>
+
+          <div ref={downloadMenuRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setShowDownloadOptions((prev) => !prev)}
+              className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-xs font-medium text-white hover:bg-teal-700"
+            >
+              <ArrowDownTrayIcon className="h-4 w-4" />
+              Download format
+            </button>
+
+            {showDownloadOptions && (
+              <div className="absolute right-0 mt-2 w-36 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
+                <button
+                  type="button"
+                  onClick={() => handleDownloadTemplate("csv")}
+                  className="block w-full rounded-md px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-100"
+                >
+                  CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadTemplate("excel")}
+                  className="block w-full rounded-md px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-100"
+                >
+                  Excel
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Upload new file */}
         <h2 className="text-sm font-semibold text-slate-900 mb-4">
           Upload new file
@@ -376,22 +554,7 @@ function FileImportPage() {
           <label className="block cursor-pointer rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 hover:bg-slate-50 transition-colors">
             <div className="flex flex-col items-center justify-center py-12">
               <div className="mb-3 h-12 w-12 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center text-xl">
-                <div className="mb-3 h-12 w-12 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={1.5}
-                    stroke="currentColor"
-                    className="w-6 h-6"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.333-7.26 5.996 5.996 0 0 0-11.072-1.769A3.374 3.374 0 0 0 3.375 13.5c0 .512.114 1.004.318 1.45"
-                    />
-                  </svg>
-                </div>
+                <ArrowUpTrayIcon className="h-6 w-6" />
               </div>
               <p className="text-sm text-slate-700">
                 Drag and drop CSV or Excel here
@@ -419,8 +582,9 @@ function FileImportPage() {
               type="button"
               onClick={handleUpload}
               disabled={uploading}
-              className="px-4 py-2 rounded-lg bg-teal-600 text-xs font-medium text-white hover:bg-teal-700 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-xs font-medium text-white hover:bg-teal-700 disabled:opacity-60"
             >
+              <ArrowUpTrayIcon className="h-4 w-4" />
               {uploading ? "Uploading..." : "Upload file"}
             </button>
           </div>
@@ -453,11 +617,11 @@ function FileImportPage() {
             </div>
 
             <div className="bg-white text-xs">
-              {imports.map((imp, index) => (
+              {paginatedImports.map((imp, index) => (
                 <div
                   key={imp._id || imp.id}
                   className={`grid grid-cols-[2fr,1fr,1.5fr,2fr,1fr,1fr,40px] px-5 py-3 items-center ${
-                    index !== imports.length - 1
+                    index !== paginatedImports.length - 1
                       ? "border-b border-slate-100"
                       : ""
                   }`}
@@ -499,16 +663,33 @@ function FileImportPage() {
 
           {/* simple info instead of real pagination */}
           <div className="mt-4 flex items-center justify-between text-[11px] text-slate-500">
-            <span>Showing {imports.length} imports</span>
+            <span>
+              Showing {paginatedImports.length} of {imports.length} imports
+            </span>
 
             <div className="flex items-center gap-2">
-              <button className="px-3 py-1 rounded-full border border-slate-200 bg-white text-slate-400 cursor-default">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1 rounded-full border border-slate-200 bg-white text-slate-500 disabled:text-slate-400 disabled:cursor-not-allowed"
+              >
                 Previous
               </button>
-              <button className="h-7 px-3 rounded-full bg-emerald-600 text-white text-xs font-medium">
-                1
+              <button
+                type="button"
+                className="h-7 px-3 rounded-full bg-emerald-600 text-white text-xs font-medium"
+              >
+                {currentPage}
               </button>
-              <button className="px-3 py-1 rounded-full border border-slate-200 bg-white text-slate-400 cursor-default">
+              <button
+                type="button"
+                onClick={() =>
+                  setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                }
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 rounded-full border border-slate-200 bg-white text-slate-500 disabled:text-slate-400 disabled:cursor-not-allowed"
+              >
                 Next
               </button>
             </div>
@@ -518,8 +699,14 @@ function FileImportPage() {
 
       {/* Preview modal */}
       {viewModalOpen && viewImport && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-[95%] md:w-3/4 max-h-[85vh] overflow-auto bg-white rounded-2xl p-6">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={closePreview}
+        >
+          <div
+            className="w-[95%] md:w-3/4 max-h-[85vh] overflow-auto bg-white rounded-2xl p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-lg font-semibold">
@@ -649,17 +836,65 @@ function FileImportPage() {
                     {scanReport.numericColumns.join(", ") || "—"}
                   </div>
                   <div>Duplicates: {scanReport.duplicateCount}</div>
+                  <div>Duplicate rule: {scanReport.duplicateRule}</div>
+                  <div>
+                    Import status:{" "}
+                    <span
+                      className={
+                        scanReport.canImport
+                          ? "text-emerald-700 font-medium"
+                          : "text-rose-700 font-medium"
+                      }
+                    >
+                      {scanReport.canImport
+                        ? "Ready to import"
+                        : "Fix file before import"}
+                    </span>
+                  </div>
                 </div>
               </div>
 
+              {scanReport.blockingIssues && scanReport.blockingIssues.length > 0 && (
+                <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
+                  <p className="text-sm font-medium text-rose-800">
+                    Blocking issues
+                  </p>
+                  <ul className="mt-2 list-disc list-inside text-[13px] text-rose-700">
+                    {scanReport.blockingIssues.map((issue, index) => (
+                      <li key={index}>{issue}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               <div className="rounded-lg border border-slate-100 p-3">
-                <p className="text-sm font-medium">Issues</p>
+                <p className="text-sm font-medium">Warnings</p>
                 <ul className="mt-2 list-disc list-inside text-[13px] text-slate-700">
                   {scanReport.issues.slice(0, 10).map((it, i) => (
                     <li key={i}>{it}</li>
                   ))}
                 </ul>
               </div>
+
+              {scanReport.missingColumns && scanReport.missingColumns.length > 0 && (
+                <div className="rounded-lg border border-rose-50 bg-rose-50/30 p-3">
+                  <p className="text-sm font-medium">
+                    Missing required columns
+                  </p>
+                  <p className="mt-2 text-[13px] text-slate-700">
+                    {scanReport.missingColumns.join(", ")}
+                  </p>
+                </div>
+              )}
+
+              {scanReport.extraColumns && scanReport.extraColumns.length > 0 && (
+                <div className="rounded-lg border border-rose-50 bg-rose-50/30 p-3">
+                  <p className="text-sm font-medium">Unexpected columns</p>
+                  <p className="mt-2 text-[13px] text-slate-700">
+                    {scanReport.extraColumns.join(", ")}
+                  </p>
+                </div>
+              )}
 
               {scanReport.missingRows && scanReport.missingRows.length > 0 && (
                 <div className="rounded-lg border border-rose-50 bg-rose-50/30 p-3">
@@ -671,6 +906,21 @@ function FileImportPage() {
                       <li key={i}>
                         Row {m.rowIndex + 1}: missing{" "}
                         {m.missingColumns.join(", ")}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {scanReport.invalidRows && scanReport.invalidRows.length > 0 && (
+                <div className="rounded-lg border border-rose-50 bg-rose-50/30 p-3">
+                  <p className="text-sm font-medium">
+                    Rows with invalid values (showing first 10)
+                  </p>
+                  <ul className="mt-2 text-[13px] text-slate-700 list-decimal list-inside">
+                    {scanReport.invalidRows.slice(0, 10).map((row, i) => (
+                      <li key={i}>
+                        Row {row.rowIndex + 1}: {row.invalidColumns.join("; ")}
                       </li>
                     ))}
                   </ul>
@@ -695,47 +945,6 @@ function FileImportPage() {
 
               <div className="flex gap-2 justify-end">
                 <button
-                  onClick={() => {
-                    setViewImport({
-                      fileName: selectedFile?.name || scanReport._fileType,
-                      data: scanReport._rows,
-                    });
-                    setViewModalOpen(true);
-                  }}
-                  className="px-3 py-1 text-xs rounded border"
-                >
-                  Preview all data
-                </button>
-                <button
-                  onClick={() => {
-                    // preview only problematic rows (missing or duplicates)
-                    const indices = new Set();
-                    if (scanReport.missingRows)
-                      scanReport.missingRows.forEach((m) =>
-                        indices.add(m.rowIndex),
-                      );
-                    if (scanReport.duplicateGroups)
-                      scanReport.duplicateGroups.forEach((g) =>
-                        g.forEach((i) => indices.add(i)),
-                      );
-                    const problematic = (scanReport._rows || []).filter(
-                      (_, idx) => indices.has(idx),
-                    );
-                    if (problematic.length === 0) {
-                      alert("No problematic rows to preview");
-                      return;
-                    }
-                    setViewImport({
-                      fileName: selectedFile?.name || scanReport._fileType,
-                      data: problematic,
-                    });
-                    setViewModalOpen(true);
-                  }}
-                  className="px-3 py-1 text-xs rounded border"
-                >
-                  Preview problematic rows
-                </button>
-                <button
                   onClick={handleCancelScan}
                   className="px-3 py-1 text-xs rounded border"
                 >
@@ -743,7 +952,8 @@ function FileImportPage() {
                 </button>
                 <button
                   onClick={handleConfirmImport}
-                  className="px-3 py-1 text-xs rounded bg-emerald-600 text-white"
+                  disabled={!scanReport.canImport}
+                  className="px-3 py-1 text-xs rounded bg-emerald-600 text-white disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Import file
                 </button>
