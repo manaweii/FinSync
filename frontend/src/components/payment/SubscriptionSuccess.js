@@ -1,47 +1,107 @@
-import {useEffect, React, useState} from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import useAuthStore from '../../store/useAuthStore';
+import React, { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import useAuthStore from "../../store/useAuthStore";
 
 const SubscriptionSuccess = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [paymentData, setPaymentData] = useState(null);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
-  const { token, user: currentUser } = useAuthStore();
+  const { token } = useAuthStore();
 
-  // Get the query string 
-const queryString = window.location.search;
-
-// Create a URLSearchParams object
-const urlParams = new URLSearchParams(queryString);
   const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+  const urlParams = useMemo(
+    () => new URLSearchParams(location.search),
+    [location.search],
+  );
 
   useEffect(() => {
-  const verifyPayment = async () => {
-    const paymentData = urlParams.get('data'); // Get 'data' from current page URL
-    if (!paymentData) return;
+    const verifyPayment = async () => {
+      const paymentToken = urlParams.get("data");
+      if (!paymentToken) {
+        setError("Missing payment verification data.");
+        setIsLoading(false);
+        return;
+      }
 
-    try {
-      // Append the data as a query string ?data=...
-      const res = await fetch(`${API_BASE}/subscription/verify?data=${encodeURIComponent(paymentData)}`, {
-        method: 'GET',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      try {
+        const res = await fetch(
+          `${API_BASE}/subscription/verify?data=${encodeURIComponent(paymentToken)}`,
+          {
+            method: "GET",
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          },
+        );
 
-      const result = await res.json();
-      console.log("Server Response:", result);
-      setPaymentData(result);
-    } catch (err) {
-      console.error("Verification failed:", err);
-    }
-  };
+        const result = await res.json();
 
-  verifyPayment();
-}, [token]);
+        if (!res.ok || !result?.success) {
+          setError(result?.error || "Unable to verify subscription.");
+          setPaymentData(null);
+          return;
+        }
 
-console.log("Payment Data for display:", paymentData);
-  const data = paymentData 
+        setPaymentData(result.subscription || result);
+        setError("");
+      } catch (err) {
+        console.error("Verification failed:", err);
+        setError("Verification failed. Please try again.");
+        setPaymentData(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
+    verifyPayment();
+  }, [API_BASE, token, urlParams]);
+
+  const data = paymentData;
+  const statusLabel = data?.status
+    ? `${data.status.charAt(0).toUpperCase()}${data.status.slice(1)}`
+    : "Active";
+  const nextBilling = data?.nextBilling
+    ? data.nextBilling
+    : data?.createdAt
+      ? new Date(data.createdAt).toLocaleDateString()
+      : "Will be shared by email";
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#f0f9ff] flex items-center justify-center p-4">
+        <div className="bg-white rounded-3xl shadow-xl shadow-blue-100/50 p-8 text-center">
+          <h1 className="text-2xl font-bold text-[#1e40af] mb-2">
+            Verifying your subscription
+          </h1>
+          <p className="text-slate-500">Please wait a moment...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="min-h-screen bg-[#f0f9ff] flex items-center justify-center p-4">
+        <div className="w-full max-w-lg bg-white rounded-[2rem] shadow-xl shadow-blue-100/50 p-8 text-center">
+          <h1 className="text-3xl font-bold text-[#1e40af] mb-3">
+            We could not confirm your subscription
+          </h1>
+          <p className="text-slate-500 mb-6">
+            {error || "Subscription details are unavailable right now."}
+          </p>
+          <button
+            onClick={() => navigate("/pricing")}
+            className="bg-gradient-to-r from-[#3b82f6] to-[#10b981] text-white font-bold py-3 px-6 rounded-xl hover:opacity-90 transition-opacity"
+          >
+            Back to plans
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  console.log("Payment Data:", data);
   return (
     <div className="min-h-screen bg-[#f0f9ff] flex flex-col items-center justify-center p-4">
       
@@ -75,7 +135,7 @@ console.log("Payment Data for display:", paymentData);
           <div className="flex justify-between items-center">
             <span className="text-slate-500 font-medium">Organization ID:</span>
             <span className="bg-slate-100 text-slate-700 px-3 py-1 rounded text-sm font-mono tracking-wider">
-              {data.orgId}
+              {data.orgId || "Pending"}
             </span>
           </div>
 
@@ -83,7 +143,7 @@ console.log("Payment Data for display:", paymentData);
           <div className="flex justify-between items-center">
             <span className="text-slate-500 font-medium">Transaction ID:</span>
             <span className="bg-slate-100 text-slate-700 px-3 py-1 rounded text-sm font-mono tracking-wider">
-              {data.transactionId}
+              {data.transactionUuid || "Unavailable"}
             </span>
           </div>
 
@@ -92,7 +152,10 @@ console.log("Payment Data for display:", paymentData);
             <span className="text-slate-500 font-medium">Plan:</span>
             <div className="flex items-center gap-2">
               <span className="bg-[#eff6ff] text-[#2563eb] px-4 py-1.5 rounded-full text-sm font-bold">
-                {data.planName} <span className="font-normal text-blue-400">({data.price})</span>
+                {data.planName || "Subscription"}{" "}
+                <span className="font-normal text-blue-400">
+                  ({data.price || data.amount || "Paid"})
+                </span>
               </span>
             </div>
           </div>
@@ -104,14 +167,14 @@ console.log("Payment Data for display:", paymentData);
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
               </svg>
-              Active
+              {statusLabel}
             </span>
           </div>
 
           {/* Next Billing */}
           <div className="flex justify-between items-center border-b border-slate-100 pb-6">
             <span className="text-slate-500 font-medium">Next billing:</span>
-            <span className="text-slate-900 font-semibold">{data.nextBilling}</span>
+            <span className="text-slate-900 font-semibold">{nextBilling}</span>
           </div>
 
           {/* Checklist Section */}

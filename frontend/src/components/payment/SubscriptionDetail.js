@@ -87,6 +87,7 @@ const SubscriptionDetail = () => {
             ...formData,
             amount: selectedPlan.price,
             planName: selectedPlan.name,
+            period: selectedPlan.period,
           }),
         },
       );

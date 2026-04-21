@@ -1,13 +1,12 @@
 import express from "express";
-import { connectSubscriptionDB } from "../config/db.js";
 import crypto from "crypto";
 import bcrypt from "bcrypt";
+import Subscription from "../models/Subscription.js";
 import User from "../models/User.js";
 import Organization from "../models/Organization.js";
 import Role from "../models/Role.js";
 import UserOrgRelation from "../models/UserOrgRelation.js";
 import UserRoleRelation from "../models/UserRoleRelation.js";
-import { ObjectId } from "mongodb";
 import { sendSuperadminSignupAlertEmail } from "../services/emailService.js";
 
 const router = express.Router();
@@ -58,7 +57,6 @@ async function notifySuperadminsOfPaidActivation({
 // GET /api/subscription/verify
 router.get("/subscription/verify", async (req, res) => {
   // eSewa sends a 'data' query parameter in the URL
-  console.log("Verification request received with data:", req.query);
   const { data } = req.query;
   
   if (!data) {
@@ -68,30 +66,125 @@ router.get("/subscription/verify", async (req, res) => {
   }
 
   try {
-    // 1. Decode the Base64 string natively (No library needed)
     const decodedString = Buffer.from(data, "base64").toString("utf-8");
-
-    // 2. Convert string to JSON object
     const paymentInfo = JSON.parse(decodedString);
 
-    // 3. Check if status is COMPLETE
     if (paymentInfo.status === "COMPLETE") {
-      /* 
-         MOCK LOGIC: 
-         Find the organization/user by the transaction_uuid 
-         and flip their isActive status to true.
-      */
+      const transactionUuid = paymentInfo.transaction_uuid;
+      const subscription = await Subscription.findOne({ transactionUuid });
 
-      // Example (commented out until you connect your model):
-      // const db = await connectSubscriptionDB();
-      // await db.collection('users').updateOne(
-      //   { transactionUuid: paymentInfo.transaction_uuid },
-      //   { $set: { isActive: true, paymentStatus: 'paid' } }
-      // );
+      if (!subscription) {
+        return res.status(404).json({
+          success: false,
+          error: "Subscription not found",
+        });
+      }
+
+      const paidAt = new Date().toISOString();
+
+      subscription.status = "Active";
+      subscription.paidAt = paidAt;
+      subscription.esewaRefId =
+        paymentInfo.ref_id || paymentInfo.transaction_code || "";
+      subscription.transactionUuid = transactionUuid;
+
+      let organization = null;
+
+      if (subscription.orgId) {
+        organization = await Organization.findById(subscription.orgId);
+      }
+
+      if (!organization) {
+        organization = await Organization.findOne({ name: subscription.orgName });
+      }
+
+      if (!organization) {
+        organization = await Organization.create({
+          name: subscription.orgName,
+          contactEmail: subscription.billingEmail,
+          phone: subscription.phone || "0000000000",
+          plan: subscription.planName || "Starter",
+          status: "Active",
+        });
+      } else {
+        organization.contactEmail = subscription.billingEmail;
+        organization.phone = subscription.phone || organization.phone;
+        organization.plan = subscription.planName || organization.plan;
+        organization.status = "Active";
+        await organization.save();
+      }
+
+      let adminUser = await User.findOne({ email: subscription.billingEmail });
+
+      if (!adminUser) {
+        const plainPassword =
+          subscription.password || Math.random().toString(36).slice(-10);
+        const passwordHash = await bcrypt.hash(plainPassword, SALT_ROUNDS);
+
+        adminUser = await User.create({
+          fullName: subscription.orgName || "Admin",
+          email: subscription.billingEmail,
+          passwordHash,
+          status: "Active",
+        });
+      } else {
+        adminUser.status = "Active";
+        await adminUser.save();
+      }
+
+      let adminRole = await Role.findOne({ name: "Admin" });
+      if (!adminRole) {
+        adminRole = await Role.create({ name: "Admin" });
+      }
+
+      await UserOrgRelation.findOneAndUpdate(
+        { userId: adminUser._id },
+        { $set: { orgId: organization._id } },
+        { upsert: true, new: true },
+      );
+
+      await UserRoleRelation.findOneAndUpdate(
+        { userId: adminUser._id },
+        { $set: { roleId: adminRole._id } },
+        { upsert: true, new: true },
+      );
+
+      subscription.orgId = organization._id;
+      subscription.userId = adminUser._id;
+      subscription.password = undefined;
+      await subscription.save();
+
+      try {
+        await notifySuperadminsOfPaidActivation({
+          organizationName: organization.name,
+          adminEmail: adminUser.email,
+          planName: subscription.planName,
+          amount: subscription.amount,
+          transactionUuid,
+          paidAt,
+        });
+      } catch (mailError) {
+        console.error(
+          "Failed to notify superadmins about paid activation:",
+          mailError.message,
+        );
+      }
 
       return res.json({
         success: true,
         message: "Payment verified and account activated",
+        subscription: {
+          orgName: subscription.orgName,
+          billingEmail: subscription.billingEmail,
+          amount: subscription.amount,
+          planName: subscription.planName,
+          transactionUuid,
+          orgId: organization._id,
+          userId: adminUser._id,
+          status: "Active",
+          createdAt: subscription.createdAt,
+          nextBilling: subscription.nextBilling || null,
+        },
         details: paymentInfo,
       });
     } else {
@@ -121,21 +214,27 @@ router.post("/subscription/complete", async (req, res) => {
       billingEmail,
       amount,
       paymentId,
-      status: "active",
+      status: "Active",
       nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
         .toISOString()
         .split("T")[0], // +30 days
       createdAt: new Date().toISOString(),
     };
 
-    // Save to DB (use your existing MongoDB connection)
-    const db = await connectSubscriptionDB(); // Reuse your DB
-    await db.collection("subscriptions").insertOne(subscription);
-
+    const savedSubscription = await Subscription.create({
+      orgName,
+      billingEmail,
+      amount,
+      transactionUuid: paymentId,
+      status: "Active",
+      nextBilling: subscription.nextBilling,
+      createdAt: subscription.createdAt,
+    });
+    
     res.json({
       success: true,
       message: "Subscription completed successfully!",
-      subscriptionId: subscription._id,
+      subscriptionId: savedSubscription._id,
       paymentId,
       nextBilling: subscription.nextBilling,
     });
@@ -150,7 +249,6 @@ router.get("/subscription/logs", async (req, res) => {
   try {
     const { search, from, to } = req.query;
 
-    const db = await connectSubscriptionDB();
     let query = { status: { $exists: true } }; // All subscriptions
 
     // Search filter
@@ -168,12 +266,10 @@ router.get("/subscription/logs", async (req, res) => {
       if (to) query.createdAt.$lte = new Date(to + "T23:59:59.999Z");
     }
 
-    const subscriptions = await db
-      .collection("subscriptions")
-      .find(query)
+    const subscriptions = await Subscription.find(query)
       .sort({ createdAt: -1 })
       .limit(100)
-      .toArray();
+      .lean();
 
     // Transform for frontend table
     const logs = subscriptions.map((sub) => ({
@@ -190,7 +286,7 @@ router.get("/subscription/logs", async (req, res) => {
 
     // Calculate total payments (completed only)
     const totalPayments = subscriptions
-      .filter((s) => s.status === "active")
+      .filter((s) => s.status === "Active")
       .reduce((sum, s) => sum + s.amount, 0);
 
     res.json({
@@ -209,8 +305,9 @@ router.get("/subscription/logs", async (req, res) => {
 router.post("/subscription/initiate", async (req, res) => {
   try {
     console.log("Initiate subscription request body:", req.body);
-    const { orgName, billingEmail, phone, amount, planName, password } = req.body;
-    if (!orgName || !billingEmail || !phone ||!amount) {
+    const { orgName, billingEmail, phone, amount, planName, period, password } =
+      req.body;
+    if (!orgName || !billingEmail || !phone || !amount || !password) {
       return res
         .status(400)
         .json({ success: false, error: "Missing required fields" });
@@ -238,28 +335,49 @@ router.post("/subscription/initiate", async (req, res) => {
     // Create a transaction UUID
     const transactionUuid = `Finsync_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
 
-    // // Save pending subscription to DB so callback can find it
-    // try {
-    //   const db = await connectSubscriptionDB();
-    //   const pending = {
-    //     orgName,
-    //     orgId: orgDoc._id,
-    //     billingEmail,
-    //     amount: Number(amount),
-    //     planName: planName || "Starter",
-    //     password: password || null,
-    //     transactionUuid,
-    //     status: "pending",
-    //     type: "signup",
-    //     createdAt: new Date().toISOString(),
-    //   };
-    //   const insertResult = await db.collection("subscriptions").insertOne(pending);
-    //   // attach inserted id for reference
-    //   pending._id = insertResult.insertedId;
-    // } catch (dbErr) {
-    //   console.warn("Warning: failed to persist pending subscription:", dbErr);
-    //   // continue — still return signature so frontend can submit payment; callback will fail to match if not persisted
-    // }
+    // Save pending subscription to DB so callback can find it
+    let pendingId = null;
+    try {
+      const date = new Date();
+      switch (period) {
+        case 'month':
+          date.setMonth(date.getMonth() + 1);
+          break;
+        case '3 month':
+          date.setMonth(date.getMonth() + 3);
+          break;
+        case '6 month':
+          date.setMonth(date.getMonth() + 6);
+          break;
+        case 'year':
+          date.setFullYear(date.getFullYear() + 1);
+          break;
+        default:
+          console.log("Invalid period");
+      }
+      const nextBilling = date.toISOString();
+
+      console.log("Next billing date calculated as:", nextBilling);
+      const pending = {
+        orgName,
+        orgId: orgDoc._id,
+        billingEmail,
+        phone,
+        amount: Number(amount),
+        planName: planName || "Starter",
+        transactionUuid,
+        password,
+        status: "Pending",
+        type: "signup",
+        nextBilling,
+        createdAt: new Date().toISOString(),
+      };
+      const createdSubscription = await Subscription.create(pending);
+      pendingId = createdSubscription._id;
+    } catch (dbErr) {
+      console.warn("Warning: failed to persist pending subscription:", dbErr);
+      // continue — still return signature so frontend can submit payment; callback will fail to match if not persisted
+    }
 
     // Prepare signature for eSewa (server-side secret)
     // Use consistent payload format and hex digest to match verification step
@@ -276,6 +394,7 @@ router.post("/subscription/initiate", async (req, res) => {
       success: true,
       transactionUuid,
       signature,
+      subscriptionid: pendingId,
       orgId: orgDoc._id,
     });
   } catch (err) {
@@ -297,9 +416,7 @@ router.post("/esewa/callback", async (req, res) => {
         .status(400)
         .json({ success: false, error: "transactionUuid required" });
 
-    const subConn = await connectSubscriptionDB();
-    const subsColl = subConn.db.collection("subscriptions");
-    const pending = await subsColl.findOne({ transactionUuid });
+    const pending = await Subscription.findOne({ transactionUuid });
     if (!pending)
       return res
         .status(404)
@@ -354,37 +471,29 @@ router.post("/esewa/callback", async (req, res) => {
         .json({ success: false, error: "Payment verification failed" });
     }
 
-    // mark subscription active
+    const alreadyNotified = pending.status === "Active";
     const paidAt = new Date().toISOString();
-    await subsColl.updateOne(
-      { transactionUuid },
-      {
-        $set: {
-          status: "active",
-          esewaRefId: esewaRefId || null,
-          paidAt,
-        },
-      },
-    );
+    pending.status = "Active";
+    pending.esewaRefId = esewaRefId || null;
+    pending.paidAt = paidAt;
 
-    // create or activate organization in auth DB
     let org = await Organization.findOne({ name: pending.orgName });
     if (!org) {
       org = await Organization.create({
         name: pending.orgName,
         contactEmail: pending.billingEmail,
-        phone: pending.phone || "",
+        phone: pending.phone || "0000000000",
         plan: pending.planName || "Starter",
         status: "Active",
       });
     } else {
-      // set plan from pending subscription if provided (signup or upgrade)
+      org.contactEmail = pending.billingEmail;
+      org.phone = pending.phone || org.phone;
       if (pending.planName) org.plan = pending.planName;
       org.status = "Active";
       await org.save();
     }
 
-    // create admin user if not exists
     let user = await User.findOne({ email: pending.billingEmail });
     if (!user) {
       const pw = pending.password || Math.random().toString(36).slice(-10);
@@ -395,47 +504,64 @@ router.post("/esewa/callback", async (req, res) => {
         passwordHash: pwHash,
         status: "Active",
       });
-      await UserOrgRelation.create({ userId: user._id, orgId: org._id });
-      let adminRole = await Role.findOne({ name: "Admin" });
-      if (!adminRole) adminRole = await Role.create({ name: "Admin" });
-      await UserRoleRelation.create({
-        userId: user._id,
-        roleId: adminRole._id,
-      });
     } else {
-      // ensure user-org relation
-      await UserOrgRelation.findOneAndUpdate(
-        { userId: user._id },
-        { $set: { orgId: org._id } },
-        { upsert: true },
-      );
+      user.status = "Active";
+      await user.save();
     }
 
-    // link subscription to org/user
-    await subsColl.updateOne(
-      { transactionUuid },
-      { $set: { orgId: org._id, userId: user._id } },
+    let adminRole = await Role.findOne({ name: "Admin" });
+    if (!adminRole) adminRole = await Role.create({ name: "Admin" });
+
+    await UserOrgRelation.findOneAndUpdate(
+      { userId: user._id },
+      { $set: { orgId: org._id } },
+      { upsert: true, new: true },
     );
 
-    try {
-      await notifySuperadminsOfPaidActivation({
-        organizationName: org.name,
-        adminEmail: user.email,
-        planName: pending.planName,
-        amount: pending.amount,
-        transactionUuid,
-        paidAt,
-      });
-    } catch (mailError) {
-      console.error(
-        "Failed to notify superadmins about paid activation:",
-        mailError.message,
-      );
+    await UserRoleRelation.findOneAndUpdate(
+      { userId: user._id },
+      { $set: { roleId: adminRole._id } },
+      { upsert: true, new: true },
+    );
+
+    pending.orgId = org._id;
+    pending.userId = user._id;
+    pending.password = undefined;
+    await pending.save();
+
+    if (!alreadyNotified) {
+      try {
+        await notifySuperadminsOfPaidActivation({
+          organizationName: org.name,
+          adminEmail: user.email,
+          planName: pending.planName,
+          amount: pending.amount,
+          transactionUuid,
+          paidAt,
+        });
+      } catch (mailError) {
+        console.error(
+          "Failed to notify superadmins about paid activation:",
+          mailError.message,
+        );
+      }
     }
 
     return res.json({
       success: true,
       message: "Payment verified and subscription activated",
+      subscription: {
+        orgName: pending.orgName,
+        billingEmail: pending.billingEmail,
+        amount: pending.amount,
+        planName: pending.planName,
+        transactionUuid,
+        orgId: org._id,
+        userId: user._id,
+        status: "Active",
+        createdAt: pending.createdAt,
+        nextBilling: pending.nextBilling || null,
+      },
     });
   } catch (err) {
     console.error("eSewa callback error", err);
@@ -472,7 +598,6 @@ router.post("/upgrade", async (req, res) => {
     const transactionUuid = `txn_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
 
     // Save pending subscription to DB (type: upgrade)
-    const db = await connectSubscriptionDB();
     const pending = {
       orgName: org.name,
       orgId: org._id,
@@ -480,12 +605,12 @@ router.post("/upgrade", async (req, res) => {
       amount: Number(amount),
       planName: planName,
       transactionUuid,
-      status: "pending",
+      status: "Pending",
       type: "upgrade",
       createdAt: new Date().toISOString(),
     };
 
-    const result = await db.collection("subscriptions").insertOne(pending);
+    const result = await Subscription.create(pending);
 
     // Prepare signature for eSewa
     const secret = process.env.ESEWA_SECRET || "dev-secret";
@@ -502,7 +627,7 @@ router.post("/upgrade", async (req, res) => {
       transactionUuid,
       signature,
       orgId: org._id,
-      subscriptionId: result.insertedId,
+      subscriptionId: result._id,
     });
   } catch (err) {
     console.error("Upgrade initiate error:", err);
@@ -521,18 +646,13 @@ router.get("/verify", async (req, res) => {
         .status(400)
         .json({ success: false, error: "data query param is required" });
 
-    const subConn = await connectSubscriptionDB();
-    const subsColl = subConn.db.collection("subscriptions");
-
     // Try direct lookup by transactionUuid
-    let sub = await subsColl.findOne({ transactionUuid: data });
+    let sub = await Subscription.findOne({ transactionUuid: data }).lean();
 
     // Try lookup by ObjectId
     if (!sub) {
       try {
-        if (ObjectId.isValid(data)) {
-          sub = await subsColl.findOne({ _id: new ObjectId(data) });
-        }
+        sub = await Subscription.findById(data).lean();
       } catch (e) {
         // ignore
       }
@@ -544,9 +664,9 @@ router.get("/verify", async (req, res) => {
         const decoded = Buffer.from(data, "base64").toString("utf8");
         const parsed = JSON.parse(decoded);
         if (parsed && parsed.transactionUuid) {
-          sub = await subsColl.findOne({
+          sub = await Subscription.findOne({
             transactionUuid: parsed.transactionUuid,
-          });
+          }).lean();
         }
       } catch (e) {
         // not base64/json — ignore
@@ -570,7 +690,7 @@ router.get("/verify", async (req, res) => {
       planName: sub.planName,
       transactionUuid: sub.transactionUuid,
       orgId: sub.orgId || null,
-      status: sub.status || "pending",
+      status: sub.status || "Pending",
       createdAt: sub.createdAt,
     };
 
