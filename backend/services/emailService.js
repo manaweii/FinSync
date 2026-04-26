@@ -105,3 +105,53 @@ export async function sendPasswordResetOtpEmail({ email, otp, fullName }) {
   `,
   });
 }
+
+export async function sendSuperadminSignupAlertEmail({
+  recipients,
+  organizationName,
+  adminEmail,
+  planName,
+  amount,
+  transactionUuid,
+  paidAt,
+}) {
+  if (!Array.isArray(recipients) || recipients.length === 0) {
+    return;
+  }
+
+  const mailer = createTransporter();
+  const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const appName = process.env.APP_NAME || "FinSync";
+  const formattedAmount =
+    amount !== undefined && amount !== null ? `NPR ${amount}` : "N/A";
+  const paymentTimestamp = paidAt || new Date().toISOString();
+
+  await mailer.sendMail({
+    from,
+    to: recipients.join(", "),
+    subject: `[${appName}] New paid organization activated`,
+    text: [
+      `A payment has been completed and an admin account has been created in ${appName}.`,
+      `Organization: ${organizationName || "N/A"}`,
+      `Admin email: ${adminEmail || "N/A"}`,
+      `Plan: ${planName || "N/A"}`,
+      `Amount: ${formattedAmount}`,
+      `Transaction ID: ${transactionUuid || "N/A"}`,
+      `Paid at: ${paymentTimestamp}`,
+    ].join("\n"),
+    html: `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; line-height: 1.6;">
+        <h2 style="margin-bottom: 16px;">New paid organization activated</h2>
+        <p>A payment was completed and an admin account was provisioned in <strong>${appName}</strong>.</p>
+        <table style="border-collapse: collapse; margin-top: 16px;">
+          <tr><td style="padding: 6px 12px 6px 0;"><strong>Organization</strong></td><td>${organizationName || "N/A"}</td></tr>
+          <tr><td style="padding: 6px 12px 6px 0;"><strong>Admin email</strong></td><td>${adminEmail || "N/A"}</td></tr>
+          <tr><td style="padding: 6px 12px 6px 0;"><strong>Plan</strong></td><td>${planName || "N/A"}</td></tr>
+          <tr><td style="padding: 6px 12px 6px 0;"><strong>Amount</strong></td><td>${formattedAmount}</td></tr>
+          <tr><td style="padding: 6px 12px 6px 0;"><strong>Transaction ID</strong></td><td>${transactionUuid || "N/A"}</td></tr>
+          <tr><td style="padding: 6px 12px 6px 0;"><strong>Paid at</strong></td><td>${paymentTimestamp}</td></tr>
+        </table>
+      </div>
+    `,
+  });
+}

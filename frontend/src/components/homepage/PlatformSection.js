@@ -7,7 +7,7 @@ import {
   ArrowUpIcon 
 } from '@heroicons/react/24/outline';
 
-const FinsyncDashboard = () => {
+const PlatformSection = () => {
   const stats = [
     {
       title: 'Total Revenue',
@@ -40,7 +40,7 @@ const FinsyncDashboard = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-white font-sans text-[#1a1c1e] p-8 md:p-16 flex flex-col items-center">
+    <div id="platformSection" className="min-h-screen bg-white font-sans text-[#1a1c1e] p-8 md:p-16 flex flex-col items-center">
       {/* Header Section */}
       <div className="text-center mb-16 max-w-2xl">
         {/* small label */}
@@ -122,4 +122,4 @@ const FinsyncDashboard = () => {
   );
 };
 
-export default FinsyncDashboard;
+export default PlatformSection;

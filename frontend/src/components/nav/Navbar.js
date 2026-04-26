@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import Initials from "./Initials";
+import NotificationFeed from "./NotificationFeed";
 import useAuthStore from "../../store/useAuthStore";
 
 function Navbar() {
@@ -8,24 +9,22 @@ function Navbar() {
   const navigate = useNavigate();
 
   const [isOpen, setIsOpen] = useState(false);
+  const profileMenuRef = useRef(null);
   const { user, isLoggedIn, role, clearAuth } = useAuthStore();
 
-  if (location.pathname === "/Login") {
-    return null;
-  }
-
   const publicLinks = ["Home", "Features", "Platform", "Pricing", "Contact"];
-  const privateLinks = ["Dashboard", "Import", "Record", "Report"];
+  const privateLinks = ["Dashboard", "Import", "Record", "Prediction", "Report"];
   const linksToShow = isLoggedIn ? privateLinks : publicLinks;
 
   const linkMap = {
     Home: "/",
-    Features: "/#features",
-    Platform: "/#platform",
+    Features: "/#featureSection",
+    Platform: "/#platformSection",
     Pricing: "/pricing",
     Contact: "/contact",
     Dashboard: "/dashboard",
     Record: "/records",
+    Prediction: "/predictions",
     Import: "/import",
     Report: "/reports",
     Users: "/users",
@@ -41,6 +40,28 @@ function Navbar() {
     setIsOpen(false);
     navigate("/Login");
   };
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        isOpen &&
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(event.target)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
+
+  if (location.pathname === "/Login") {
+    return null;
+  }
 
   return (
     <nav className="w-full bg-white/80 backdrop-blur shadow-sm sticky top-0 z-50">
@@ -70,73 +91,77 @@ function Navbar() {
         </div>
 
         {/* right side */}
-        <div className="flex items-center">
+        <div className="flex items-center gap-3">
           {isLoggedIn ? (
-            <div className="relative">
-              <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-3 px-3 py-2 rounded-full border border-slate-100 shadow-sm bg-white"
-              >
-                <div className="h-8 w-8 rounded-full bg-sky-500 text-white flex items-center justify-center text-xs font-semibold">
-                  <Initials name={user?.fullName || "U"} />
-                </div>
-                <div className="text-xs text-left">
-                  <p className="font-medium text-slate-800 leading-tight">
-                    {user?.fullName || "User"}
-                  </p>
-                </div>
-              </button>
+            <>
+              <NotificationFeed userRole={role} />
 
-              {isOpen && (
-                <div className="absolute right-0 mt-2 w-44 bg-white border rounded-md shadow-lg py-1 text-sm">
-                  {role === "Superadmin" && (
+              <div ref={profileMenuRef} className="relative">
+                <button
+                  onClick={() => setIsOpen(!isOpen)}
+                  className="flex items-center gap-3 rounded-full border border-slate-100 bg-white px-3 py-2 shadow-sm"
+                >
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500 text-xs font-semibold text-white">
+                    <Initials name={user?.fullName || "U"} />
+                  </div>
+                  <div className="text-left text-xs">
+                    <p className="font-medium leading-tight text-slate-800">
+                      {user?.fullName || "User"}
+                    </p>
+                  </div>
+                </button>
+
+                {isOpen && (
+                  <div className="absolute right-0 mt-2 w-44 rounded-md border bg-white py-1 text-sm shadow-lg">
+                    {role === "Superadmin" && (
+                      <Link
+                        to={linkMap.Organization}
+                        className="block px-4 py-2 text-slate-700 hover:bg-slate-50"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        Organization
+                      </Link>
+                    )}
+
+                    {role === "Admin" && (
+                      <Link
+                        to={linkMap.Users}
+                        className="block px-4 py-2 text-slate-700 hover:bg-slate-50"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        Users
+                      </Link>
+                    )}
+
                     <Link
-                      to={linkMap.Organization}
+                      to={linkMap.Profile}
                       className="block px-4 py-2 text-slate-700 hover:bg-slate-50"
                       onClick={() => setIsOpen(false)}
                     >
-                      Organization
+                      Profile
                     </Link>
-                  )}
 
-                  {(role === "Admin" || role === "Superadmin") && (
                     <Link
-                      to={linkMap.Users}
+                      to="/dashboard-settings"
                       className="block px-4 py-2 text-slate-700 hover:bg-slate-50"
-                      onClick={() => setIsOpen(false)}
+                      onClick={() => {
+                        setIsOpen(false);
+                        navigate("/dashboard-settings");
+                      }}
                     >
-                      Users
+                      Settings
                     </Link>
-                  )}
 
-                  <Link
-                    to={linkMap.Profile}
-                    className="block px-4 py-2 text-slate-700 hover:bg-slate-50"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    Profile
-                  </Link>
-
-                  <Link
-                    to="/dashboard-settings"
-                    className="block px-4 py-2 text-slate-700 hover:bg-slate-50"
-                    onClick={() => {
-                      setIsOpen(false);
-                      navigate("/dashboard-settings");
-                    }}
-                  >
-                    Settings
-                  </Link>
-
-                  <button
-                    onClick={handleLogoutClick}
-                    className="w-full text-left px-4 py-2 text-red-600 hover:bg-slate-50"
-                  >
-                    Logout
-                  </button>
-                </div>
-              )}
-            </div>
+                    <button
+                      onClick={handleLogoutClick}
+                      className="w-full text-left px-4 py-2 text-red-600 hover:bg-slate-50"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
           ) : (
             <Link
               to="/Login"

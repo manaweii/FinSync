@@ -7,13 +7,13 @@ import {
   createUser,
   updateLastLogin,
 } from "../repositories/userRepo.js";
-import { connectSubscriptionDB } from '../config/db.js';
 
 import User from "../models/User.js";
 import Organization from "../models/Organization.js";
 import UserOrgRelation from "../models/UserOrgRelation.js";
 import Role from "../models/Role.js";
 import UserRoleRelation from "../models/UserRoleRelation.js";
+import Subscription from "../models/Subscription.js";
 import { sendPasswordResetOtpEmail } from "../services/emailService.js";
 
 const SALT_ROUNDS = 10;
@@ -171,11 +171,10 @@ export const login = async (req, res) => {
     // Additional payment check for Admin users: ensure payment is active
     if (roleDetail && roleDetail.name === 'Admin') {
       try {
-        const subConn = await connectSubscriptionDB();
-        const subsColl = subConn.db.collection('subscriptions');
-        const recent = await subsColl.find({ billingEmail: user.email }).sort({ createdAt: -1 }).limit(1).toArray();
-        const last = recent && recent.length > 0 ? recent[0] : null;
-        if (!last || last.status !== 'active') {
+        const last = await Subscription.findOne({ billingEmail: user.email })
+          .sort({ createdAt: -1 })
+          .lean();
+        if (!last || last.status !== "Active") {
           return res.status(403).json({ message: 'Payment required to activate account' });
         }
       } catch (e) {

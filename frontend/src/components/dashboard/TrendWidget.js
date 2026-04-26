@@ -1,10 +1,10 @@
 import React, { memo, useState, useMemo } from 'react';
 import { Line, Bar } from 'react-chartjs-2';
 import Plot from 'react-plotly.js';
-import Plotly from 'plotly.js-dist-min';
 import { downloadChart } from '../../utils/chartUtils';
+import { formatChartCurrency } from '../../utils/financialData';
 
-const TrendWidget = memo(function TrendWidget({ trendData = [], mounted, loadingDetail, selectedImportId }) {
+const TrendWidget = memo(function TrendWidget({ trendData = [], mounted, loadingDetail, selectedImportId, periodLabel }) {
   const [chartType, setChartType] = useState('line');
   const chartId = `trend-chart-${selectedImportId || 'local'}`;
 
@@ -24,7 +24,8 @@ const TrendWidget = memo(function TrendWidget({ trendData = [], mounted, loading
     <div className="bg-white/70 backdrop-blur-xl rounded-3xl p-6 border border-white/50 shadow-2xl">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Visualization</h2>
+          <h2 className="text-2xl font-bold text-slate-900">Income vs Expense Trend</h2>
+          <p className="text-sm text-slate-500">{periodLabel || "Monthly view"}</p>
         </div>
         <div className="flex items-center gap-2">
           <select value={chartType} onChange={(e) => setChartType(e.target.value)} className="px-3 py-2 rounded border bg-white text-sm">
@@ -50,26 +51,26 @@ const TrendWidget = memo(function TrendWidget({ trendData = [], mounted, loading
         {trendData.length > 0 && mounted ? (
           <>
             {chartType === 'line' && (
-              <Line id={chartId} data={{ labels: trendData.map((d) => d.name), datasets: [ { label: 'Revenue', data: trendData.map((d) => d.Revenue), borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.12)', fill: true, tension: 0.3 }, { label: 'Expenses', data: trendData.map((d) => d.Expenses), borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.12)', fill: true, tension: 0.3 } ] }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { ticks: { callback: (value) => `$${(value / 1000).toFixed(0)}K` } } } }} />
+              <Line id={chartId} data={{ labels: trendData.map((d) => d.name), datasets: [ { label: 'Income', data: trendData.map((d) => d.Revenue), borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.12)', fill: true, tension: 0.3 }, { label: 'Expenses', data: trendData.map((d) => d.Expenses), borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.12)', fill: true, tension: 0.3 } ] }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' }, tooltip: { callbacks: { label: (context) => `${context.dataset.label}: ${formatChartCurrency(context.parsed.y)}` } } }, scales: { y: { ticks: { callback: (value) => formatChartCurrency(value) } } } }} />
             )}
 
             {chartType === 'area' && (
-              <Line id={chartId} data={{ labels: trendData.map((d) => d.name), datasets: [ { label: 'Revenue', data: trendData.map((d) => d.Revenue), borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.28)', fill: 'start', tension: 0.3 }, { label: 'Expenses', data: trendData.map((d) => d.Expenses), borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.18)', fill: 'start', tension: 0.3 } ] }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { ticks: { callback: (value) => `$${(value / 1000).toFixed(0)}K` } } } }} />
+              <Line id={chartId} data={{ labels: trendData.map((d) => d.name), datasets: [ { label: 'Income', data: trendData.map((d) => d.Revenue), borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.28)', fill: 'start', tension: 0.3 }, { label: 'Expenses', data: trendData.map((d) => d.Expenses), borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.18)', fill: 'start', tension: 0.3 } ] }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' }, tooltip: { callbacks: { label: (context) => `${context.dataset.label}: ${formatChartCurrency(context.parsed.y)}` } } }, scales: { y: { ticks: { callback: (value) => formatChartCurrency(value) } } } }} />
             )}
 
             {chartType === 'bar' && (
-              <Bar id={chartId} data={{ labels: trendData.map((d) => d.name), datasets: [ { label: 'Revenue', data: trendData.map((d) => d.Revenue), backgroundColor: '#10b981' }, { label: 'Expenses', data: trendData.map((d) => d.Expenses), backgroundColor: '#f97316' } ] }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { ticks: { callback: (value) => `$${(value / 1000).toFixed(0)}K` } } } }} />
+              <Bar id={chartId} data={{ labels: trendData.map((d) => d.name), datasets: [ { label: 'Income', data: trendData.map((d) => d.Revenue), backgroundColor: '#10b981' }, { label: 'Expenses', data: trendData.map((d) => d.Expenses), backgroundColor: '#f97316' } ] }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' }, tooltip: { callbacks: { label: (context) => `${context.dataset.label}: ${formatChartCurrency(context.parsed.y)}` } } }, scales: { y: { ticks: { callback: (value) => formatChartCurrency(value) } } } }} />
             )}
 
             {chartType === 'waterfall' && (
               <div id={chartId} style={{ width: '100%', height: '100%' }}>
-                <Plot data={[ { type: 'waterfall', measure: trendData.map(() => 'relative'), x: trendData.map((d) => d.name), y: trendData.map((d) => d.Revenue - d.Expenses), text: trendData.map((d) => `$${(d.Revenue - d.Expenses).toLocaleString()}`), decreasing: { marker: { color: '#ef4444' } }, increasing: { marker: { color: '#10b981' } } } ]} layout={{ autosize: true, margin: { t: 30, b: 40, l: 40, r: 20 }, yaxis: { tickformat: '$,~s' } }} useResizeHandler style={{ width: '100%', height: '100%' }} config={{ responsive: true }} />
+                <Plot data={[ { type: 'waterfall', measure: trendData.map(() => 'relative'), x: trendData.map((d) => d.name), y: trendData.map((d) => d.Revenue - d.Expenses), text: trendData.map((d) => formatChartCurrency(d.Revenue - d.Expenses)), decreasing: { marker: { color: '#ef4444' } }, increasing: { marker: { color: '#10b981' } } } ]} layout={{ autosize: true, margin: { t: 30, b: 40, l: 40, r: 20 }, yaxis: { tickprefix: 'NPR ' } }} useResizeHandler style={{ width: '100%', height: '100%' }} config={{ responsive: true }} />
               </div>
             )}
 
             {chartType === 'boxplot' && (
               <div id={chartId} style={{ width: '100%', height: '100%' }}>
-                <Plot data={[ { y: trendData.map((d) => d.Revenue), type: 'box', name: 'Revenue', marker: { color: '#10b981' } }, { y: trendData.map((d) => d.Expenses), type: 'box', name: 'Expenses', marker: { color: '#f97316' } } ]} layout={{ autosize: true, margin: { t: 30, b: 40, l: 40, r: 20 } }} useResizeHandler style={{ width: '100%', height: '100%' }} config={{ responsive: true }} />
+                <Plot data={[ { y: trendData.map((d) => d.Revenue), type: 'box', name: 'Income', marker: { color: '#10b981' } }, { y: trendData.map((d) => d.Expenses), type: 'box', name: 'Expenses', marker: { color: '#f97316' } } ]} layout={{ autosize: true, margin: { t: 30, b: 40, l: 40, r: 20 } }} useResizeHandler style={{ width: '100%', height: '100%' }} config={{ responsive: true }} />
               </div>
             )}
 
