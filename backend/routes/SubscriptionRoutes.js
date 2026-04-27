@@ -58,6 +58,7 @@ async function notifySuperadminsOfPaidActivation({
 router.get("/subscription/verify", async (req, res) => {
   // eSewa sends a 'data' query parameter in the URL
   const { data } = req.query;
+  console.log("Verification request received with data:", data);
   
   if (!data) {
     return res
@@ -700,6 +701,49 @@ router.get("/verify", async (req, res) => {
     return res
       .status(500)
       .json({ success: false, error: "Server error during verify" });
+  }
+});
+
+router.get("/subscription/org/:orgId/latest", async (req, res) => {
+  try {
+    const { orgId } = req.params;
+
+    if (!orgId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "orgId is required" });
+    }
+
+    const subscription = await Subscription.findOne({ orgId })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (!subscription) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Subscription not found" });
+    }
+
+    return res.json({
+      success: true,
+      subscription: {
+        orgName: subscription.orgName,
+        billingEmail: subscription.billingEmail,
+        amount: subscription.amount,
+        planName: subscription.planName,
+        transactionUuid: subscription.transactionUuid,
+        orgId: subscription.orgId || null,
+        status: subscription.status || "Pending",
+        createdAt: subscription.createdAt,
+        nextBilling: subscription.nextBilling || null,
+      },
+    });
+  } catch (err) {
+    console.error("Latest org subscription lookup error", err);
+    return res.status(500).json({
+      success: false,
+      error: "Server error during subscription lookup",
+    });
   }
 });
 

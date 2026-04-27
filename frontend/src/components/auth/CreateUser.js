@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import useAuthStore from "../../store/useAuthStore";
+import { useNotifications } from "../nav/NotificationContext";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
 function CreateUser() {
+  const { addNotification } = useNotifications();
   const [form, setForm] = useState({
     fullName: "",
     orgName: "",
@@ -132,6 +134,13 @@ function CreateUser() {
       }
 
       console.log("User created:", data);
+
+      addNotification({
+        type: "account_created",
+        role: currentUser?.role || "Admin",
+        title: "New User Registered",
+        message: `A new user "${form.fullName}" has successfully created an account.`,
+      });
 
       // If backend returned token (registered user), store it in zustand
       // if (data.token) {

@@ -1,13 +1,16 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import useAuthStore from "../../store/useAuthStore";
+import { useNotifications } from "../nav/NotificationContext";
 
 const SubscriptionSuccess = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { addNotification } = useNotifications();
   const [paymentData, setPaymentData] = useState(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const hasNotifiedSuccess = useRef(false);
 
   const { token } = useAuthStore();
 
@@ -45,6 +48,17 @@ const SubscriptionSuccess = () => {
 
         setPaymentData(result.subscription || result);
         setError("");
+
+        if (!hasNotifiedSuccess.current) {
+          const subscriptionData = result.subscription || result;
+          addNotification({
+            type: "account_created",
+            role: "Superadmin",
+            title: "New Organization Onboarded",
+            message: `Org: ${subscriptionData.orgName || "Unknown"} | Plan: ${subscriptionData.planName || "Starter"} | Payment: NPR ${subscriptionData.amount || "0"} Verified.`,
+          });
+          hasNotifiedSuccess.current = true;
+        }
       } catch (err) {
         console.error("Verification failed:", err);
         setError("Verification failed. Please try again.");
@@ -55,7 +69,7 @@ const SubscriptionSuccess = () => {
     };
 
     verifyPayment();
-  }, [API_BASE, token, urlParams]);
+  }, [API_BASE, addNotification, token, urlParams]);
 
   const data = paymentData;
   const statusLabel = data?.status

@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import useAuthStore from "../store/useAuthStore";
 import useDashboardSettings from "../store/useDashboardSettings";
+import { useNotifications } from "../components/nav/NotificationContext";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -67,15 +68,18 @@ const DASHBOARD_WIDGET_KEYS = [
 const DashboardPage = () => {
   const navigate = useNavigate();
   const { token, user: currentUser } = useAuthStore();
+  const { addNotification } = useNotifications();
   const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
   const [imports, setImports] = useState([]);
   const [manualRows, setManualRows] = useState([]);
+  const [orgSubscription, setOrgSubscription] = useState(null);
   const [selectedImportId, setSelectedImportId] = useState("all");
   const [selectedMonth, setSelectedMonth] = useState("all");
   const [loadingList, setLoadingList] = useState(true);
   const [error, setError] = useState("");
   const [mounted, setMounted] = useState(false);
+  const lastExpiryNoticeKey = useRef("");
 
   useEffect(() => {
     setMounted(true);
@@ -106,6 +110,68 @@ const DashboardPage = () => {
 
     fetchImports();
   }, [API_BASE, currentUser?.orgId, token]);
+
+  useEffect(() => {
+    const fetchOrgSubscription = async () => {
+      if (currentUser?.role !== "Admin" || !currentUser?.orgId) {
+        setOrgSubscription(null);
+        return;
+      }
+
+      try {
+        const res = await fetch(
+          `${API_BASE}/subscription/org/${currentUser.orgId}/latest`,
+          {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          },
+        );
+
+        if (!res.ok) {
+          setOrgSubscription(null);
+          return;
+        }
+
+        const data = await res.json();
+        setOrgSubscription(data?.subscription || null);
+      } catch (err) {
+        console.error("Error loading subscription:", err);
+        setOrgSubscription(null);
+      }
+    };
+
+    fetchOrgSubscription();
+  }, [API_BASE, currentUser?.orgId, currentUser?.role, token]);
+
+  useEffect(() => {
+    if (currentUser?.role !== "Admin" || !orgSubscription?.nextBilling) {
+      return;
+    }
+
+    const nextBillingDate = new Date(orgSubscription.nextBilling);
+    const today = new Date();
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const daysUntilExpiration = Math.ceil(
+      (nextBillingDate.setHours(0, 0, 0, 0) - today.setHours(0, 0, 0, 0)) / msPerDay,
+    );
+
+    const isActive = (orgSubscription.status || "").toLowerCase() === "active";
+    const notificationKey = `${orgSubscription.orgId || currentUser?.orgId}-${orgSubscription.nextBilling}`;
+
+    if (
+      isActive &&
+      daysUntilExpiration >= 0 &&
+      daysUntilExpiration <= 7 &&
+      lastExpiryNoticeKey.current !== notificationKey
+    ) {
+      addNotification({
+        type: "payment_update",
+        role: "Admin",
+        title: "Plan Expiring Soon",
+        message: `Your ${orgSubscription.planName || "current"} plan expires in ${daysUntilExpiration} day${daysUntilExpiration === 1 ? "" : "s"}. Renew now to maintain your financial records.`,
+      });
+      lastExpiryNoticeKey.current = notificationKey;
+    }
+  }, [addNotification, currentUser?.orgId, currentUser?.role, orgSubscription]);
 
   const importDetail = useMemo(
     () =>

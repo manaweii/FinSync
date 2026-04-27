@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useAuthStore from "../../store/useAuthStore";
+import { useNotifications } from "../nav/NotificationContext";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
 function UserManagement() {
   const navigate = useNavigate();
   const { user, role, token } = useAuthStore();
+  const { addNotification } = useNotifications();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -71,6 +73,7 @@ function UserManagement() {
 
     try {
       setLoading(true);
+      const previousUser = users.find((u) => u.id === editingUser.id);
       const headers = { "Content-Type": "application/json", ...getAuthHeaders() };
 
       const res = await fetch(`${API_URL}/users/${editingUser.id}`, {
@@ -86,6 +89,18 @@ function UserManagement() {
 
       const updated = await res.json();
       const normalized = { ...updated, id: updated.id || updated._id };
+
+      if (
+        previousUser?.status !== "Disabled" &&
+        normalized.status === "Disabled"
+      ) {
+        addNotification({
+          type: "account_disabled",
+          role: "Admin",
+          title: "Security Alert: User Disabled",
+          message: `The account for "${normalized.fullName || normalized.email || normalized.id}" has been disabled by an administrator.`,
+        });
+      }
 
       // update list in state
       setUsers((prev) => prev.map((u) => (u.id === normalized.id ? normalized : u)));
