@@ -197,6 +197,7 @@ export default function OrganizationManagement() {
                       <select name="status" value={editingOrg.status || 'Active'} onChange={handleEditChange} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition">
                         <option>Active</option>
                         <option>Disabled</option>
+                        <option>Pending</option>
                       </select>
                     </div>
                   </div>
