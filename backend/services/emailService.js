@@ -56,7 +56,7 @@ export async function sendPasswordResetOtpEmail({ email, otp, fullName }) {
           
           <div style="padding: 40px 32px 20px 32px; text-align: center;">
             <img 
-              src="./frontend/public/FinSync.png" 
+              src="./FinSync.png" 
               alt="${appName} Logo" 
               style="height: 42px; width: auto; margin-bottom: 24px; display: inline-block;"
             >
@@ -116,30 +116,30 @@ export async function sendSuperadminSignupAlertEmail({
   paidAt,
 }) {
   if (!Array.isArray(recipients) || recipients.length === 0) {
-    return;
+    return { sent: false, reason: "No recipients found" };
   }
+  try {
+    const mailer = createTransporter();
+    const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+    const appName = process.env.APP_NAME || "FinSync";
+    const formattedAmount =
+      amount !== undefined && amount !== null ? `NPR ${amount}` : "N/A";
+    const paymentTimestamp = paidAt || new Date().toISOString();
 
-  const mailer = createTransporter();
-  const from = process.env.SMTP_FROM || process.env.SMTP_USER;
-  const appName = process.env.APP_NAME || "FinSync";
-  const formattedAmount =
-    amount !== undefined && amount !== null ? `NPR ${amount}` : "N/A";
-  const paymentTimestamp = paidAt || new Date().toISOString();
-
-  await mailer.sendMail({
-    from,
-    to: recipients.join(", "),
-    subject: `[${appName}] New paid organization activated`,
-    text: [
-      `A payment has been completed and an admin account has been created in ${appName}.`,
-      `Organization: ${organizationName || "N/A"}`,
-      `Admin email: ${adminEmail || "N/A"}`,
-      `Plan: ${planName || "N/A"}`,
-      `Amount: ${formattedAmount}`,
-      `Transaction ID: ${transactionUuid || "N/A"}`,
-      `Paid at: ${paymentTimestamp}`,
-    ].join("\n"),
-    html: `
+    await mailer.sendMail({
+      from,
+      to: recipients.join(", "),
+      subject: `[${appName}] New paid organization activated`,
+      text: [
+        `A payment has been completed and an admin account has been created in ${appName}.`,
+        `Organization: ${organizationName || "N/A"}`,
+        `Admin email: ${adminEmail || "N/A"}`,
+        `Plan: ${planName || "N/A"}`,
+        `Amount: ${formattedAmount}`,
+        `Transaction ID: ${transactionUuid || "N/A"}`,
+        `Paid at: ${paymentTimestamp}`,
+      ].join("\n"),
+      html: `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; line-height: 1.6;">
         <h2 style="margin-bottom: 16px;">New paid organization activated</h2>
         <p>A payment was completed and an admin account was provisioned in <strong>${appName}</strong>.</p>
@@ -153,5 +153,11 @@ export async function sendSuperadminSignupAlertEmail({
         </table>
       </div>
     `,
-  });
+    });
+
+    return { sent: true };
+  } catch (error) {
+    console.error("sendSuperadminSignupAlertEmail failed:", error.message);
+    return { sent: false, reason: error.message };
+  }
 }

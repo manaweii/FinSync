@@ -88,8 +88,9 @@ export default function ProfileSettings() {
   const displayName = profile?.fullName || profile?.name || "User Name";
   const displayEmail = profile?.email || "user@example.com";
   const displayRole = profile?.role || "User";
-  const displayCompany =
-    profile?.orgName || profile?.company || "Tech Innovations Pvt. Ltd.";
+  const displayCompany = profile?.orgName;
+
+   console.log("Profile data:", profile);
 
   // Avatar initials
   const initials = (displayName || "U")

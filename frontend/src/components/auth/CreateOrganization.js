@@ -6,8 +6,10 @@ const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
 export default function CreateOrganization() {
   const [form, setForm] = useState({
-    name: "",
+    orgName: "",
+    fullName: "",
     contactEmail: "",
+    passwordHash: "",
     phone: "",
     plan: "Starter",
     status: "Active",
@@ -29,8 +31,9 @@ export default function CreateOrganization() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const payload = {
-        name: form.name,
+      const payloadOrg = {
+        orgName: form.orgName,
+        fullName: form.fullName,
         contactEmail: form.contactEmail,
         phone: form.phone,
         plan: form.plan,
@@ -43,7 +46,7 @@ export default function CreateOrganization() {
           "Content-Type": "application/json",
           ...getAuthHeaders(),
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(payloadOrg),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -52,15 +55,72 @@ export default function CreateOrganization() {
         alert(data.message || "Failed to create organization");
         return;
       }
-
-      alert(data.message || "Organization created");
-      navigate("/organizations");
     } catch (err) {
-      console.error(err);
+      console.error("Network error:", err);
       alert(err.message || "Network error");
-    } finally {
-      setIsLoading(false);
+      return;
     }
+
+    try {
+      const payloadUser = {
+        organization: form.orgName,
+        fullName: form.fullName,
+        email: form.contactEmail,
+        password: form.password,
+        role: "Admin",
+      };
+
+      const res = await fetch(`${API_URL}/createUser`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify(payloadUser),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        alert(data.message || "Failed to create User");
+        return;
+      }
+    } catch (err) {
+      console.error("Network error:", err);
+      alert(err.message || "Network error");
+      return;
+    }
+
+    try {
+      const payloadSubs = {
+        orgName: form.orgName,
+        billingEmail: form.contactEmail,
+        amount: "1500",
+      };
+
+      const res = await fetch(`${API_URL}/subscription/createSubscription`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify(payloadSubs),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        alert(data.message || "Failed to create Subscription");
+        return;
+      }
+    } catch (err) {
+      console.error("Network error:", err);
+      alert(err.message || "Network error");
+      return;
+    }
+
+    alert("Organization and User created");
+    navigate("/organizations");
   };
 
   return (
@@ -77,11 +137,23 @@ export default function CreateOrganization() {
           <form onSubmit={handleSubmit} className="space-y-4 text-xs">
             <div>
               <label className="block mb-1 text-slate-700">
+                Admin name
+              </label>
+              <input
+                name="fullName"
+                value={form.fullName}
+                onChange={handleChange}
+                required
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs"
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-slate-700">
                 Organization name
               </label>
               <input
-                name="name"
-                value={form.name}
+                name="orgName"
+                value={form.orgName}
                 onChange={handleChange}
                 required
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs"
@@ -94,6 +166,16 @@ export default function CreateOrganization() {
                 value={form.contactEmail}
                 onChange={handleChange}
                 type="email"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs"
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-slate-700">Password</label>
+              <input
+                name="password"
+                value={form.password}
+                onChange={handleChange}
+                type="password"
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs"
               />
             </div>

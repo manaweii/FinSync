@@ -8,7 +8,6 @@ const SubscriptionSchema = new mongoose.Schema({
 
   // Admin Details
   billingEmail: { type: String, required: true },
-  password: { type: String },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 
   // Payment Details

@@ -7,10 +7,59 @@ import Organization from "../models/Organization.js";
 import Role from "../models/Role.js";
 import UserOrgRelation from "../models/UserOrgRelation.js";
 import UserRoleRelation from "../models/UserRoleRelation.js";
+import Notification from "../models/Notification.js";
 import { sendSuperadminSignupAlertEmail } from "../services/emailService.js";
 
 const router = express.Router();
 const SALT_ROUNDS = 10;
+
+async function createAdminOrganizationNotification({
+  organizationName,
+  planName,
+  amount,
+  adminEmail,
+}) {
+  const amountLabel =
+    amount !== undefined && amount !== null ? `NPR ${amount}` : "NPR 0";
+
+  await Notification.create({
+    type: "account_created",
+    role: "Admin",
+    title: "Organization Created",
+    message: `Your organization "${organizationName}" is created on ${planName || "Starter"} plan. Payment: ${amountLabel}. Admin: ${adminEmail || "N/A"}.`,
+  });
+}
+
+router.post("/subscription/createSubscription", async (req, res) => {
+  const { orgName, billingEmail, phone, amount } = req.body;
+
+  const organization = await Organization.findOne({ orgName: orgName });
+  const user = await User.findOne({ email: billingEmail });
+  const transactionUuid = "pay_" + Date.now();
+
+  const pending = {
+    orgName: organization?.orgName,
+    orgId: organization._id,
+    userId: user._id,
+    billingEmail,
+    phone,
+    amount,
+    planName: "Starter",
+    transactionUuid,
+    status: "Active",
+    type: "signup",
+    nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0], // +30 days
+    createdAt: new Date().toISOString(),
+  };
+
+  const result = await Subscription.create(pending);
+  res.json({
+    success: true,
+    data: result,
+  });
+});
 
 async function notifySuperadminsOfPaidActivation({
   organizationName,
@@ -20,7 +69,7 @@ async function notifySuperadminsOfPaidActivation({
   transactionUuid,
   paidAt,
 }) {
-  const superAdminRole = await Role.findOne({ name: "SuperAdmin" });
+  const superAdminRole = await Role.findOne({ name: { $regex: /^superadmin$/i } });
   if (!superAdminRole) {
     return;
   }
@@ -31,27 +80,34 @@ async function notifySuperadminsOfPaidActivation({
   }
 
   const superadminIds = relations.map((relation) => relation.userId);
-  const superadmins = await User.find(
-    { _id: { $in: superadminIds }, status: "Active" },
-    { email: 1 },
-  );
+  const superadmins = await User.find({ _id: { $in: superadminIds } }, { email: 1, status: 1 });
   const recipientEmails = [
-    ...new Set(superadmins.map((user) => user.email).filter(Boolean)),
+    ...new Set(
+      superadmins
+        .filter((user) => String(user.status || "").toLowerCase() === "active")
+        .map((user) => user.email)
+        .filter(Boolean),
+    ),
   ];
 
-  if (!recipientEmails.length) {
-    return;
-  }
-
-  await sendSuperadminSignupAlertEmail({
-    recipients: recipientEmails,
+  await createAdminOrganizationNotification({
     organizationName,
-    adminEmail,
     planName,
     amount,
-    transactionUuid,
-    paidAt,
+    adminEmail,
   });
+
+  if (recipientEmails.length) {
+    await sendSuperadminSignupAlertEmail({
+      recipients: recipientEmails,
+      organizationName,
+      adminEmail,
+      planName,
+      amount,
+      transactionUuid,
+      paidAt,
+    });
+  }
 }
 
 // GET /api/subscription/verify
@@ -81,6 +137,7 @@ router.get("/subscription/verify", async (req, res) => {
         });
       }
 
+      const alreadyNotified = subscription.status === "Active";
       const paidAt = new Date().toISOString();
 
       subscription.status = "Active";
@@ -96,18 +153,26 @@ router.get("/subscription/verify", async (req, res) => {
       }
 
       if (!organization) {
-        organization = await Organization.findOne({ name: subscription.orgName });
+        organization = await Organization.findOne({
+          $or: [
+            { name: subscription.orgName },
+            { orgName: subscription.orgName },
+          ],
+        });
       }
 
       if (!organization) {
         organization = await Organization.create({
-          name: subscription.orgName,
+          orgName: subscription.orgName,
+          fullName: subscription.fullName,
           contactEmail: subscription.billingEmail,
           phone: subscription.phone || "0000000000",
           plan: subscription.planName || "Starter",
           status: "Active",
         });
       } else {
+        organization.name = organization.orgName;
+        organization.fullName = organization.fullName;
         organization.contactEmail = subscription.billingEmail;
         organization.phone = subscription.phone || organization.phone;
         organization.plan = subscription.planName || organization.plan;
@@ -123,7 +188,8 @@ router.get("/subscription/verify", async (req, res) => {
         const passwordHash = await bcrypt.hash(plainPassword, SALT_ROUNDS);
 
         adminUser = await User.create({
-          fullName: subscription.orgName || "Admin",
+          fullName: subscription.fullName || "Admin",
+          orgName: subscription.orgName,
           email: subscription.billingEmail,
           passwordHash,
           status: "Active",
@@ -155,20 +221,22 @@ router.get("/subscription/verify", async (req, res) => {
       subscription.password = undefined;
       await subscription.save();
 
-      try {
-        await notifySuperadminsOfPaidActivation({
-          organizationName: organization.name,
-          adminEmail: adminUser.email,
-          planName: subscription.planName,
-          amount: subscription.amount,
-          transactionUuid,
-          paidAt,
-        });
-      } catch (mailError) {
-        console.error(
-          "Failed to notify superadmins about paid activation:",
-          mailError.message,
-        );
+      if (!alreadyNotified) {
+        try {
+          await notifySuperadminsOfPaidActivation({
+            organizationName: organization?.orgName,
+            adminEmail: adminUser.email,
+            planName: subscription.planName,
+            amount: subscription.amount,
+            transactionUuid,
+            paidAt,
+          });
+        } catch (mailError) {
+          console.error(
+            "Failed to notify superadmins about paid activation:",
+            mailError.message,
+          );
+        }
       }
 
       return res.json({
@@ -176,6 +244,7 @@ router.get("/subscription/verify", async (req, res) => {
         message: "Payment verified and account activated",
         subscription: {
           orgName: subscription.orgName,
+          fullName: subscription.fullName,
           billingEmail: subscription.billingEmail,
           amount: subscription.amount,
           planName: subscription.planName,
@@ -274,15 +343,16 @@ router.get("/subscription/logs", async (req, res) => {
 
     // Transform for frontend table
     const logs = subscriptions.map((sub) => ({
+      _id: sub._id,
       timestamp: new Date(sub.createdAt)
         .toISOString()
         .slice(0, 16)
         .replace("T", " "),
       user: sub.billingEmail,
       role: "Admin",
-      org: sub.orgName,
-      plan: "Growth Plan", // Customize based on amount/plan field
-      result: sub.status.charAt(0).toUpperCase() + sub.status.slice(1),
+      organization: sub.orgName,
+      plan: sub.planName || "Starter",
+      result: String(sub.status || "Pending"),
     }));
 
     // Calculate total payments (completed only)
@@ -306,9 +376,9 @@ router.get("/subscription/logs", async (req, res) => {
 router.post("/subscription/initiate", async (req, res) => {
   try {
     console.log("Initiate subscription request body:", req.body);
-    const { orgName, billingEmail, phone, amount, planName, period, password } =
+    const { orgName, fullName, billingEmail, phone, amount, planName, period, password } =
       req.body;
-    if (!orgName || !billingEmail || !phone || !amount || !password) {
+    if (!orgName || !fullName || !billingEmail || !phone || !amount || !password) {
       return res
         .status(400)
         .json({ success: false, error: "Missing required fields" });
@@ -317,17 +387,27 @@ router.post("/subscription/initiate", async (req, res) => {
     // Ensure an Organization record exists (pending) so plan is saved on onboarding
     // Inside router.post('/subscription/initiate', ...)
 
-    let orgDoc = await Organization.findOne({ name: orgName });
-
+    let orgDoc = await Organization.findOne({
+      $or: [{ orgName: orgName }],
+    });
     if (!orgDoc) {
       orgDoc = await Organization.create({
-        name: orgName,
+        orgName: orgName,
+        fullName: fullName || "Admin",
         contactEmail: billingEmail,
+        BillingEmail: billingEmail,
         phone: req.body.phone || "0000000000",
+        Orgphone: req.body.phone || "0000000000",
         plan: planName || "Starter",
         status: "Pending",
       });
     } else {
+      orgDoc.orgName = orgDoc?.orgName;
+      orgDoc.fullName = fullName || orgDoc.fullName || "Admin";
+      orgDoc.contactEmail = billingEmail;
+      orgDoc.BillingEmail = billingEmail;
+      orgDoc.phone = req.body.phone || orgDoc.phone || "0000000000";
+      orgDoc.Orgphone = req.body.phone || orgDoc.Orgphone || "0000000000";
       orgDoc.plan = planName || orgDoc.plan || "Starter";
       orgDoc.status = "Pending";
       await orgDoc.save();
@@ -341,7 +421,7 @@ router.post("/subscription/initiate", async (req, res) => {
     try {
       const date = new Date();
       switch (period) {
-        case 'month':
+        case '1 month':
           date.setMonth(date.getMonth() + 1);
           break;
         case '3 month':
@@ -361,13 +441,13 @@ router.post("/subscription/initiate", async (req, res) => {
       console.log("Next billing date calculated as:", nextBilling);
       const pending = {
         orgName,
+        fullName,
         orgId: orgDoc._id,
         billingEmail,
         phone,
         amount: Number(amount),
         planName: planName || "Starter",
         transactionUuid,
-        password,
         status: "Pending",
         type: "signup",
         nextBilling,
@@ -478,16 +558,24 @@ router.post("/esewa/callback", async (req, res) => {
     pending.esewaRefId = esewaRefId || null;
     pending.paidAt = paidAt;
 
-    let org = await Organization.findOne({ name: pending.orgName });
+    let org = await Organization.findOne({
+      $or: [
+        { name: pending.orgName },
+        { orgName: pending.orgName },
+        { Orgname: pending.orgName },
+      ],
+    });
     if (!org) {
       org = await Organization.create({
-        name: pending.orgName,
+        orgName: pending.orgName,
+        fullName: pending.fullName || "Admin",
         contactEmail: pending.billingEmail,
         phone: pending.phone || "0000000000",
         plan: pending.planName || "Starter",
         status: "Active",
       });
     } else {
+      org.name = org?.orgName;
       org.contactEmail = pending.billingEmail;
       org.phone = pending.phone || org.phone;
       if (pending.planName) org.plan = pending.planName;
@@ -500,7 +588,7 @@ router.post("/esewa/callback", async (req, res) => {
       const pw = pending.password || Math.random().toString(36).slice(-10);
       const pwHash = await bcrypt.hash(pw, SALT_ROUNDS);
       user = await User.create({
-        fullName: "Admin",
+        fullName: pending.fullName || "Admin",
         email: pending.billingEmail,
         passwordHash: pwHash,
         status: "Active",
@@ -533,7 +621,7 @@ router.post("/esewa/callback", async (req, res) => {
     if (!alreadyNotified) {
       try {
         await notifySuperadminsOfPaidActivation({
-          organizationName: org.name,
+          organizationName: org?.orgName,
           adminEmail: user.email,
           planName: pending.planName,
           amount: pending.amount,
@@ -600,7 +688,7 @@ router.post("/upgrade", async (req, res) => {
 
     // Save pending subscription to DB (type: upgrade)
     const pending = {
-      orgName: org.name,
+      orgName: org?.orgName,
       orgId: org._id,
       billingEmail,
       amount: Number(amount),
@@ -686,6 +774,7 @@ router.get("/verify", async (req, res) => {
     // Return minimal subscription info
     const result = {
       orgName: sub.orgName,
+      fullName: sub.fullName || "Admin",
       billingEmail: sub.billingEmail,
       amount: sub.amount,
       planName: sub.planName,

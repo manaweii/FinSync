@@ -26,19 +26,21 @@ function CreateUser() {
 
   // Determine allowed role options based on the creator's role
   const getRoleOptions = () => {
-    if (currentUser?.role === "Superadmin") {
+    const normalizedRole = (currentUser?.role || "").toLowerCase();
+    if (normalizedRole === "superadmin") {
       return [
-        { value: "Superadmin", label: "Super Admin" },
+        { value: "SuperAdmin", label: "Super Admin" },
         { value: "Admin", label: "Admin" },
         { value: "User", label: "User" },
       ];
     }
-    if (currentUser?.role === "Admin") {
+    if (normalizedRole === "admin") {
       return [
         { value: "Admin", label: "Admin" },
         { value: "User", label: "User" },
       ];
     }
+    return [{ value: "User", label: "User" }];
   };
 
   const roleOptions = getRoleOptions();
@@ -65,13 +67,14 @@ function CreateUser() {
         setOrgsError("");
 
         if (currentUser?.role === "Admin") {
+          const currentOrgName = currentUser.orgName || "";
           const singleOrg = {
             _id: currentUser.orgId,
-            name: currentUser.orgName,
+            name: currentOrgName,
           };
           if (!mounted) return;
           setOrgs([singleOrg]);
-          setForm((prev) => ({ ...prev, orgName: currentUser.orgName }));
+          setForm((prev) => ({ ...prev, orgName: currentOrgName }));
           return;
         }
 
@@ -225,8 +228,11 @@ function CreateUser() {
                   >
                     <option value="">Select organization</option>
                     {orgs.map((o) => (
-                      <option key={o._id || o.id} value={o.name}>
-                        {o.name}
+                    <option
+                      key={o._id || o.id}
+                      value={o.name || o.orgName || o.Orgname}
+                    >
+                        {o.name || o.orgName || o.Orgname}
                       </option>
                     ))}
                   </select>

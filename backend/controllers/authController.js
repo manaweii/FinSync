@@ -80,7 +80,7 @@ export const CreateUser = async (req, res) => {
     if (!organization) {
       return res.status(400).json({ message: "Organization is required" });
     }
-    const orgDoc = await Organization.findOne({ name: organization });
+    const orgDoc = await Organization.findOne({ orgName: organization });
     if (!orgDoc) {
       return res.status(400).json({ message: "Organization not found" });
     }
@@ -200,7 +200,9 @@ export const login = async (req, res) => {
         userStatus: user.status,
         role: roleDetail.name,
         orgId: orgDetail ? orgDetail._id : null,
-        orgName: orgDetail ? orgDetail.name : null,
+        orgName: orgDetail
+          ? orgDetail.name || orgDetail.orgName || orgDetail.Orgname
+          : null,
         orgStatus: orgDetail ? orgDetail.status : null,
       },
     });
@@ -392,7 +394,7 @@ export const getProfile = async (req, res) => {
         userStatus: user.status || "Active",
         role: roleDetail ? roleDetail.name : "User",
         orgId: orgDetail ? orgDetail._id : null,
-        orgName: orgDetail ? orgDetail.name : null,
+        orgName: orgDetail ? orgDetail.orgName : null,
         orgStatus: orgDetail ? orgDetail.status : null,
       },
     });

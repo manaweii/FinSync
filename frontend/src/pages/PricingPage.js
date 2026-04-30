@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom"; 
 
 
@@ -7,7 +7,7 @@ const plans = [
     name: "Starter",
     price: "1500", 
     currency: "NPR",
-    period: "/ month",
+    period: "1 month",
     badge: "",
     badgeColor: "",
   },
@@ -15,7 +15,7 @@ const plans = [
     name: "Growth",
     price: "3900",
     currency: "NPR",
-    period: "/ 3 months",
+    period: "3 month",
     badge: "Save 13%",
     badgeColor: "",
   },
@@ -23,7 +23,7 @@ const plans = [
     name: "Professional",
     price: "7200",
     currency: "NPR",
-    period: "/ 6 months",
+    period: "6 month",
     badge: "Save 20%",
     badgeColor: "bg-teal-100 text-teal-600",
     highlight: "Most Popular",
@@ -33,7 +33,7 @@ const plans = [
     name: "Enterprise",
     price: "13000",
     currency: "NPR",
-    period: "/ year",
+    period: "year",
     badge: "Best Value",
     badgeColor: "bg-amber-100 text-amber-600",
     highlight: "Best Value",
