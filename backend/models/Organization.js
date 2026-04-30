@@ -5,11 +5,12 @@ const { Schema } = mongoose;
 const orgSchema = new Schema(
   {
     // Basic identity
-    name: { type: String, required: true, trim: true },
+    orgName: { type: String, trim: true },
+    fullName: { type: String, trim: true },
 
     // Contact / billing
-    contactEmail: { type: String, required: true, lowercase: true, trim: true },
-    phone: { type: String, required: true, trim: true },
+    contactEmail: { type: String, lowercase: true, trim: true },
+    phone: { type: String, trim: true },
 
     // Plan / billing metadata
     plan: {
@@ -19,7 +20,9 @@ const orgSchema = new Schema(
     },
 
     status: { type: String, enum: ["Active", "Disabled", "Pending"] },
-});
+  },
+  { timestamps: true },
+);
 
 const Organization = mongoose.model("Organization", orgSchema);
 

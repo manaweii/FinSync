@@ -53,7 +53,9 @@ export async function getUsers(req, res) {
           id: rest._id,
           role: roleDetail ? roleDetail.name : 'User',
           orgId: orgDetail ? orgDetail._id : null,
-          orgName: orgDetail ? orgDetail.name : null,
+          orgName: orgDetail
+            ? orgDetail.name || orgDetail.orgName || orgDetail.Orgname
+            : null,
           orgStatus: orgDetail ? orgDetail.status : null,
         };
       })
