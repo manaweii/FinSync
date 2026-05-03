@@ -30,6 +30,7 @@ import PLReport from "./components/datamanager/PLReport";
 import CashFlowReport from "./components/datamanager/CashFlowReport";
 import BalanceSheetReport from "./components/datamanager/BalanceSheetReport";
 import FileImportPage from "./pages/FileImportPage";
+import FinSyncChatbot from "./components/chat/FinSyncChatbot";
 
 function App() {
   const { isLoggedIn, role } = useAuthStore();
@@ -171,6 +172,8 @@ function App() {
           {/* Home */}
           <Route path="/" element={<HomePage />} />
         </Routes>
+
+        {isLoggedIn ? <FinSyncChatbot /> : null}
       </BrowserRouter>
     </NotificationProvider>
   );

@@ -6,6 +6,7 @@ import { CreateOrganization, LoadOrganization, UpdateOrganization, DeleteOrganiz
 import { uploadFile, pastImportData, getImportById } from "../controllers/importController.js";
 import { saveDashboardSettings, getDashboardSettings } from "../controllers/dashboardController.js";
 import { getOrgPredictions, savePredictionMilestone } from "../controllers/predictionController.js";
+import { askChatbot } from "../controllers/chatbotController.js";
 import Notification from "../models/Notification.js";
 
 const router = express.Router();
@@ -46,6 +47,9 @@ router.get('/dashboard-settings/:id', getDashboardSettings);
 // Predictions
 router.get("/predictions/:orgId", getOrgPredictions);
 router.post("/predictions/milestones", savePredictionMilestone);
+
+// Chatbot
+router.post("/chatbot/ask", askChatbot);
 
 // Notifications
 router.get("/notifications", async (req, res) => {

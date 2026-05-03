@@ -26,7 +26,7 @@ export const getDashboardSettings = async (req, res) => {
     // build a flexible query: try ObjectId matches first if id looks like an ObjectId
     let query;
     if (mongoose.Types.ObjectId.isValid(id)) {
-      const oid = mongoose.Types.ObjectId(id);
+      const oid = new mongoose.Types.ObjectId(id);
       query = { $or: [{ orgId: oid }, { userId: oid }, { _id: oid }] };
     } else {
       query = { $or: [{ orgId: id }, { userId: id }, { _id: id }] };
