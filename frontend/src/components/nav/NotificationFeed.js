@@ -3,14 +3,19 @@ import { BellIcon } from "@heroicons/react/24/outline";
 import NotificationItem from "./NotificationItem";
 import { useNotifications } from "./NotificationContext"; // Import our new hook
 
+const normalizeRole = (value = "") => value.toString().trim().toLowerCase();
+
 function NotificationFeed({ userRole }) {
   const [isOpen, setIsOpen] = useState(false);
   const { notifications, removeNotification, clearNotifications } = useNotifications();
   const notificationRef = useRef(null);
 
   const filteredNotifications = useMemo(() => {
-    if (userRole === "Superadmin") return notifications;
-    return notifications.filter((n) => n.role === userRole);
+    const normalizedUserRole = normalizeRole(userRole);
+    if (normalizedUserRole === "superadmin") return notifications;
+    return notifications.filter(
+      (n) => normalizeRole(n.role) === normalizedUserRole,
+    );
   }, [notifications, userRole]);
 
   // Handle clicking outside to close

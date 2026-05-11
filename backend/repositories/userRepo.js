@@ -4,6 +4,7 @@ import Role from '../models/Role.js';
 import UserRoleRelation from '../models/UserRoleRelation.js';
 import UserOrgRelation from '../models/UserOrgRelation.js';
 import Organization from '../models/Organization.js';
+import { sendDisabledNotificationEmail } from '../services/emailService.js';
 
 let UserModel;
 
@@ -103,6 +104,25 @@ export async function UpdateUser(req, res) {
           { upsert: true }
         );
       }
+    }
+
+    // If user is being disabled, send notification email (best-effort)
+    try {
+      if (updates.status && String(updates.status).toLowerCase() === 'disabled') {
+        const to = updated.email;
+        const name = updated.fullName || null;
+        const orgName = updated.orgName || null;
+        const disabledBy = (req.user && req.user.email) || 'admin';
+        const reason = updates.disableReason || updates.reason || 'Manual disable by administrator';
+        const effectiveDate = new Date().toISOString();
+        if (to) {
+          sendDisabledNotificationEmail({ to, name, orgName, disabledBy, reason, effectiveDate }).catch((e) => {
+            console.error('Failed to send disabled notification for user:', e.message || e);
+          });
+        }
+      }
+    } catch (mailErr) {
+      console.warn('sendDisabledNotificationEmail threw:', mailErr && mailErr.message);
     }
 
     res.status(200).json({ message: 'User updated', user: updated });

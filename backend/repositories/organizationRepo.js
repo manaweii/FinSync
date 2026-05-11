@@ -1,4 +1,5 @@
 import Organization from "../models/Organization.js";
+import { sendDisabledNotificationEmail } from "../services/emailService.js";
 
 export async function CreateOrganization(req, res) {
   try {
@@ -34,6 +35,25 @@ export async function UpdateOrganization(req, res) {
     const updated = await Organization.findByIdAndUpdate(id, updates, { new: true, runValidators: true });
     if (!updated) {
       return res.status(404).json({ message: "Organization not found" });
+    }
+
+    // If org is being disabled, send notification to its contact email
+    try {
+      if (updates.status && String(updates.status).toLowerCase() === 'disabled') {
+        const to = updated.contactEmail || updated.BillingEmail || updated.email;
+        const orgName = updated.orgName || updated.name || null;
+        const disabledBy = (req.user && req.user.email) || 'admin';
+        const reason = updates.disableReason || updates.reason || 'Manual disable by administrator';
+        const effectiveDate = new Date().toISOString();
+        if (to) {
+          // best-effort notify; don't block the response if mail fails
+          sendDisabledNotificationEmail({ to, name: null, orgName, disabledBy, reason, effectiveDate }).catch((e) => {
+            console.error('Failed to send disabled notification for org:', e.message || e);
+          });
+        }
+      }
+    } catch (mailErr) {
+      console.warn('sendDisabledNotificationEmail threw:', mailErr && mailErr.message);
     }
 
     res.status(200).json({ message: "Organization updated", organization: updated });

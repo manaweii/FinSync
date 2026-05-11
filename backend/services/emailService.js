@@ -161,3 +161,108 @@ export async function sendSuperadminSignupAlertEmail({
     return { sent: false, reason: error.message };
   }
 }
+
+// Send notification to internal team about contact form submission
+export async function sendContactNotificationToTeam({ recipient, payload }) {
+  try {
+    const mailer = createTransporter();
+    const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+    const appName = process.env.APP_NAME || "FinSync";
+    await mailer.sendMail({
+      from,
+      to: recipient,
+      subject: `[${appName}] New contact form submission: ${payload.topic || 'General'}`,
+      text: `From: ${payload.name} <${payload.email}>\nCompany: ${payload.company || 'N/A'}\nTopic: ${payload.topic || 'General'}\n\n${payload.message}`,
+      html: `
+        <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; line-height: 1.6;">
+          <h3>New contact form submission</h3>
+          <p><strong>From:</strong> ${payload.name} &lt;${payload.email}&gt;</p>
+          <p><strong>Company:</strong> ${payload.company || 'N/A'}</p>
+          <p><strong>Topic:</strong> ${payload.topic || 'General'}</p>
+          <div style="white-space:pre-wrap; margin-top: 12px;">${String(payload.message).replace(/</g, '&lt;')}</div>
+        </div>
+      `,
+    });
+    return { sent: true };
+  } catch (err) {
+    console.error('sendContactNotificationToTeam failed', err.message);
+    return { sent: false, reason: err.message };
+  }
+}
+
+// Send confirmation email to the person who submitted the contact form
+export async function sendContactConfirmationEmail({ to, name }) {
+  try {
+    const mailer = createTransporter();
+    const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+    const appName = process.env.APP_NAME || 'FinSync';
+    await mailer.sendMail({
+      from,
+      to,
+      subject: `Thanks for contacting ${appName}`,
+      text: `Hello ${name || ''},\n\nThanks for contacting ${appName}. Our team will get back to you within 24 hours.\n\n— ${appName} Support`,
+      html: `
+        <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; line-height: 1.6;">
+          <h2 style="margin-bottom: 8px;">Thanks for contacting ${appName}</h2>
+          <p>Hi ${name || ''},</p>
+          <p>Thanks for reaching out. Our team has received your message and will reply within 24 hours.</p>
+          <p>Best,<br/>The ${appName} team</p>
+        </div>
+      `,
+    });
+    return { sent: true };
+  } catch (err) {
+    console.error('sendContactConfirmationEmail failed', err.message);
+    return { sent: false, reason: err.message };
+  }
+}
+
+// Send notification when a user or organization is disabled (manual or payment expiry)
+export async function sendDisabledNotificationEmail({ to, name, orgName, disabledBy, reason, effectiveDate }) {
+  try {
+    const mailer = createTransporter();
+    const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+    const appName = process.env.APP_NAME || 'FinSync';
+
+    const subject = orgName
+      ? `[${appName}] Organization access disabled: ${orgName}`
+      : `[${appName}] Account access disabled`;
+
+    const textLines = [];
+    if (orgName) textLines.push(`Organization: ${orgName}`);
+    if (name) textLines.push(`User: ${name}`);
+    if (disabledBy) textLines.push(`Disabled by: ${disabledBy}`);
+    if (effectiveDate) textLines.push(`Effective: ${effectiveDate}`);
+    if (reason) textLines.push(`Reason: ${reason}`);
+    textLines.push('\nIf you believe this is an error, please contact support.');
+
+    const html = `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; line-height: 1.6;">
+        <h2 style="margin-bottom: 8px;">${orgName ? 'Organization access disabled' : 'Account access disabled'}</h2>
+        <p>We wanted to let you know that ${orgName ? `the organization <strong>${orgName}</strong>` : `your account`} has been disabled.</p>
+        <table style="margin-top:12px;">
+          ${orgName ? `<tr><td style="padding:4px 8px 4px 0;"><strong>Organization</strong></td><td>${orgName}</td></tr>` : ''}
+          ${name ? `<tr><td style="padding:4px 8px 4px 0;"><strong>User</strong></td><td>${name}</td></tr>` : ''}
+          ${disabledBy ? `<tr><td style="padding:4px 8px 4px 0;"><strong>Actioned by</strong></td><td>${disabledBy}</td></tr>` : ''}
+          ${effectiveDate ? `<tr><td style="padding:4px 8px 4px 0;"><strong>Effective</strong></td><td>${effectiveDate}</td></tr>` : ''}
+          ${reason ? `<tr><td style="padding:4px 8px 4px 0;"><strong>Reason</strong></td><td>${reason}</td></tr>` : ''}
+        </table>
+        <p style="margin-top:12px;">If you believe this is an error or need assistance, please contact our support team.</p>
+        <p>Best,<br/>The ${appName} team</p>
+      </div>
+    `;
+
+    await mailer.sendMail({
+      from,
+      to,
+      subject,
+      text: textLines.join('\n'),
+      html,
+    });
+
+    return { sent: true };
+  } catch (err) {
+    console.error('sendDisabledNotificationEmail failed', err.message || err);
+    return { sent: false, reason: err.message || String(err) };
+  }
+}
