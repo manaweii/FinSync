@@ -1,142 +1,158 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
+import {
+  MagnifyingGlassIcon,
+  ArrowDownTrayIcon,
+  ArrowPathIcon,
+  FunnelIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from '@heroicons/react/24/outline';
 
-const SubscriptionLogs = () => {
-  // 1. Setup State
-  const [searchTerm, setSearchTerm] = useState("");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
-
-  // Sample data (In a real app, this would come from an API)
-  const logs = [
-    { timestamp: "2026-03-27 10:32", user: "john@gmail.com", role: "Admin", org: "Alpha Corp", plan: "Growth Plan", result: "Completed", amount: 990 },
-    { timestamp: "2026-03-27 10:28", user: "jane@acme.com", role: "Admin", org: "Acme Inc", plan: "Starter Plan", result: "Failed", amount: 0 },
-    { timestamp: "2026-03-27 10:15", user: "bob@tech.com", role: "Admin", org: "Beta Ltd", plan: "Growth Plan", result: "Failed", amount: 0 },
-    { timestamp: "2026-03-27 09:45", user: "alice@startup.io", role: "Admin", org: "Startup IO", plan: "Enterprise Plan", result: "Completed", amount: 1470 },
-    { timestamp: "2026-03-27 09:32", user: "dev@demo.com", role: "Admin", org: "Demo Inc", plan: "Basic Plan", result: "Pending", amount: 0 },
-    { timestamp: "2026-03-27 09:15", user: "billing@test.com", role: "Admin", org: "Test Corp", plan: "Growth Plan", result: "Failed", amount: 0 },
-  ];
-
-  // 2. Logic: Filter the logs based on the search input
-  const filteredLogs = logs.filter((log) => {
-    const matchesSearch = 
-      log.user.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      log.org.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  });
-
-  // 3. Logic: Calculate total successful payments
-  const totalAmount = filteredLogs.reduce((sum, log) => sum + log.amount, 0);
-
-  // Helper function for status colors
-  const getStatusStyle = (status) => {
-    if (status === "Completed") return "bg-emerald-100 text-emerald-700";
-    if (status === "Failed") return "bg-red-100 text-red-700";
-    return "bg-orange-100 text-orange-700"; // Pending
+const StatusBadge = ({ status }) => {
+  const colors = {
+    Active: 'bg-emerald-100 text-emerald-700',
+    Disabled: 'bg-rose-100 text-rose-700',
+    Pending: 'bg-amber-100 text-amber-700',
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] p-6 md:p-10 font-sans text-slate-700">
-      <div className="max-w-7xl mx-auto">
-        
-        {/* --- HEADER --- */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+    <span className={`px-2 py-1 rounded-full text-xs font-medium ${colors[status] || 'bg-gray-100 text-gray-700'}`}>
+      {status}
+    </span>
+  );
+};
+
+export default function SubscriptionLogs() {
+  const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+  const [logs, setLogs] = useState([]);
+  const [totalPayments, setTotalPayments] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchSubscriptions = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE}/subscription/logs`);
+      if (!response.ok) throw new Error('Failed to fetch subscription logs');
+      const data = await response.json();
+      setLogs(Array.isArray(data) ? data : data.logs || []);
+      setTotalPayments(data?.totalPayments || 0);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSubscriptions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-[#eafcf8] p-6 md:p-8">
+      <div className="mx-auto max-w-7xl rounded-3xl bg-white/80 p-6 shadow-[0_12px_30px_rgba(15,23,42,0.08)] ring-1 ring-black/5 backdrop-blur">
+        <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Subscription Logs</h1>
-            <p className="text-slate-500 text-sm">Monitor and manage all payment transactions</p>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Subscription Logs</h1>
+            <p className="mt-1 text-slate-500">Track all subscription payment activity across tenants</p>
           </div>
-          <div className="flex gap-3">
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-all">
-              <span>⬇</span> Export CSV
+
+          <div className="flex flex-wrap gap-3">
+            <button className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50">
+              <ArrowDownTrayIcon className="h-5 w-5" />
+              Export logs
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-[#00bfa5] text-white rounded-lg text-sm font-semibold hover:bg-[#00a892] transition-all">
-              <span>↻</span> Refresh logs
+
+            <button
+              onClick={fetchSubscriptions}
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-600"
+            >
+              <ArrowPathIcon className="h-5 w-5" />
+              Refresh logs
             </button>
           </div>
         </div>
 
-        {/* --- FILTERS --- */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Search Input */}
-            <div className="md:col-span-2 relative">
-              <span className="absolute left-3 top-2.5 text-slate-400">🔍</span>
-              <input
-                type="text"
-                placeholder="Search by email or organization..."
-                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00bfa5]/20 focus:border-[#00bfa5]"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            {/* Date Inputs */}
-            <div className="flex items-center gap-2">
-              <input type="date" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
-              <span className="text-slate-400">to</span>
-              <input type="date" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
-            </div>
-            {/* Filter Dropdown */}
-            <select className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none">
-              <option>All Statuses</option>
-              <option>Completed</option>
-              <option>Failed</option>
-            </select>
+        <div className="mb-6 grid grid-cols-1 gap-3 lg:grid-cols-[1fr_180px_24px_180px_120px]">
+          <div className="relative">
+            <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search logs..."
+              className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+            />
           </div>
+
+          <input
+            type="date"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+          />
+
+          <div className="flex items-center justify-center text-slate-300">—</div>
+
+          <input
+            type="date"
+            className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+          />
+
+          <button className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-500 transition hover:bg-slate-50">
+            <FunnelIcon className="h-5 w-5" />
+          </button>
         </div>
 
-        {/* --- TABLE --- */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        {loading ? (
+          <div className="py-20 text-center text-slate-500">Loading logs...</div>
+        ) : error ? (
+          <div className="py-20 text-center text-rose-600">{error}</div>
+        ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full border-collapse text-left">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Timestamp</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">User</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Organization</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Plan</th>
-                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">Result</th>
+                <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="px-4 py-4">Timestamp</th>
+                  <th className="px-4 py-4">User</th>
+                  <th className="px-4 py-4">Role</th>
+                  <th className="px-4 py-4">Organization</th>
+                  <th className="px-4 py-4">Subscription Plan</th>
+                  <th className="px-4 py-4">Result</th>
                 </tr>
               </thead>
+
               <tbody className="divide-y divide-slate-100">
-                {filteredLogs.map((log, index) => (
-                  <tr key={index} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-6 py-4 text-sm text-slate-600">{log.timestamp}</td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-slate-900">{log.user}</div>
-                      <div className="text-xs text-slate-400">{log.role}</div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">{log.org}</td>
-                    <td className="px-6 py-4 text-sm text-slate-600">{log.plan}</td>
-                    <td className="px-6 py-4 text-right">
-                      <span className={`px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide ${getStatusStyle(log.result)}`}>
-                        {log.result}
-                      </span>
+                {logs.map((log) => (
+                  <tr key={log._id || log.id} className="text-sm text-slate-700 transition hover:bg-slate-50/80">
+                    <td className="px-4 py-4 whitespace-nowrap">{log.timestamp}</td>
+                    <td className="px-4 py-4 whitespace-nowrap">{log.user}</td>
+                    <td className="px-4 py-4 whitespace-nowrap">{log.role}</td>
+                    <td className="px-4 py-4 whitespace-nowrap">{log.organization || log.org || "N/A"}</td>
+                    <td className="px-4 py-4 whitespace-nowrap">{log.plan}</td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <StatusBadge status={log.result || log.status} />
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        )}
 
-          {/* --- FOOTER --- */}
-          <div className="p-5 bg-slate-50/50 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="text-sm text-slate-500">
-              Showing <span className="font-semibold text-slate-700">{filteredLogs.length}</span> logs
-            </div>
-            
-            <div className="flex items-center gap-6">
-              <div className="flex gap-1">
-                <button className="px-3 py-1 border border-slate-200 rounded hover:bg-white">←</button>
-                <button className="px-3 py-1 border border-slate-200 rounded hover:bg-white">→</button>
-              </div>
-              <div className="text-sm font-bold text-[#00bfa5]">
-                TOTAL REVENUE: NPR {totalAmount.toLocaleString()}
-              </div>
-            </div>
+        <div className="mt-6 flex flex-col gap-4 border-t border-slate-200 pt-4 text-sm text-slate-500 lg:flex-row lg:items-center lg:justify-between">
+          <span>Showing {logs.length} logs</span>
+
+          <div className="flex items-center gap-2">
+            <button className="rounded-lg border border-slate-200 p-2 transition hover:bg-slate-50">
+              <ChevronLeftIcon className="h-5 w-5" />
+            </button>
+            <button className="rounded-lg border border-slate-200 p-2 transition hover:bg-slate-50">
+              <ChevronRightIcon className="h-5 w-5" />
+            </button>
           </div>
+
+          <span className="font-semibold text-emerald-700">Total payments processed: NPR {Number(totalPayments || 0).toLocaleString()}</span>
         </div>
       </div>
     </div>
   );
-};
-
-export default SubscriptionLogs;
+}

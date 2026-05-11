@@ -8,13 +8,115 @@ import Role from "../models/Role.js";
 import UserOrgRelation from "../models/UserOrgRelation.js";
 import UserRoleRelation from "../models/UserRoleRelation.js";
 import Notification from "../models/Notification.js";
-import { sendSuperadminSignupAlertEmail } from "../services/emailService.js";
+import {
+  sendSuperadminSignupAlertEmail,
+  sendDisabledNotificationEmail,
+} from "../services/emailService.js";
 
 const router = express.Router();
 const SALT_ROUNDS = 10;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function getDayStartUtc(dateLike) {
+  const date = new Date(dateLike);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
+
+function daysUntil(dateLike) {
+  const target = new Date(dateLike);
+  if (Number.isNaN(target.getTime())) return null;
+  const todayUtc = getDayStartUtc(new Date());
+  const targetUtc = getDayStartUtc(target);
+  return Math.ceil((targetUtc - todayUtc) / DAY_MS);
+}
+
+function toDateOnlyIso(dateLike) {
+  const date = new Date(dateLike);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 10);
+}
+
+async function createNotificationIfMissing({ dedupeKey, payload }) {
+  if (!dedupeKey) return null;
+  const existing = await Notification.findOne({ dedupeKey })
+    .select("_id")
+    .lean();
+  if (existing) return existing;
+  try {
+    return await Notification.create({
+      ...payload,
+      dedupeKey,
+    });
+  } catch (error) {
+    if (error?.code === 11000) {
+      return Notification.findOne({ dedupeKey }).select("_id").lean();
+    }
+    throw error;
+  }
+}
+
+async function createAdminDueReminderNotification({ subscription, orgName }) {
+  if (!subscription?.nextBilling) return;
+  if (String(subscription.status || "").toLowerCase() !== "active") return;
+
+  const daysRemaining = daysUntil(subscription.nextBilling);
+  if (daysRemaining === null || daysRemaining < 0 || daysRemaining > 7) return;
+
+  const dueDateIso = toDateOnlyIso(subscription.nextBilling);
+  if (!dueDateIso) return;
+
+  const planLabel = subscription.planName || "current";
+  const orgLabel = orgName || subscription.orgName || "your organization";
+  const scopeId = subscription.orgId?.toString() || "unknown-org";
+  const billingKey = `${scopeId}:${dueDateIso}`;
+
+  await createNotificationIfMissing({
+    dedupeKey: `admin:payment_due:${billingKey}`,
+    payload: {
+      type: "payment_update",
+      role: "Admin",
+      orgId: subscription.orgId || null,
+      title: "Plan Expiring Soon",
+      message: `Payment due for "${orgLabel}". Your ${planLabel} plan expires in ${daysRemaining} day${daysRemaining === 1 ? "" : "s"} (${dueDateIso}).`,
+    },
+  });
+}
+
+async function createSuperadminExpiryNotification({
+  subscription,
+  orgName,
+  reason,
+  disabledBy,
+  effectiveDate,
+}) {
+  const normalizedReason = String(
+    reason || "Subscription expired",
+  ).toLowerCase();
+  const dueToExpiry = normalizedReason.includes("expir");
+  if (!dueToExpiry) return;
+
+  const scopeId =
+    subscription?.orgId?.toString() ||
+    subscription?.transactionUuid ||
+    "unknown-org";
+  const effectiveDay =
+    toDateOnlyIso(effectiveDate || new Date()) || "unknown-day";
+
+  await createNotificationIfMissing({
+    dedupeKey: `superadmin:org_disabled:${scopeId}:${effectiveDay}`,
+    payload: {
+      type: "account_disabled",
+      role: "SuperAdmin",
+      orgId: subscription?.orgId || null,
+      title: "Organization Disabled Due To Expiry",
+      message: `Organization "${orgName || subscription?.orgName || "N/A"}" was disabled due to plan expiry. Reason: ${reason || "Subscription expired"}. Actioned by: ${disabledBy || "system"}.`,
+    },
+  });
+}
 
 async function createAdminOrganizationNotification({
   organizationName,
+  orgId,
   planName,
   amount,
   adminEmail,
@@ -25,6 +127,7 @@ async function createAdminOrganizationNotification({
   await Notification.create({
     type: "account_created",
     role: "Admin",
+    orgId: orgId || null,
     title: "Organization Created",
     message: `Your organization "${organizationName}" is created on ${planName || "Starter"} plan. Payment: ${amountLabel}. Admin: ${adminEmail || "N/A"}.`,
   });
@@ -63,13 +166,16 @@ router.post("/subscription/createSubscription", async (req, res) => {
 
 async function notifySuperadminsOfPaidActivation({
   organizationName,
+  orgId,
   adminEmail,
   planName,
   amount,
   transactionUuid,
   paidAt,
 }) {
-  const superAdminRole = await Role.findOne({ name: { $regex: /^superadmin$/i } });
+  const superAdminRole = await Role.findOne({
+    name: { $regex: /^superadmin$/i },
+  });
   if (!superAdminRole) {
     return;
   }
@@ -80,18 +186,23 @@ async function notifySuperadminsOfPaidActivation({
   }
 
   const superadminIds = relations.map((relation) => relation.userId);
-  const superadmins = await User.find({ _id: { $in: superadminIds } }, { email: 1, status: 1 });
+  const superadmins = await User.find(
+    { _id: { $in: superadminIds } },
+    { email: 1, status: 1 },
+  );
   const recipientEmails = [
-    ...new Set(
-      superadmins
+    ...new Set([
+      ...superadmins
         .filter((user) => String(user.status || "").toLowerCase() === "active")
         .map((user) => user.email)
         .filter(Boolean),
-    ),
+      adminEmail,
+    ]),
   ];
 
   await createAdminOrganizationNotification({
     organizationName,
+    orgId,
     planName,
     amount,
     adminEmail,
@@ -115,7 +226,7 @@ router.get("/subscription/verify", async (req, res) => {
   // eSewa sends a 'data' query parameter in the URL
   const { data } = req.query;
   console.log("Verification request received with data:", data);
-  
+
   if (!data) {
     return res
       .status(400)
@@ -183,12 +294,11 @@ router.get("/subscription/verify", async (req, res) => {
       let adminUser = await User.findOne({ email: subscription.billingEmail });
 
       if (!adminUser) {
-        const plainPassword =
-          subscription.password || Math.random().toString(36).slice(-10);
+        const plainPassword = "Password123"; 
         const passwordHash = await bcrypt.hash(plainPassword, SALT_ROUNDS);
 
         adminUser = await User.create({
-          fullName: subscription.fullName || "Admin",
+          fullName: organization.fullName || "Admin",
           orgName: subscription.orgName,
           email: subscription.billingEmail,
           passwordHash,
@@ -218,13 +328,13 @@ router.get("/subscription/verify", async (req, res) => {
 
       subscription.orgId = organization._id;
       subscription.userId = adminUser._id;
-      subscription.password = undefined;
       await subscription.save();
 
       if (!alreadyNotified) {
         try {
           await notifySuperadminsOfPaidActivation({
             organizationName: organization?.orgName,
+            orgId: organization?._id,
             adminEmail: adminUser.email,
             planName: subscription.planName,
             amount: subscription.amount,
@@ -300,7 +410,7 @@ router.post("/subscription/complete", async (req, res) => {
       nextBilling: subscription.nextBilling,
       createdAt: subscription.createdAt,
     });
-    
+
     res.json({
       success: true,
       message: "Subscription completed successfully!",
@@ -376,9 +486,24 @@ router.get("/subscription/logs", async (req, res) => {
 router.post("/subscription/initiate", async (req, res) => {
   try {
     console.log("Initiate subscription request body:", req.body);
-    const { orgName, fullName, billingEmail, phone, amount, planName, period, password } =
-      req.body;
-    if (!orgName || !fullName || !billingEmail || !phone || !amount || !password) {
+    const {
+      orgName,
+      fullName,
+      billingEmail,
+      phone,
+      amount,
+      planName,
+      period,
+      password,
+    } = req.body;
+    if (
+      !orgName ||
+      !fullName ||
+      !billingEmail ||
+      !phone ||
+      !amount ||
+      !password
+    ) {
       return res
         .status(400)
         .json({ success: false, error: "Missing required fields" });
@@ -421,16 +546,16 @@ router.post("/subscription/initiate", async (req, res) => {
     try {
       const date = new Date();
       switch (period) {
-        case '1 month':
+        case "1 month":
           date.setMonth(date.getMonth() + 1);
           break;
-        case '3 month':
+        case "3 month":
           date.setMonth(date.getMonth() + 3);
           break;
-        case '6 month':
+        case "6 month":
           date.setMonth(date.getMonth() + 6);
           break;
-        case 'year':
+        case "year":
           date.setFullYear(date.getFullYear() + 1);
           break;
         default:
@@ -438,12 +563,50 @@ router.post("/subscription/initiate", async (req, res) => {
       }
       const nextBilling = date.toISOString();
 
+      console.log("Creating New User:");
+
+      let adminUser = await User.findOne({ email: billingEmail });
+
+      if (!adminUser) {
+        const plainPassword = password; 
+        const passwordHash = await bcrypt.hash(plainPassword, SALT_ROUNDS);
+
+        adminUser = await User.create({
+          fullName: fullName || orgDoc.fullName || "Admin",
+          orgName: orgName || orgDoc.orgName,
+          email: billingEmail,
+          passwordHash,
+          status: "Active",
+        });
+      } else {
+        adminUser.status = "Active";
+        await adminUser.save();
+      }
+
+      let adminRole = await Role.findOne({ name: "Admin" });
+      if (!adminRole) {
+        adminRole = await Role.create({ name: "Admin" });
+      }
+
+      await UserOrgRelation.findOneAndUpdate(
+        { userId: adminUser._id },
+        { $set: { orgId: orgDoc._id } },
+        { upsert: true, new: true },
+      );
+
+      await UserRoleRelation.findOneAndUpdate(
+        { userId: adminUser._id },
+        { $set: { roleId: adminRole._id } },
+        { upsert: true, new: true },
+      );
+
       console.log("Next billing date calculated as:", nextBilling);
       const pending = {
         orgName,
         fullName,
         orgId: orgDoc._id,
         billingEmail,
+        userId: adminUser._id,
         phone,
         amount: Number(amount),
         planName: planName || "Starter",
@@ -453,6 +616,7 @@ router.post("/subscription/initiate", async (req, res) => {
         nextBilling,
         createdAt: new Date().toISOString(),
       };
+      console.log("Creating pending subscription with data:", pending);
       const createdSubscription = await Subscription.create(pending);
       pendingId = createdSubscription._id;
     } catch (dbErr) {
@@ -622,6 +786,7 @@ router.post("/esewa/callback", async (req, res) => {
       try {
         await notifySuperadminsOfPaidActivation({
           organizationName: org?.orgName,
+          orgId: org?._id,
           adminEmail: user.email,
           planName: pending.planName,
           amount: pending.amount,
@@ -813,6 +978,19 @@ router.get("/subscription/org/:orgId/latest", async (req, res) => {
         .json({ success: false, error: "Subscription not found" });
     }
 
+    try {
+      const org = await Organization.findById(orgId).lean();
+      await createAdminDueReminderNotification({
+        subscription,
+        orgName: org?.orgName || org?.name || subscription.orgName,
+      });
+    } catch (notifyError) {
+      console.warn(
+        "Failed to create admin due reminder notification:",
+        notifyError?.message,
+      );
+    }
+
     return res.json({
       success: true,
       subscription: {
@@ -833,6 +1011,135 @@ router.get("/subscription/org/:orgId/latest", async (req, res) => {
       success: false,
       error: "Server error during subscription lookup",
     });
+  }
+});
+
+// Endpoint to mark a subscription as expired/disabled (can be called by cron or admin)
+router.post("/subscription/expire", async (req, res) => {
+  try {
+    const { transactionUuid, orgId, reason, disabledBy } = req.body;
+
+    // Find subscription by transactionUuid or by orgId (latest)
+    let subscription = null;
+    if (transactionUuid) {
+      subscription = await Subscription.findOne({ transactionUuid });
+    } else if (orgId) {
+      subscription = await Subscription.findOne({ orgId }).sort({
+        createdAt: -1,
+      });
+    }
+
+    if (!subscription) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Subscription not found" });
+    }
+
+    const alreadyDisabled =
+      String(subscription.status || "").toLowerCase() === "disabled";
+    const effectiveDate = new Date().toISOString();
+
+    // Mark subscription disabled
+    subscription.status = "Disabled";
+    await subscription.save();
+
+    // Disable organization
+    let org = null;
+    if (subscription.orgId) {
+      org = await Organization.findById(subscription.orgId);
+    }
+    if (!org) {
+      org = await Organization.findOne({
+        $or: [
+          { name: subscription.orgName },
+          { orgName: subscription.orgName },
+          { Orgname: subscription.orgName },
+        ],
+      });
+    }
+
+    if (org) {
+      org.status = "Disabled";
+      await org.save();
+
+      const orgContact = org.contactEmail || org.BillingEmail || null;
+      const orgName = org.orgName || org.name || null;
+
+      if (orgContact) {
+        // best-effort notify; do not block
+        sendDisabledNotificationEmail({
+          to: orgContact,
+          name: null,
+          orgName,
+          disabledBy: disabledBy || "system",
+          reason: reason || "Subscription expired",
+          effectiveDate,
+        }).catch((e) =>
+          console.error("Failed to send org disabled email:", e && e.message),
+        );
+      }
+    }
+
+    // Disable billing/admin user, if present
+    try {
+      const billingEmail = subscription.billingEmail;
+      if (billingEmail) {
+        const user = await User.findOne({ email: billingEmail });
+        if (user) {
+          user.status = "Disabled";
+          await user.save();
+          sendDisabledNotificationEmail({
+            to: user.email,
+            name: user.fullName || null,
+            orgName: org ? org.orgName || org.name : subscription.orgName,
+            disabledBy: disabledBy || "system",
+            reason: reason || "Subscription expired",
+            effectiveDate,
+          }).catch((e) =>
+            console.error(
+              "Failed to send user disabled email:",
+              e && e.message,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      console.warn(
+        "Failed to disable billing user or send email:",
+        e && e.message,
+      );
+    }
+
+    if (!alreadyDisabled) {
+      try {
+        await createSuperadminExpiryNotification({
+          subscription,
+          orgName: org ? org.orgName || org.name : subscription.orgName,
+          reason: reason || "Subscription expired",
+          disabledBy: disabledBy || "system",
+          effectiveDate,
+        });
+      } catch (notifyError) {
+        console.warn(
+          "Failed to create superadmin expiry notification:",
+          notifyError?.message,
+        );
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: "Subscription/org/user disabled",
+      subscriptionId: subscription._id,
+    });
+  } catch (err) {
+    console.error("Expire subscription error:", err);
+    return res
+      .status(500)
+      .json({
+        success: false,
+        error: "Server error while expiring subscription",
+      });
   }
 });
 
