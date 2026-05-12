@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 import { NavLink, Outlet } from "react-router-dom";
+import Footer from "../components/homepage/Footer";
 import useAuthStore from "../store/useAuthStore";
 import { CalendarIcon } from "@heroicons/react/24/outline";
 import {
@@ -342,6 +343,7 @@ function ReportsPage() {
           </aside>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

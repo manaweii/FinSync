@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import Footer from "../components/homepage/Footer";
 import {
   ArrowDownTrayIcon,
   ArrowUpTrayIcon,
@@ -962,6 +963,7 @@ function FileImportPage() {
           </div>
         </div>
       )}
+      <Footer />
     </div>
   );
 }

@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import Footer from "../components/homepage/Footer";
 
 const IconWrapper = ({ children, className = "" }) => (
   <span
@@ -10,14 +11,22 @@ const IconWrapper = ({ children, className = "" }) => (
 );
 
 const MailIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="1.8">
+  <svg
+    viewBox="0 0 24 24"
+    className="h-4 w-4 fill-none stroke-current"
+    strokeWidth="1.8"
+  >
     <path d="M4 7.5h16v9A1.5 1.5 0 0 1 18.5 18h-13A1.5 1.5 0 0 1 4 16.5v-9Z" />
     <path d="m5 8 7 5 7-5" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
 const PhoneIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="1.8">
+  <svg
+    viewBox="0 0 24 24"
+    className="h-4 w-4 fill-none stroke-current"
+    strokeWidth="1.8"
+  >
     <path
       d="M7.5 4.5h2.1c.4 0 .74.28.83.67l.74 3.22a.9.9 0 0 1-.26.86l-1.42 1.42a13.03 13.03 0 0 0 3.83 3.83l1.42-1.42a.9.9 0 0 1 .86-.26l3.22.74c.39.09.67.43.67.83v2.1a1.5 1.5 0 0 1-1.5 1.5h-.75C10.7 18 6 13.3 6 7.5v-.75A1.5 1.5 0 0 1 7.5 4.5Z"
       strokeLinecap="round"
@@ -27,7 +36,11 @@ const PhoneIcon = () => (
 );
 
 const PinIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="1.8">
+  <svg
+    viewBox="0 0 24 24"
+    className="h-4 w-4 fill-none stroke-current"
+    strokeWidth="1.8"
+  >
     <path
       d="M12 20s5-4.8 5-9a5 5 0 1 0-10 0c0 4.2 5 9 5 9Z"
       strokeLinecap="round"
@@ -56,7 +69,11 @@ const FacebookIcon = () => (
 );
 
 const BookIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="1.8">
+  <svg
+    viewBox="0 0 24 24"
+    className="h-4 w-4 fill-none stroke-current"
+    strokeWidth="1.8"
+  >
     <path
       d="M6.5 5.5h9a2 2 0 0 1 2 2v10h-10a2 2 0 0 0-2 2V7.5a2 2 0 0 1 2-2Z"
       strokeLinecap="round"
@@ -67,6 +84,61 @@ const BookIcon = () => (
 );
 
 const ContactPage = () => {
+  const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    company: "",
+    topic: "",
+    message: "",
+    agree: false,
+  });
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(null);
+  const [error, setError] = useState(null);
+
+  const handleChange = (key, value) => setForm((s) => ({ ...s, [key]: value }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSuccess(null);
+    setError(null);
+    if (!form.name || !form.email || !form.message) {
+      setError("Please fill required fields (name, email, message).");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/contact/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          company: form.company,
+          topic: form.topic,
+          message: form.message,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to send message");
+      setSuccess("Message sent successfully. Our team will reply shortly.");
+      setForm({
+        name: "",
+        email: "",
+        company: "",
+        topic: "",
+        message: "",
+        agree: false,
+      });
+    } catch (err) {
+      console.error("Contact send error", err);
+      setError(err.message || "Failed to send message");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-50 to-emerald-50 flex flex-col">
       {/* Main content */}
@@ -78,8 +150,8 @@ const ContactPage = () => {
               Get in touch with the FinSync team
             </h1>
             <p className="mt-3 text-sm md:text-base text-slate-600 max-w-2xl mx-auto">
-              Whether you have product questions, need support, or want a custom plan,
-              we&apos;re here to help.
+              Whether you have product questions, need support, or want a custom
+              plan, we&apos;re here to help.
             </p>
           </section>
 
@@ -87,56 +159,49 @@ const ContactPage = () => {
           <section className="bg-white rounded-2xl shadow-xl shadow-slate-200/70 p-6 md:p-8 flex flex-col md:flex-row gap-8">
             {/* Left side: contact info */}
             <div className="md:w-1/3 space-y-6">
-              {/* Sales */}
+              {/* Support */}
               <div>
-                <h2 className="text-sm font-semibold text-slate-900">Sales</h2>
+                <h2 className="text-sm font-semibold text-slate-900">
+                  Support
+                </h2>
                 <div className="mt-2 space-y-1 text-sm text-slate-600">
                   <p className="flex items-center gap-2">
                     <IconWrapper className="bg-sky-50 text-sky-500">
                       <MailIcon />
                     </IconWrapper>
-                    sales@finsync.com
+                    finsync2026@gmail.com
                   </p>
                   <p className="flex items-center gap-2">
                     <IconWrapper className="bg-sky-50 text-sky-500">
                       <PhoneIcon />
                     </IconWrapper>
-                    +1 (555) 123-4567
+                    +977 980814567
                   </p>
                 </div>
-              </div>
-
-              {/* Support */}
-              <div>
-                <h2 className="text-sm font-semibold text-slate-900">Support</h2>
-                <p className="mt-2 flex items-center gap-2 text-sm text-slate-600">
-                  <IconWrapper className="bg-emerald-50 text-emerald-500">
-                    <MailIcon />
-                  </IconWrapper>
-                  support@finsync.com
-                </p>
               </div>
 
               {/* Office */}
               <div>
                 <h2 className="text-sm font-semibold text-slate-900">Office</h2>
                 <div className="mt-2 flex items-start gap-2 text-sm text-slate-600">
-                  <IconWrapper className="mt-0.5 bg-sky-50 text-sky-500">
+                  <IconWrapper className="mt-0.5 bg-teal-50 text-teal-500">
                     <PinIcon />
                   </IconWrapper>
                   <p>
-                    123 Financial District
+                    123 Marg
                     <br />
-                    San Francisco, CA 94111
+                    Lalitpur, NP 44700
                     <br />
-                    United States
+                    Nepal
                   </p>
                 </div>
               </div>
 
               {/* Social links */}
               <div>
-                <h2 className="text-sm font-semibold text-slate-900">Follow Us</h2>
+                <h2 className="text-sm font-semibold text-slate-900">
+                  Follow Us
+                </h2>
                 <div className="mt-3 flex gap-3">
                   <button
                     className="h-9 w-9 rounded-full bg-sky-50 text-sky-600 flex items-center justify-center"
@@ -161,14 +226,15 @@ const ContactPage = () => {
 
               {/* Response time */}
               <p className="pt-2 text-xs text-slate-500">
-                Response time: <span className="font-medium">within 24 hours</span>
+                Response time:{" "}
+                <span className="font-medium">within 24 hours</span>
               </p>
             </div>
 
             {/* Right side: form */}
             <form
               className="md:w-2/3 grid grid-cols-1 md:grid-cols-2 gap-4"
-              onSubmit={(e) => e.preventDefault()}
+              onSubmit={handleSubmit}
             >
               {/* Full name */}
               <div className="flex flex-col">
@@ -178,7 +244,10 @@ const ContactPage = () => {
                 <input
                   type="text"
                   placeholder="John Doe"
+                  value={form.name}
+                  onChange={(e) => handleChange("name", e.target.value)}
                   className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
+                  required
                 />
               </div>
 
@@ -190,7 +259,10 @@ const ContactPage = () => {
                 <input
                   type="email"
                   placeholder="john@company.com"
+                  value={form.email}
+                  onChange={(e) => handleChange("email", e.target.value)}
                   className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
+                  required
                 />
               </div>
 
@@ -202,6 +274,8 @@ const ContactPage = () => {
                 <input
                   type="text"
                   placeholder="Your Company Inc."
+                  value={form.company}
+                  onChange={(e) => handleChange("company", e.target.value)}
                   className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
                 />
               </div>
@@ -214,6 +288,8 @@ const ContactPage = () => {
                 <input
                   type="text"
                   placeholder="How can we help?"
+                  value={form.topic}
+                  onChange={(e) => handleChange("topic", e.target.value)}
                   className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
                 />
               </div>
@@ -226,7 +302,10 @@ const ContactPage = () => {
                 <textarea
                   rows="4"
                   placeholder="Tell us how we can help..."
+                  value={form.message}
+                  onChange={(e) => handleChange("message", e.target.value)}
                   className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100 resize-none"
+                  required
                 />
               </div>
 
@@ -235,47 +314,54 @@ const ContactPage = () => {
                 <label className="flex items-center gap-2 text-xs text-slate-600">
                   <input
                     type="checkbox"
+                    checked={form.agree}
+                    onChange={(e) => handleChange("agree", e.target.checked)}
                     className="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400"
                   />
                   <span>
                     I agree to the{" "}
-                    <button className="text-sky-600 underline underline-offset-2">
+                    <button
+                      type="button"
+                      className="text-sky-600 underline underline-offset-2"
+                    >
                       Terms
                     </button>{" "}
                     and{" "}
-                    <button className="text-sky-600 underline underline-offset-2">
+                    <button
+                      type="button"
+                      className="text-sky-600 underline underline-offset-2"
+                    >
                       Privacy Policy
                     </button>
                   </span>
                 </label>
 
-                <button
-                  type="submit"
-                  className="w-full md:w-auto rounded-lg bg-gradient-to-r from-sky-500 to-emerald-500 px-6 py-2.5 text-sm font-semibold text-white shadow-md shadow-sky-300 hover:brightness-105"
-                >
-                  Send message
-                </button>
+                <div className="flex items-center gap-4">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full md:w-auto rounded-lg bg-gradient-to-r from-sky-500 to-emerald-500 px-6 py-2.5 text-sm font-semibold text-white shadow-md shadow-sky-300 hover:brightness-105"
+                  >
+                    {loading ? "Sending..." : "Send message"}
+                  </button>
+                </div>
               </div>
-            </form>
-          </section>
 
-          {/* Bottom help section */}
-          <section className="mt-12 text-center">
-            <h2 className="text-lg font-semibold text-slate-900">
-              Need immediate help?
-            </h2>
-            <p className="mt-2 text-sm text-slate-600">
-              Check out our comprehensive resources for quick answers and guides.
-            </p>
-            <button className="mt-5 inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white px-5 py-2 text-sm font-semibold text-sky-600 shadow-sm hover:bg-sky-50">
-              <IconWrapper className="h-8 w-8 bg-sky-50 text-sky-600">
-                <BookIcon />
-              </IconWrapper>
-              View documentation
-            </button>
+              {success && (
+                <div className="md:col-span-2 text-green-600 text-sm">
+                  {success}
+                </div>
+              )}
+              {error && (
+                <div className="md:col-span-2 text-red-600 text-sm">
+                  {error}
+                </div>
+              )}
+            </form>
           </section>
         </div>
       </main>
+      <Footer />
     </div>
   );
 };

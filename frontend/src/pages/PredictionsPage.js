@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import Footer from "../components/homepage/Footer";
 import {
   BellAlertIcon,
   CalendarDaysIcon,
@@ -18,7 +19,15 @@ import {
 import { Line } from "react-chartjs-2";
 import useAuthStore from "../store/useAuthStore";
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+);
 
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
@@ -34,7 +43,10 @@ const formatCurrency = (value) =>
   }).format(value || 0)}`;
 
 const buildChartData = (historical, forecast) => {
-  const labels = [...historical.map((item) => item.label), ...forecast.map((item) => item.label)];
+  const labels = [
+    ...historical.map((item) => item.label),
+    ...forecast.map((item) => item.label),
+  ];
   const historicalProfit = historical.map((item) => item.profit);
   const predictedProfit = [
     ...Array(Math.max(historical.length - 1, 0)).fill(null),
@@ -81,7 +93,8 @@ const chartOptions = {
     },
     tooltip: {
       callbacks: {
-        label: (context) => `${context.dataset.label}: ${formatCurrency(context.parsed.y)}`,
+        label: (context) =>
+          `${context.dataset.label}: ${formatCurrency(context.parsed.y)}`,
       },
     },
   },
@@ -218,7 +231,10 @@ export default function PredictionsPage() {
   const milestoneProjections = predictionData?.milestoneProjections || [];
   const savedMilestones = predictionData?.milestones || [];
   const anomalies = predictionData?.insights?.anomalies || [];
-  const chartData = useMemo(() => buildChartData(historical, forecast), [historical, forecast]);
+  const chartData = useMemo(
+    () => buildChartData(historical, forecast),
+    [historical, forecast],
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-10">
@@ -232,7 +248,9 @@ export default function PredictionsPage() {
           </div>
 
           <label className="w-full max-w-xs">
-            <span className="mb-2 block text-sm text-slate-500">Forecast Horizon</span>
+            <span className="mb-2 block text-sm text-slate-500">
+              Forecast Horizon
+            </span>
             <select
               value={months}
               onChange={(event) => setMonths(Number(event.target.value))}
@@ -267,8 +285,13 @@ export default function PredictionsPage() {
                 <div className="space-y-3">
                   {milestoneProjections.length ? (
                     milestoneProjections.map((milestone) => (
-                      <div key={milestone.id} className="rounded-2xl bg-slate-50 px-4 py-3">
-                        <p className="font-medium text-slate-800">{milestone.title}</p>
+                      <div
+                        key={milestone.id}
+                        className="rounded-2xl bg-slate-50 px-4 py-3"
+                      >
+                        <p className="font-medium text-slate-800">
+                          {milestone.title}
+                        </p>
                         <p className="mt-1 text-slate-500">
                           {milestone.reached
                             ? `Predicted to reach ${formatCurrency(milestone.targetValue)} ${milestone.metric} by ${milestone.predictedLabel}.`
@@ -278,7 +301,8 @@ export default function PredictionsPage() {
                     ))
                   ) : (
                     <p className="text-slate-500">
-                      Add a milestone to see the predicted month when your target may be reached.
+                      Add a milestone to see the predicted month when your
+                      target may be reached.
                     </p>
                   )}
                 </div>
@@ -288,14 +312,20 @@ export default function PredictionsPage() {
                 <div className="space-y-3">
                   {anomalies.length ? (
                     anomalies.map((anomaly, index) => (
-                      <div key={`${anomaly.month}-${index}`} className="rounded-2xl bg-slate-50 px-4 py-3">
-                        <p className="font-medium text-slate-800">{anomaly.label}</p>
+                      <div
+                        key={`${anomaly.month}-${index}`}
+                        className="rounded-2xl bg-slate-50 px-4 py-3"
+                      >
+                        <p className="font-medium text-slate-800">
+                          {anomaly.label}
+                        </p>
                         <p className="mt-1 text-slate-500">{anomaly.message}</p>
                       </div>
                     ))
                   ) : (
                     <p className="text-slate-500">
-                      No unusual spending spikes detected from the current historical timeline.
+                      No unusual spending spikes detected from the current
+                      historical timeline.
                     </p>
                   )}
                 </div>
@@ -306,14 +336,21 @@ export default function PredictionsPage() {
                   <div className="rounded-2xl bg-slate-100 p-2 text-slate-600">
                     <FlagIcon className="h-5 w-5" />
                   </div>
-                  <h3 className="text-base font-semibold text-slate-900">Add Milestone</h3>
+                  <h3 className="text-base font-semibold text-slate-900">
+                    Add Milestone
+                  </h3>
                 </div>
 
-                <form className="mt-4 space-y-4" onSubmit={handleMilestoneSubmit}>
+                <form
+                  className="mt-4 space-y-4"
+                  onSubmit={handleMilestoneSubmit}
+                >
                   <input
                     type="text"
                     value={milestoneForm.title}
-                    onChange={(event) => handleMilestoneChange("title", event.target.value)}
+                    onChange={(event) =>
+                      handleMilestoneChange("title", event.target.value)
+                    }
                     placeholder="Milestone title"
                     className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-700 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
                     required
@@ -322,7 +359,9 @@ export default function PredictionsPage() {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <select
                       value={milestoneForm.metric}
-                      onChange={(event) => handleMilestoneChange("metric", event.target.value)}
+                      onChange={(event) =>
+                        handleMilestoneChange("metric", event.target.value)
+                      }
                       className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-700 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
                     >
                       <option value="profit">Profit</option>
@@ -334,7 +373,9 @@ export default function PredictionsPage() {
                       min="0"
                       step="0.01"
                       value={milestoneForm.targetValue}
-                      onChange={(event) => handleMilestoneChange("targetValue", event.target.value)}
+                      onChange={(event) =>
+                        handleMilestoneChange("targetValue", event.target.value)
+                      }
                       placeholder="Target amount"
                       className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-slate-700 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
                       required
@@ -349,7 +390,9 @@ export default function PredictionsPage() {
                     {savingMilestone ? "Saving..." : "Save Milestone"}
                   </button>
 
-                  {saveMessage ? <p className="text-sm text-slate-500">{saveMessage}</p> : null}
+                  {saveMessage ? (
+                    <p className="text-sm text-slate-500">{saveMessage}</p>
+                  ) : null}
                 </form>
               </div>
 
@@ -358,7 +401,9 @@ export default function PredictionsPage() {
                   <div className="rounded-2xl bg-slate-100 p-2 text-slate-600">
                     <CalendarDaysIcon className="h-5 w-5" />
                   </div>
-                  <h3 className="text-base font-semibold text-slate-900">Saved Milestones</h3>
+                  <h3 className="text-base font-semibold text-slate-900">
+                    Saved Milestones
+                  </h3>
                 </div>
 
                 <div className="mt-4 space-y-3">
@@ -368,9 +413,12 @@ export default function PredictionsPage() {
                         key={milestone._id || milestone.id}
                         className="rounded-2xl bg-slate-50 px-4 py-3"
                       >
-                        <p className="font-medium text-slate-800">{milestone.title}</p>
+                        <p className="font-medium text-slate-800">
+                          {milestone.title}
+                        </p>
                         <p className="mt-1 text-slate-500">
-                          Target {formatCurrency(milestone.targetValue)} {milestone.metric}
+                          Target {formatCurrency(milestone.targetValue)}{" "}
+                          {milestone.metric}
                         </p>
                       </div>
                     ))
@@ -383,6 +431,7 @@ export default function PredictionsPage() {
           </div>
         )}
       </div>
+      <Footer />
     </div>
   );
 }
