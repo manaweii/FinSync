@@ -7,6 +7,7 @@ import ContactPage from "./pages/ContactPage";
 import PricingPage from "./pages/PricingPage";
 import SubscriptionDetail from "./components/payment/SubscriptionDetail";
 import SubscriptionSuccess from "./components/payment/SubscriptionSuccess";
+import SubscriptionFailure from "./components/payment/SubscriptionFailure";
 import SubscriptionLogs from "./components/payment/SubscriptionLogs";
 
 import LoginPage from "./components/auth/Login";
@@ -49,6 +50,7 @@ function App() {
             {/* Subscription routes */}
           <Route path="/subscription-detail" element={<SubscriptionDetail />} />
           <Route path="/subscription-success" element={<SubscriptionSuccess />} />
+          <Route path="/subscription-failure" element={<SubscriptionFailure />} />
           <Route path="/subscription-logs" element={
             <RequireAuth>
               <SubscriptionLogs />
