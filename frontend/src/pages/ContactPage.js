@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Footer from "../components/homepage/Footer";
 
 const IconWrapper = ({ children, className = "" }) => (
@@ -68,21 +69,6 @@ const FacebookIcon = () => (
   </svg>
 );
 
-const BookIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    className="h-4 w-4 fill-none stroke-current"
-    strokeWidth="1.8"
-  >
-    <path
-      d="M6.5 5.5h9a2 2 0 0 1 2 2v10h-10a2 2 0 0 0-2 2V7.5a2 2 0 0 1 2-2Z"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <path d="M7.5 8.5h8" strokeLinecap="round" />
-  </svg>
-);
-
 const ContactPage = () => {
   const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
   const [form, setForm] = useState({
@@ -98,6 +84,8 @@ const ContactPage = () => {
   const [error, setError] = useState(null);
 
   const handleChange = (key, value) => setForm((s) => ({ ...s, [key]: value }));
+
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -318,18 +306,20 @@ const ContactPage = () => {
                     onChange={(e) => handleChange("agree", e.target.checked)}
                     className="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400"
                   />
-                  <span>
+                  <span className="text-sm text-slate-600">
                     I agree to the{" "}
                     <button
                       type="button"
-                      className="text-sky-600 underline underline-offset-2"
+                      onClick={() => navigate("/terms-conditions")}
+                      className="text-sky-600 underline underline-offset-2 hover:text-sky-700 transition-colors"
                     >
                       Terms
                     </button>{" "}
                     and{" "}
                     <button
                       type="button"
-                      className="text-sky-600 underline underline-offset-2"
+                      onClick={() => navigate("/terms-conditions")}
+                      className="text-sky-600 underline underline-offset-2 hover:text-sky-700 transition-colors"
                     >
                       Privacy Policy
                     </button>

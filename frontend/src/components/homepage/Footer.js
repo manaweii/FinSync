@@ -77,9 +77,8 @@ const Footer = () => {
           <div className="space-y-6">
             <h3 className="text-white font-semibold text-base">Product</h3>
             <ul className="space-y-4 text-[15px]">
-              <li><a href="/features" className="hover:text-white transition-colors">Features</a></li>
+              <li><a href="/#featureSection" className="hover:text-white transition-colors">Features</a></li>
               <li><a href="/pricing" className="hover:text-white transition-colors">Pricing</a></li>
-              <li><a href="/security" className="hover:text-white transition-colors">Security</a></li>
             </ul>
           </div>
 
@@ -87,7 +86,7 @@ const Footer = () => {
           <div className="space-y-6">
             <h3 className="text-white font-semibold text-base">Company</h3>
             <ul className="space-y-4 text-[15px]">
-              <li><a href="/about" className="hover:text-white transition-colors">About</a></li>
+              <li><a href="/" className="hover:text-white transition-colors">About</a></li>
               <li><a href="/contact" className="hover:text-white transition-colors">Contact</a></li>
             </ul>
           </div>
@@ -96,8 +95,7 @@ const Footer = () => {
           <div className="space-y-6">
             <h3 className="text-white font-semibold text-base">Resources</h3>
             <ul className="space-y-4 text-[15px]">
-              <li><a href="/docs" className="hover:text-white transition-colors">Documentation</a></li>
-              <li><a href="/help" className="hover:text-white transition-colors">Help Center</a></li>
+              <li><a href="/terms-conditions" className="hover:text-white transition-colors">Terms</a></li>
             </ul>
           </div>
         </div>
