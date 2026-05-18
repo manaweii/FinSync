@@ -114,6 +114,7 @@ export async function sendSuperadminSignupAlertEmail({
   amount,
   transactionUuid,
   paidAt,
+  subscriptionType,
 }) {
   if (!Array.isArray(recipients) || recipients.length === 0) {
     return { sent: false, reason: "No recipients found" };
@@ -125,13 +126,25 @@ export async function sendSuperadminSignupAlertEmail({
     const formattedAmount =
       amount !== undefined && amount !== null ? `NPR ${amount}` : "N/A";
     const paymentTimestamp = paidAt || new Date().toISOString();
+    const isRenewal = String(subscriptionType || "signup").toLowerCase() === "upgrade";
+    const subject = isRenewal
+      ? `[${appName}] Subscription renewed: ${organizationName || "Organization"}`
+      : `[${appName}] New paid organization activated`;
+    const headline = isRenewal
+      ? "Subscription renewed"
+      : "New paid organization activated";
+    const intro = isRenewal
+      ? `A subscription renewal was completed in ${appName}.`
+      : `A payment was completed and an admin account was provisioned in ${appName}.`;
 
     await mailer.sendMail({
       from,
       to: recipients.join(", "),
-      subject: `[${appName}] New paid organization activated`,
+      subject,
       text: [
-        `A payment has been completed and an admin account has been created in ${appName}.`,
+        isRenewal
+          ? `A subscription renewal has been completed in ${appName}.`
+          : `A payment has been completed and an admin account has been created in ${appName}.`,
         `Organization: ${organizationName || "N/A"}`,
         `Admin email: ${adminEmail || "N/A"}`,
         `Plan: ${planName || "N/A"}`,
@@ -141,8 +154,8 @@ export async function sendSuperadminSignupAlertEmail({
       ].join("\n"),
       html: `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; line-height: 1.6;">
-        <h2 style="margin-bottom: 16px;">New paid organization activated</h2>
-        <p>A payment was completed and an admin account was provisioned in <strong>${appName}</strong>.</p>
+        <h2 style="margin-bottom: 16px;">${headline}</h2>
+        <p>${intro} <strong>${appName}</strong>.</p>
         <table style="border-collapse: collapse; margin-top: 16px;">
           <tr><td style="padding: 6px 12px 6px 0;"><strong>Organization</strong></td><td>${organizationName || "N/A"}</td></tr>
           <tr><td style="padding: 6px 12px 6px 0;"><strong>Admin email</strong></td><td>${adminEmail || "N/A"}</td></tr>

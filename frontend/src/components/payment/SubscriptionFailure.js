@@ -1,9 +1,11 @@
 import React, { useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import useAuthStore from "../../store/useAuthStore";
 
 const SubscriptionFailure = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isLoggedIn } = useAuthStore();
 
   const urlParams = useMemo(
     () => new URLSearchParams(location.search),
@@ -18,6 +20,7 @@ const SubscriptionFailure = () => {
   const transactionId = urlParams.get("transactionId") || "Unavailable";
   const planName = urlParams.get("plan") || "Subscription";
   const amount = urlParams.get("amount") || "Unavailable";
+  const retryPath = isLoggedIn ? "/renew-subscription" : "/subscription-detail";
 
   return (
     <div className="min-h-screen bg-[#f0f9ff] flex flex-col items-center justify-center p-4">
@@ -163,7 +166,7 @@ const SubscriptionFailure = () => {
             </button>
 
             <button
-              onClick={() => navigate("/subscription-detail")}
+              onClick={() => navigate(retryPath)}
               className="w-full bg-white border border-slate-200 text-slate-700 font-bold py-4 rounded-xl hover:bg-slate-50 transition-colors"
             >
               Retry payment

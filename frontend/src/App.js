@@ -1,11 +1,13 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navbar from "./components/nav/Navbar";
 import Profile from "./components/nav/Profile";
+import Terms from "./components/auth/TermsConditions";
 
 import HomePage from "./pages/LandingPage";
 import ContactPage from "./pages/ContactPage";
 import PricingPage from "./pages/PricingPage";
 import SubscriptionDetail from "./components/payment/SubscriptionDetail";
+import RenewSubscription from "./components/payment/RenewSubscription";
 import SubscriptionSuccess from "./components/payment/SubscriptionSuccess";
 import SubscriptionFailure from "./components/payment/SubscriptionFailure";
 import SubscriptionLogs from "./components/payment/SubscriptionLogs";
@@ -47,8 +49,18 @@ function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/NewPassword" element={<NewPassword />} />
 
-            {/* Subscription routes */}
+          <Route path="/terms-conditions" element={<Terms />} />
+
+          {/* Subscription routes */}
           <Route path="/subscription-detail" element={<SubscriptionDetail />} />
+          <Route
+            path="/renew-subscription"
+            element={
+              <RequireAuth>
+                <RenewSubscription />
+              </RequireAuth>
+            }
+          />
           <Route path="/subscription-success" element={<SubscriptionSuccess />} />
           <Route path="/subscription-failure" element={<SubscriptionFailure />} />
           <Route path="/subscription-logs" element={

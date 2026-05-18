@@ -120,16 +120,20 @@ async function createAdminOrganizationNotification({
   planName,
   amount,
   adminEmail,
+  subscriptionType,
 }) {
+  const isRenewal = String(subscriptionType || "signup").toLowerCase() === "upgrade";
   const amountLabel =
     amount !== undefined && amount !== null ? `NPR ${amount}` : "NPR 0";
 
   await Notification.create({
-    type: "account_created",
+    type: isRenewal ? "payment_update" : "account_created",
     role: "Admin",
     orgId: orgId || null,
-    title: "Organization Created",
-    message: `Your organization "${organizationName}" is created on ${planName || "Starter"} plan. Payment: ${amountLabel}. Admin: ${adminEmail || "N/A"}.`,
+    title: isRenewal ? "Subscription Renewed" : "Organization Created",
+    message: isRenewal
+      ? `Subscription renewed for "${organizationName}". Plan: ${planName || "Starter"}. Amount: ${amountLabel}. Admin: ${adminEmail || "N/A"}.`
+      : `Your organization "${organizationName}" is created on ${planName || "Starter"} plan. Payment: ${amountLabel}. Admin: ${adminEmail || "N/A"}.`,
   });
 }
 
@@ -172,6 +176,7 @@ async function notifySuperadminsOfPaidActivation({
   amount,
   transactionUuid,
   paidAt,
+  subscriptionType,
 }) {
   const superAdminRole = await Role.findOne({
     name: { $regex: /^superadmin$/i },
@@ -199,13 +204,14 @@ async function notifySuperadminsOfPaidActivation({
       adminEmail,
     ]),
   ];
-
+  console.log("Notifying superadmins of paid activation. Recipients:", subscriptionType);
   await createAdminOrganizationNotification({
     organizationName,
     orgId,
     planName,
     amount,
     adminEmail,
+    subscriptionType,
   });
 
   if (recipientEmails.length) {
@@ -217,6 +223,7 @@ async function notifySuperadminsOfPaidActivation({
       amount,
       transactionUuid,
       paidAt,
+      subscriptionType,
     });
   }
 }
@@ -225,7 +232,6 @@ async function notifySuperadminsOfPaidActivation({
 router.get("/subscription/verify", async (req, res) => {
   // eSewa sends a 'data' query parameter in the URL
   const { data } = req.query;
-  console.log("Verification request received with data:", data);
 
   if (!data) {
     return res
@@ -332,15 +338,16 @@ router.get("/subscription/verify", async (req, res) => {
 
       if (!alreadyNotified) {
         try {
-          await notifySuperadminsOfPaidActivation({
-            organizationName: organization?.orgName,
-            orgId: organization?._id,
-            adminEmail: adminUser.email,
-            planName: subscription.planName,
-            amount: subscription.amount,
-            transactionUuid,
-            paidAt,
-          });
+        await notifySuperadminsOfPaidActivation({
+          organizationName: organization?.orgName,
+          orgId: organization?._id,
+          adminEmail: adminUser.email,
+          planName: subscription.planName,
+          amount: subscription.amount,
+          transactionUuid,
+          paidAt,
+          subscriptionType: subscription.type,
+        });
         } catch (mailError) {
           console.error(
             "Failed to notify superadmins about paid activation:",
@@ -650,6 +657,107 @@ router.post("/subscription/initiate", async (req, res) => {
   }
 });
 
+// Initiate renewal for an existing organization (logged-in flow)
+router.post("/subscription/renew/initiate", async (req, res) => {
+  try {
+    const { orgId, orgName, fullName, billingEmail, phone, amount, planName, period } =
+      req.body;
+
+    if (!orgId || !orgName || !fullName || !billingEmail || !phone || !amount) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Missing required fields" });
+    }
+
+    let orgDoc = await Organization.findById(orgId);
+
+    if (!orgDoc) {
+      orgDoc = await Organization.findOne({
+        $or: [{ orgName: orgName }, { name: orgName }, { Orgname: orgName }],
+      });
+    }
+
+    if (!orgDoc) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Organization not found" });
+    }
+
+    orgDoc.orgName = orgDoc.orgName || orgName;
+    orgDoc.fullName = fullName || orgDoc.fullName || "Admin";
+    orgDoc.contactEmail = billingEmail;
+    orgDoc.BillingEmail = billingEmail;
+    orgDoc.phone = phone || orgDoc.phone || "0000000000";
+    orgDoc.Orgphone = phone || orgDoc.Orgphone || "0000000000";
+    orgDoc.plan = planName || orgDoc.plan || "Starter";
+    await orgDoc.save();
+
+    const transactionUuid = `Finsync_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+
+    const date = new Date();
+    switch (period) {
+      case "1 month":
+        date.setMonth(date.getMonth() + 1);
+        break;
+      case "3 month":
+        date.setMonth(date.getMonth() + 3);
+        break;
+      case "6 month":
+        date.setMonth(date.getMonth() + 6);
+        break;
+      case "year":
+        date.setFullYear(date.getFullYear() + 1);
+        break;
+      default:
+        date.setMonth(date.getMonth() + 1);
+    }
+
+    const nextBilling = date.toISOString();
+
+    const adminUser = await User.findOne({ email: billingEmail });
+
+    const pending = {
+      orgName: orgName || orgDoc.orgName,
+      orgId: orgDoc._id,
+      billingEmail,
+      userId: adminUser?._id || null,
+      phone,
+      amount: Number(amount),
+      planName: planName || orgDoc.plan || "Starter",
+      transactionUuid,
+      status: "Pending",
+      type: "upgrade",
+      nextBilling,
+      createdAt: new Date().toISOString(),
+    };
+
+    const createdSubscription = await Subscription.create(pending);
+
+    const secret = process.env.ESEWA_SECRET_KEY || "8gBm/:&EnhH.1/q";
+    const product_code = process.env.ESEWA_PRODUCT_CODE || "EPAYTEST";
+    const total_amount = String(amount);
+    const payloadToSign = `total_amount=${total_amount},transaction_uuid=${transactionUuid},product_code=${product_code}`;
+    const signature = crypto
+      .createHmac("sha256", secret)
+      .update(payloadToSign)
+      .digest("base64");
+
+    return res.json({
+      success: true,
+      transactionUuid,
+      signature,
+      subscriptionid: createdSubscription._id,
+      orgId: orgDoc._id,
+      productCode: product_code,
+    });
+  } catch (err) {
+    console.error("Initiate renew subscription error:", err);
+    return res
+      .status(500)
+      .json({ success: false, error: "Server error initiating renewal" });
+  }
+});
+
 // eSewa callback/verification endpoint
 // Expects JSON body with: transactionUuid, amount, esewaRefId (optional), product_code (optional), signature (optional)
 router.post("/esewa/callback", async (req, res) => {
@@ -792,6 +900,7 @@ router.post("/esewa/callback", async (req, res) => {
           amount: pending.amount,
           transactionUuid,
           paidAt,
+          subscriptionType: pending.type,
         });
       } catch (mailError) {
         console.error(
@@ -996,6 +1105,7 @@ router.get("/subscription/org/:orgId/latest", async (req, res) => {
       subscription: {
         orgName: subscription.orgName,
         billingEmail: subscription.billingEmail,
+        phone: subscription.phone || null,
         amount: subscription.amount,
         planName: subscription.planName,
         transactionUuid: subscription.transactionUuid,

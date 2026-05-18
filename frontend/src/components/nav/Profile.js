@@ -217,7 +217,7 @@ export default function ProfileSettings() {
             </div>
 
             <Link
-              to="/subscription-detail"
+              to="/renew-subscription"
               className="inline-flex items-center justify-center rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
             >
               Renew Subscription
