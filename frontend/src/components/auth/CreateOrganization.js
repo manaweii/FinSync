@@ -86,8 +86,8 @@ export default function CreateOrganization() {
         return;
       }
     } catch (err) {
-      console.error("Network error:", err);
-      alert(err.message || "Network error");
+      console.error("Registration error:", err);
+      alert(err.message || "Registration error");
       return;
     }
 
@@ -114,8 +114,8 @@ export default function CreateOrganization() {
         return;
       }
     } catch (err) {
-      console.error("Network error:", err);
-      alert(err.message || "Network error");
+      console.error("Action Failed:", err);
+      alert(err.message || "Action Failed");
       return;
     }
 

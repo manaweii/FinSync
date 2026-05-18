@@ -171,10 +171,14 @@ export const login = async (req, res) => {
     // Additional payment check for Admin users: ensure payment is active
     if (roleDetail && roleDetail.name === 'Admin') {
       try {
-        const last = await Subscription.findOne({ billingEmail: user.email })
+        const lastFinalized = await Subscription.findOne({
+          billingEmail: user.email,
+          status: { $ne: "Pending" },
+        })
           .sort({ createdAt: -1 })
           .lean();
-        if (!last || last.status !== "Active") {
+
+        if (!lastFinalized || lastFinalized.status !== "Active") {
           return res.status(403).json({ message: 'Payment required to activate account' });
         }
       } catch (e) {

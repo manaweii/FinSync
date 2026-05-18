@@ -231,7 +231,7 @@ const ContactPage = () => {
                 </label>
                 <input
                   type="text"
-                  placeholder="John Doe"
+                  placeholder="Full Name"
                   value={form.name}
                   onChange={(e) => handleChange("name", e.target.value)}
                   className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
@@ -246,7 +246,7 @@ const ContactPage = () => {
                 </label>
                 <input
                   type="email"
-                  placeholder="john@company.com"
+                  placeholder="email@company.com"
                   value={form.email}
                   onChange={(e) => handleChange("email", e.target.value)}
                   className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"

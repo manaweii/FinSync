@@ -8,11 +8,25 @@ import { saveDashboardSettings, getDashboardSettings } from "../controllers/dash
 import { getOrgPredictions, savePredictionMilestone } from "../controllers/predictionController.js";
 import { askChatbot } from "../controllers/chatbotController.js";
 import Notification from "../models/Notification.js";
+import contactRoutes from './ContactRoutes.js';
 
 const router = express.Router();
 
 function escapeRegex(value = "") {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function mapNotification(doc) {
+  return {
+    id: doc._id.toString(),
+    type: doc.type,
+    role: doc.role,
+    orgId: doc.orgId ? doc.orgId.toString() : null,
+    title: doc.title,
+    message: doc.message,
+    time: new Date(doc.createdAt).toLocaleString(),
+    createdAt: doc.createdAt,
+  };
 }
 
 // Login
@@ -56,22 +70,35 @@ router.get("/notifications", async (req, res) => {
   try {
     const requestedRole = (req.query.role || "").toString().trim();
     const normalizedRole = requestedRole.toLowerCase();
+    const afterRaw = (req.query.after || "").toString().trim();
+    const orgId = (req.query.orgId || "").toString().trim();
 
-    const query =
-      normalizedRole && normalizedRole !== "superadmin"
-        ? { role: { $regex: `^${escapeRegex(requestedRole)}$`, $options: "i" } }
-        : {};
+    const requestedLimit = Number.parseInt(req.query.limit, 10);
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(requestedLimit, 1), 500)
+      : 200;
 
-    const docs = await Notification.find(query).sort({ createdAt: -1 }).limit(200).lean();
-    const notifications = docs.map((doc) => ({
-      id: doc._id.toString(),
-      type: doc.type,
-      role: doc.role,
-      title: doc.title,
-      message: doc.message,
-      time: new Date(doc.createdAt).toLocaleString(),
-      createdAt: doc.createdAt,
-    }));
+    const query = {};
+    if (normalizedRole && normalizedRole !== "superadmin") {
+      query.role = { $regex: `^${escapeRegex(requestedRole)}$`, $options: "i" };
+    }
+    if (orgId) {
+      if (!mongoose.Types.ObjectId.isValid(orgId)) {
+        return res.status(400).json({ message: "Invalid orgId" });
+      }
+      query.orgId = orgId;
+    }
+
+    if (afterRaw) {
+      const afterDate = new Date(afterRaw);
+      if (Number.isNaN(afterDate.getTime())) {
+        return res.status(400).json({ message: "Invalid 'after' timestamp" });
+      }
+      query.createdAt = { $gt: afterDate };
+    }
+
+    const docs = await Notification.find(query).sort({ createdAt: -1 }).limit(limit).lean();
+    const notifications = docs.map(mapNotification);
 
     return res.json(notifications);
   } catch (error) {
@@ -82,15 +109,19 @@ router.get("/notifications", async (req, res) => {
 
 router.post("/notifications", async (req, res) => {
   try {
-    const { type, role, title, message } = req.body || {};
+    const { type, role, orgId, title, message } = req.body || {};
 
     if (!title || !message) {
       return res.status(400).json({ message: "title and message are required" });
+    }
+    if (orgId && !mongoose.Types.ObjectId.isValid(orgId)) {
+      return res.status(400).json({ message: "Invalid orgId" });
     }
 
     const created = await Notification.create({
       type: type || "account_created",
       role: role || "Admin",
+      orgId: orgId || null,
       title,
       message,
     });
@@ -99,6 +130,7 @@ router.post("/notifications", async (req, res) => {
       id: created._id.toString(),
       type: created.type,
       role: created.role,
+      orgId: created.orgId ? created.orgId.toString() : null,
       title: created.title,
       message: created.message,
       time: new Date(created.createdAt).toLocaleString(),
@@ -143,5 +175,8 @@ router.post("/notifications/clear", async (req, res) => {
     return res.status(500).json({ message: "Failed to clear notifications" });
   }
 });
+
+// Contact routes (contact form)
+router.use(contactRoutes);
 
 export default router;

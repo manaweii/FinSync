@@ -5,6 +5,7 @@ import cors from 'cors';
 import { connectAuthDB } from './config/db.js';
 import authRoutes from './routes/ValidateRoutes.js'; 
 import subscriptionRoutes from './routes/SubscriptionRoutes.js';
+import contactRoutes from './routes/ContactRoutes.js';
 
 // Load env
 dotenv.config();
@@ -26,6 +27,9 @@ connectAuthDB();
 
 // Routes
 app.use('/api', authRoutes);
+
+// Contact
+app.use('/api', contactRoutes);
 
 // Subscription
 app.use('/api', subscriptionRoutes);
