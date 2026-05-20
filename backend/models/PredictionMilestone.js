@@ -9,10 +9,11 @@ const predictionMilestoneSchema = new Schema(
     title: { type: String, required: true, trim: true },
     metric: {
       type: String,
-      enum: ["revenue", "profit"],
+      enum: ["revenue", "profit", "expenses"],
       default: "profit",
     },
     targetValue: { type: Number, required: true, min: 0 },
+    deadline: { type: Date, default: null },
   },
   { timestamps: true },
 );

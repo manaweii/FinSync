@@ -332,16 +332,22 @@ const detectAnomalies = (rows) => {
 
 const projectMilestones = (milestones, forecast) => {
   return milestones.map((milestone) => {
-    const match = forecast.find((item) => (item[milestone.metric] || 0) >= milestone.targetValue);
+    const metric = milestone.metric === "expense" ? "expenses" : milestone.metric;
+    const match = forecast.find((item) => {
+      const value = item[metric] || 0;
+      return metric === "expenses"
+        ? value <= milestone.targetValue
+        : value >= milestone.targetValue;
+    });
 
     return {
       id: milestone._id,
       title: milestone.title,
-      metric: milestone.metric,
+      metric,
       targetValue: milestone.targetValue,
       predictedMonth: match?.month || null,
       predictedLabel: match?.label || null,
-      predictedValue: match ? match[milestone.metric] : null,
+      predictedValue: match ? match[metric] : null,
       reached: Boolean(match),
     };
   });
@@ -448,18 +454,34 @@ export const getOrgPredictions = async (req, res) => {
 
 export const savePredictionMilestone = async (req, res) => {
   try {
-    const { orgId, userId, title, metric, targetValue } = req.body;
+    const { orgId, userId, title, metric, targetValue, deadline } = req.body;
+    const normalizedMetric = metric === "expense" ? "expenses" : metric || "profit";
 
     if (!orgId || !title || targetValue === undefined || targetValue === null || targetValue === "") {
       return res.status(400).json({ message: "orgId, title, and targetValue are required" });
+    }
+
+    if (!["revenue", "profit", "expenses"].includes(normalizedMetric)) {
+      return res.status(400).json({ message: "metric must be one of revenue, profit, expenses" });
+    }
+
+    const parsedTarget = Number(targetValue);
+    if (!Number.isFinite(parsedTarget) || parsedTarget <= 0) {
+      return res.status(400).json({ message: "targetValue must be a positive number" });
+    }
+
+    const parsedDeadline = deadline ? new Date(deadline) : null;
+    if (parsedDeadline && Number.isNaN(parsedDeadline.getTime())) {
+      return res.status(400).json({ message: "deadline must be a valid date" });
     }
 
     const milestone = await PredictionMilestone.create({
       orgId,
       userId: userId || null,
       title,
-      metric: metric || "profit",
-      targetValue: Number(targetValue),
+      metric: normalizedMetric,
+      targetValue: parsedTarget,
+      deadline: parsedDeadline,
     });
 
     res.status(201).json(milestone);
