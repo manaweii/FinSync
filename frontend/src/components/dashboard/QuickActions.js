@@ -5,19 +5,19 @@ export default function QuickActions() {
   const navigate = useNavigate();
 
   return (
-    <div className="bg-white rounded-[32px] p-6 border border-slate-100 shadow-sm">
-      <h2 className="text-lg font-bold text-slate-900 mb-1">Quick Actions</h2>
-      <p className="text-xs text-slate-400 mb-6">Common tasks and shortcuts</p>
+    <div className="bg-white rounded-[28px] p-5 border border-slate-100 shadow-sm">
+      <h2 className="text-base font-semibold text-slate-900 mb-1">Quick Actions</h2>
+      <p className="text-[11px] text-slate-400 mb-4">Common tasks and shortcuts</p>
 
       <div className="space-y-3">
         {/* Action Item 1 */}
         <button
           onClick={() => navigate("/records")}
-          className="w-full flex items-center p-3 bg-teal-50 rounded-2xl hover:bg-teal-100 transition-all group"
+          className="w-full flex items-center p-2.5 bg-teal-50 rounded-xl hover:bg-teal-100 transition-all group"
         >
-          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center mr-4 shadow-sm">
+          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center mr-3 shadow-sm">
             <svg
-              className="w-5 h-5 text-teal-600"
+              className="w-4 h-4 text-teal-600"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -31,8 +31,8 @@ export default function QuickActions() {
             </svg>
           </div>
           <div className="text-left">
-            <p className="text-sm font-bold text-slate-900">Add Transaction</p>
-            <p className="text-[10px] text-slate-500">
+            <p className="text-sm font-semibold leading-tight text-slate-900">Add Transaction</p>
+            <p className="text-[10px] leading-tight text-slate-500">
               Record new income or expense
             </p>
           </div>
@@ -41,11 +41,11 @@ export default function QuickActions() {
         {/* Action Item 2 */}
         <button
           onClick={() => navigate("/reports")}
-          className="w-full flex items-center p-3 bg-blue-50 rounded-2xl hover:bg-blue-100 transition-all"
+          className="w-full flex items-center p-2.5 bg-blue-50 rounded-xl hover:bg-blue-100 transition-all"
         >
-          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center mr-4 shadow-sm">
+          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center mr-3 shadow-sm">
             <svg
-              className="w-5 h-5 text-blue-600"
+              className="w-4 h-4 text-blue-600"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -59,8 +59,8 @@ export default function QuickActions() {
             </svg>
           </div>
           <div className="text-left">
-            <p className="text-sm font-bold text-slate-900">Generate Report</p>
-            <p className="text-[10px] text-slate-500">
+            <p className="text-sm font-semibold leading-tight text-slate-900">Generate Report</p>
+            <p className="text-[10px] leading-tight text-slate-500">
               Create monthly financial sheets
             </p>
           </div>

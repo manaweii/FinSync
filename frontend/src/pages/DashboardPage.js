@@ -40,7 +40,7 @@ import {
   findDateBounds,
   formatCurrencyCompact,
 } from "../utils/financialData";
-import { buildRecordDataset, getImportId, loadManualRows } from "../utils/recordsData";
+import { buildRecordDataset, loadManualRows } from "../utils/recordsData";
 
 ChartJS.register(
   CategoryScale,
@@ -73,7 +73,6 @@ const DashboardPage = () => {
   const [imports, setImports] = useState([]);
   const [manualRows, setManualRows] = useState([]);
   const [orgSubscription, setOrgSubscription] = useState(null);
-  const [selectedImportId, setSelectedImportId] = useState("all");
   const [selectedMonth, setSelectedMonth] = useState("all");
   const [loadingList, setLoadingList] = useState(true);
   const [error, setError] = useState("");
@@ -145,13 +144,12 @@ const DashboardPage = () => {
       buildRecordDataset({
         imports,
         manualRows,
-        selectedSource: selectedImportId,
+        selectedSource: "all",
       }),
-    [imports, manualRows, selectedImportId],
+    [imports, manualRows],
   );
 
   const transactionRows = useMemo(() => importDetail.rows || [], [importDetail]);
-  const hasSelectableSources = imports.length > 0 || manualRows.length > 0;
 
   const availableMonths = useMemo(() => {
     if (!transactionRows.length) return [];
@@ -278,6 +276,65 @@ const DashboardPage = () => {
     }
   }, [availableMonths, selectedMonth]);
 
+  const chartWidgetKeys = ["kpis", "trend", "expensePie", "categoryBar"];
+  const sidebarWidgetKeys = ["alertsSection", "quickActions", "supportCard"];
+
+  const orderedChartWidgets = visibleLayout.filter((key) =>
+    chartWidgetKeys.includes(key),
+  );
+  const orderedSidebarWidgets = visibleLayout.filter((key) =>
+    sidebarWidgetKeys.includes(key),
+  );
+
+  const renderWidget = (key) => {
+    if (key === "kpis") {
+      return showKPIs ? (
+        <KpiCards
+          metrics={metrics}
+          formatCurrency={formatCurrencyCompact}
+          profitMargin={profitMargin}
+        />
+      ) : null;
+    }
+    if (key === "trend") {
+      return showTrend ? (
+        <TrendWidget
+          trendData={trendData}
+          mounted={mounted}
+          loadingDetail={false}
+          periodLabel={periodLabel}
+        />
+      ) : null;
+    }
+    if (key === "expensePie") {
+      return showExpensePie ? (
+        <ExpensePie
+          expenseBreakdown={expenseBreakdown}
+          mounted={mounted}
+          loadingDetail={false}
+        />
+      ) : null;
+    }
+    if (key === "categoryBar") {
+      return showCategoryBar ? (
+        <CategoryBar
+          categoryData={categoryData}
+          mounted={mounted}
+          loadingDetail={false}
+        />
+      ) : null;
+    }
+    if (key === "dataPreview") {
+      return showDataPreview ? (
+        <DataPreview importDetail={importDetail} loadingDetail={false} />
+      ) : null;
+    }
+    if (key === "alertsSection") return <AlertsSection />;
+    if (key === "quickActions") return <QuickActions />;
+    if (key === "supportCard") return <SupportCard />;
+    return null;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -289,21 +346,6 @@ const DashboardPage = () => {
             <p className="text-slate-500">Your financial overview at a glance</p>
           </div>
           <div className="flex items-center justify-end gap-3">
-            {hasSelectableSources && (
-              <select
-                value={selectedImportId}
-                onChange={(e) => setSelectedImportId(e.target.value)}
-                className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-400 max-w-[220px] truncate"
-              >
-                <option value="all">All Records</option>
-                {imports.map((imp) => (
-                  <option key={getImportId(imp)} value={getImportId(imp)}>
-                    {imp.fileName}
-                  </option>
-                ))}
-              </select>
-            )}
-
             {availableMonths.length > 0 && (
               <select
                 value={selectedMonth}
@@ -370,94 +412,30 @@ const DashboardPage = () => {
               }}
             >
               <SortableContext items={visibleLayout} strategy={rectSortingStrategy}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-6">
-                  {visibleLayout.map((key) => {
-                    if (key === "kpis") {
-                      return (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
+                    {orderedChartWidgets.map((key) => (
+                      <SortableWidget key={key} id={key}>
+                        {renderWidget(key)}
+                      </SortableWidget>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                    <div className="lg:col-span-2">
+                      <SortableWidget id="dataPreview">
+                        {renderWidget("dataPreview")}
+                      </SortableWidget>
+                    </div>
+
+                    <aside className="lg:col-span-1 flex flex-col gap-6">
+                      {orderedSidebarWidgets.map((key) => (
                         <SortableWidget key={key} id={key}>
-                          {showKPIs && (
-                            <KpiCards
-                              metrics={metrics}
-                              formatCurrency={formatCurrencyCompact}
-                              profitMargin={profitMargin}
-                            />
-                          )}
+                          {renderWidget(key)}
                         </SortableWidget>
-                      );
-                    }
-                    if (key === "trend") {
-                      return (
-                        <SortableWidget key={key} id={key}>
-                          {showTrend && (
-                            <TrendWidget
-                              trendData={trendData}
-                              mounted={mounted}
-                              loadingDetail={false}
-                              selectedImportId={selectedImportId}
-                              periodLabel={periodLabel}
-                            />
-                          )}
-                        </SortableWidget>
-                      );
-                    }
-                    if (key === "expensePie") {
-                      return (
-                        <SortableWidget key={key} id={key}>
-                          {showExpensePie && (
-                            <ExpensePie
-                              expenseBreakdown={expenseBreakdown}
-                              mounted={mounted}
-                              loadingDetail={false}
-                            />
-                          )}
-                        </SortableWidget>
-                      );
-                    }
-                    if (key === "categoryBar") {
-                      return (
-                        <SortableWidget key={key} id={key}>
-                          {showCategoryBar && (
-                            <CategoryBar
-                              categoryData={categoryData}
-                              mounted={mounted}
-                              loadingDetail={false}
-                            />
-                          )}
-                        </SortableWidget>
-                      );
-                    }
-                    if (key === "dataPreview") {
-                      return (
-                        <SortableWidget key={key} id={key}>
-                          {showDataPreview && (
-                            <DataPreview importDetail={importDetail} loadingDetail={false} />
-                          )}
-                        </SortableWidget>
-                      );
-                    }
-                    if (key === "quickActions") {
-                      return (
-                        <SortableWidget key={key} id={key}>
-                          <QuickActions />
-                        </SortableWidget>
-                      );
-                    }
-                    if (key === "supportCard") {
-                      return (
-                        <SortableWidget key={key} id={key}>
-                          <SupportCard />
-                        </SortableWidget>
-                      );
-                    }
-                    if (key === "alertsSection") {
-                      return (
-                        <SortableWidget key={key} id={key}>
-                          <AlertsSection />
-                        </SortableWidget>
-                      );
-                    }
-                    return null;
-                  })}
+                      ))}
+                    </aside>
+                  </div>
                 </div>
               </SortableContext>
             </DndContext>

@@ -4,9 +4,9 @@ import Plot from 'react-plotly.js';
 import { downloadChart } from '../../utils/chartUtils';
 import { formatChartCurrency } from '../../utils/financialData';
 
-const TrendWidget = memo(function TrendWidget({ trendData = [], mounted, loadingDetail, selectedImportId, periodLabel }) {
+const TrendWidget = memo(function TrendWidget({ trendData = [], mounted, loadingDetail, periodLabel }) {
   const [chartType, setChartType] = useState('line');
-  const chartId = `trend-chart-${selectedImportId || 'local'}`;
+  const chartId = "trend-chart";
 
   const ohlc = useMemo(() => {
     return trendData.map((d) => {
