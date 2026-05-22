@@ -45,61 +45,63 @@ export async function sendPasswordResetOtpEmail({ email, otp, fullName }) {
     text: `Hello ${fullName || "there"}, your ${appName} password reset OTP is ${otp}. It expires in 10 minutes.`,
     html: `
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta http-equiv="X-UA-Compatible" content="IE=edge">
+      <style>
+        @media only screen and (max-width: 620px) {
+          .container { width: 100% !important; }
+          .pad { padding-left: 20px !important; padding-right: 20px !important; }
+          .otp { font-size: 30px !important; letter-spacing: 8px !important; }
+        }
+      </style>
     </head>
-    <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-      <div style="background-color: #f8fafc; padding: 40px 20px;">
-        <div style="max-width: 500px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
-          
-          <div style="padding: 40px 32px 20px 32px; text-align: center;">
-            <img 
-              src="./FinSync.png" 
-              alt="${appName} Logo" 
-              style="height: 42px; width: auto; margin-bottom: 24px; display: inline-block;"
-            >
-            <h2 style="color: #0f172a; font-size: 24px; font-weight: 700; margin: 0; letter-spacing: -0.02em;">
-              Password Reset
-            </h2>
-          </div>
-
-          <div style="padding: 0 40px 40px 40px; color: #475569; font-size: 16px; line-height: 1.6;">
-            <p style="margin-top: 0;">Hello ${fullName || "there"},</p>
-            <p>We received a request to access your <strong>${appName}</strong> account. Please use the verification code below to reset your password:</p>
-            
-            <div style="margin: 32px 0; padding: 24px; background-color: #f1f5f9; border-radius: 12px; text-align: center;">
-              <span style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #64748b; margin-bottom: 8px; font-weight: 600;">
-                Verification Code
-              </span>
-              <div style="font-size: 38px; font-weight: 800; letter-spacing: 10px; color: #059669; font-family: 'Courier New', Courier, monospace;">
-                ${otp}
-              </div>
-            </div>
-
-            <p style="font-size: 14px; margin-bottom: 0;">
-              This code will expire in <span style="color: #e11d48; font-weight: 600;">10 minutes</span>. 
-              If you did not request this, you can safely ignore this email and your password will remain unchanged.
-            </p>
-          </div>
-
-          <div style="padding: 24px 40px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center;">
-            <p style="margin: 0; font-size: 12px; color: #94a3b8;">
-              &copy; ${new Date().getFullYear()} ${appName}. All rights reserved.
-            </p>
-            <div style="margin-top: 8px; font-size: 12px; color: #94a3b8;">
-              <a href="/support" style="color: #6366f1; text-decoration: none;">Contact</a> 
-              &nbsp; • &nbsp; 
-              <a href="/help" style="color: #6366f1; text-decoration: none;">Privacy Policy</a>
-            </div>
-          </div>
-        </div>
-        
-        <div style="text-align: center; margin-top: 24px; font-size: 11px; color: #cbd5e1;">
-          Sent to you because of a password reset request on your account.
-        </div>
-      </div>
+    <body style="margin:0; padding:0; background-color:#eef2ff; font-family:Arial, Helvetica, sans-serif;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eef2ff;">
+        <tr>
+          <td align="center" style="padding:28px 12px;">
+            <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#ffffff; border-radius:14px; border:1px solid #dbe2ff; overflow:hidden;">
+              <tr>
+                <td style="background-color:#1e293b; padding:22px 28px;">
+                  <p style="margin:0; color:#ffffff; font-size:18px; font-weight:700;">Security Verification</p>
+                </td>
+              </tr>
+              <tr>
+                <td class="pad" style="padding:28px;">
+                  <p style="margin:0 0 14px 0; color:#0f172a; font-size:16px; line-height:24px;">Hello ${fullName || "there"},</p>
+                  <p style="margin:0 0 18px 0; color:#334155; font-size:15px; line-height:24px;">
+                    We received a request to reset your <strong>${appName}</strong> password. Use the one-time code below to continue:
+                  </p>
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px 0;">
+                    <tr>
+                      <td align="center" style="background-color:#e0e7ff; border:1px dashed #4f46e5; border-radius:12px; padding:18px;">
+                        <span class="otp" style="display:inline-block; color:#312e81; font-size:36px; line-height:40px; letter-spacing:10px; font-weight:700;">
+                          ${otp}
+                        </span>
+                      </td>
+                    </tr>
+                  </table>
+                  <p style="margin:0 0 12px 0; color:#475569; font-size:14px; line-height:22px;">
+                    This code expires in <strong style="color:#0f172a;">10 minutes</strong>.
+                  </p>
+                  <p style="margin:0; color:#64748b; font-size:13px; line-height:21px;">
+                    If you did not request this, you can safely ignore this email.
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td style="background-color:#f8fafc; padding:16px 28px; border-top:1px solid #e2e8f0;">
+                  <p style="margin:0; color:#94a3b8; font-size:12px; line-height:18px;">
+                    For your security, never share this code with anyone.
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
     </body>
     </html>
   `,
@@ -153,18 +155,77 @@ export async function sendSuperadminSignupAlertEmail({
         `Paid at: ${paymentTimestamp}`,
       ].join("\n"),
       html: `
-      <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; line-height: 1.6;">
-        <h2 style="margin-bottom: 16px;">${headline}</h2>
-        <p>${intro} <strong>${appName}</strong>.</p>
-        <table style="border-collapse: collapse; margin-top: 16px;">
-          <tr><td style="padding: 6px 12px 6px 0;"><strong>Organization</strong></td><td>${organizationName || "N/A"}</td></tr>
-          <tr><td style="padding: 6px 12px 6px 0;"><strong>Admin email</strong></td><td>${adminEmail || "N/A"}</td></tr>
-          <tr><td style="padding: 6px 12px 6px 0;"><strong>Plan</strong></td><td>${planName || "N/A"}</td></tr>
-          <tr><td style="padding: 6px 12px 6px 0;"><strong>Amount</strong></td><td>${formattedAmount}</td></tr>
-          <tr><td style="padding: 6px 12px 6px 0;"><strong>Transaction ID</strong></td><td>${transactionUuid || "N/A"}</td></tr>
-          <tr><td style="padding: 6px 12px 6px 0;"><strong>Paid at</strong></td><td>${paymentTimestamp}</td></tr>
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <style>
+          @media only screen and (max-width: 620px) {
+            .container { width: 100% !important; }
+            .pad { padding-left: 20px !important; padding-right: 20px !important; }
+          }
+        </style>
+      </head>
+      <body style="margin:0; padding:0; background-color:#f1f5f9; font-family:Arial, Helvetica, sans-serif;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f1f5f9;">
+          <tr>
+            <td align="center" style="padding:28px 12px;">
+              <table role="presentation" class="container" width="620" cellpadding="0" cellspacing="0" border="0" style="width:620px; max-width:620px; background-color:#ffffff; border:1px solid #dbe4f2; border-radius:14px; overflow:hidden;">
+                <tr>
+                  <td style="background-color:#1e293b; padding:24px 28px;">
+                    <p style="margin:0; color:#ffffff; font-size:20px; font-weight:700;">${headline}</p>
+                    <p style="margin:6px 0 0 0; color:#cbd5e1; font-size:13px;">Subscription activity on ${appName}</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="pad" style="padding:24px 28px 16px 28px;">
+                    <p style="margin:0 0 10px 0; color:#0f172a; font-size:16px; line-height:24px;">Hello,</p>
+                    <p style="margin:0; color:#475569; font-size:14px; line-height:22px;">${intro}</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="pad" style="padding:0 28px 22px 28px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e2e8f0; border-radius:10px; overflow:hidden;">
+                      <tr>
+                        <td style="padding:14px 16px; background-color:#f8fafc; color:#334155; font-size:13px; border-bottom:1px solid #e2e8f0;">Organization</td>
+                        <td style="padding:14px 16px; background-color:#f8fafc; color:#0f172a; font-size:13px; font-weight:700; text-align:right; border-bottom:1px solid #e2e8f0;">${organizationName || "N/A"}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:14px 16px; color:#334155; font-size:13px; border-bottom:1px solid #e2e8f0;">Admin email</td>
+                        <td style="padding:14px 16px; color:#0f172a; font-size:13px; font-weight:700; text-align:right; border-bottom:1px solid #e2e8f0;">${adminEmail || "N/A"}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:14px 16px; color:#334155; font-size:13px; border-bottom:1px solid #e2e8f0;">Plan</td>
+                        <td style="padding:14px 16px; color:#0f172a; font-size:13px; font-weight:700; text-align:right; border-bottom:1px solid #e2e8f0;">${planName || "N/A"}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:14px 16px; color:#334155; font-size:13px; border-bottom:1px solid #e2e8f0;">Amount</td>
+                        <td style="padding:14px 16px; color:#0f172a; font-size:13px; font-weight:700; text-align:right; border-bottom:1px solid #e2e8f0;">${formattedAmount}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:14px 16px; color:#334155; font-size:13px; border-bottom:1px solid #e2e8f0;">Transaction ID</td>
+                        <td style="padding:14px 16px; color:#1e40af; font-size:13px; font-weight:700; text-align:right; border-bottom:1px solid #e2e8f0;">${transactionUuid || "N/A"}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:14px 16px; color:#334155; font-size:13px;">Paid at</td>
+                        <td style="padding:14px 16px; color:#0f172a; font-size:13px; font-weight:700; text-align:right;">${paymentTimestamp}</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background-color:#f8fafc; border-top:1px solid #e2e8f0; padding:15px 28px;">
+                    <p style="margin:0; color:#94a3b8; font-size:12px; line-height:18px;">This is an automated subscription notification.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
         </table>
-      </div>
+      </body>
+      </html>
     `,
     });
 
@@ -215,12 +276,60 @@ export async function sendContactConfirmationEmail({ to, name }) {
       subject: `Thanks for contacting ${appName}`,
       text: `Hello ${name || ''},\n\nThanks for contacting ${appName}. Our team will get back to you within 24 hours.\n\n— ${appName} Support`,
       html: `
-        <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; line-height: 1.6;">
-          <h2 style="margin-bottom: 8px;">Thanks for contacting ${appName}</h2>
-          <p>Hi ${name || ''},</p>
-          <p>Thanks for reaching out. Our team has received your message and will reply within 24 hours.</p>
-          <p>Best,<br/>The ${appName} team</p>
-        </div>
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <meta http-equiv="X-UA-Compatible" content="IE=edge">
+          <style>
+            @media only screen and (max-width: 620px) {
+              .container { width: 100% !important; }
+              .pad { padding-left: 20px !important; padding-right: 20px !important; }
+            }
+          </style>
+        </head>
+        <body style="margin:0; padding:0; background-color:#f8fafc; font-family:Arial, Helvetica, sans-serif;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f8fafc;">
+            <tr>
+              <td align="center" style="padding:28px 12px;">
+                <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#ffffff; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden;">
+                  <tr>
+                    <td style="background-color:#1e293b; padding:22px 28px;">
+                      <p style="margin:0; color:#ffffff; font-size:18px; font-weight:700;">We Received Your Message</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="pad" style="padding:26px 28px;">
+                      <p style="margin:0 0 12px 0; color:#0f172a; font-size:16px; line-height:24px;">Hi ${name || ''},</p>
+                      <p style="margin:0 0 18px 0; color:#475569; font-size:14px; line-height:22px;">
+                        Thanks for reaching out. Your message is in our queue and our team will get back to you within 24 hours.
+                      </p>
+                      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #dbeafe; border-left:4px solid #3b82f6; background-color:#f8fbff; border-radius:8px;">
+                        <tr>
+                          <td style="padding:14px;">
+                            <p style="margin:0; color:#1e293b; font-size:14px; line-height:22px;">
+                              Your request has been safely received by <strong>${appName}</strong>. We appreciate your patience.
+                            </p>
+                          </td>
+                        </tr>
+                      </table>
+                      <p style="margin:18px 0 0 0; color:#64748b; font-size:13px; line-height:21px;">
+                        You can reply to this email if you need to add more details.
+                      </p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="background-color:#f8fafc; border-top:1px solid #e2e8f0; padding:15px 28px;">
+                      <p style="margin:0; color:#94a3b8; font-size:12px; line-height:18px;">This is an automated acknowledgment email.</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
       `,
     });
     return { sent: true };
@@ -250,19 +359,74 @@ export async function sendDisabledNotificationEmail({ to, name, orgName, disable
     textLines.push('\nIf you believe this is an error, please contact support.');
 
     const html = `
-      <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; line-height: 1.6;">
-        <h2 style="margin-bottom: 8px;">${orgName ? 'Organization access disabled' : 'Account access disabled'}</h2>
-        <p>We wanted to let you know that ${orgName ? `the organization <strong>${orgName}</strong>` : `your account`} has been disabled.</p>
-        <table style="margin-top:12px;">
-          ${orgName ? `<tr><td style="padding:4px 8px 4px 0;"><strong>Organization</strong></td><td>${orgName}</td></tr>` : ''}
-          ${name ? `<tr><td style="padding:4px 8px 4px 0;"><strong>User</strong></td><td>${name}</td></tr>` : ''}
-          ${disabledBy ? `<tr><td style="padding:4px 8px 4px 0;"><strong>Actioned by</strong></td><td>${disabledBy}</td></tr>` : ''}
-          ${effectiveDate ? `<tr><td style="padding:4px 8px 4px 0;"><strong>Effective</strong></td><td>${effectiveDate}</td></tr>` : ''}
-          ${reason ? `<tr><td style="padding:4px 8px 4px 0;"><strong>Reason</strong></td><td>${reason}</td></tr>` : ''}
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <style>
+          @media only screen and (max-width: 620px) {
+            .container { width: 100% !important; }
+            .pad { padding-left: 20px !important; padding-right: 20px !important; }
+            .cta { display: block !important; width: 100% !important; }
+          }
+        </style>
+      </head>
+      <body style="margin:0; padding:0; background-color:#f1f5f9; font-family:Arial, Helvetica, sans-serif;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f1f5f9;">
+          <tr>
+            <td align="center" style="padding:28px 12px;">
+              <table role="presentation" class="container" width="620" cellpadding="0" cellspacing="0" border="0" style="width:620px; max-width:620px; background-color:#ffffff; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden;">
+                <tr>
+                  <td style="background-color:#0f172a; padding:24px 28px;">
+                    <p style="margin:0; color:#ffffff; font-size:19px; font-weight:700;">${orgName ? 'Organization access disabled' : 'Account access disabled'}</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="pad" style="padding:26px 28px 16px 28px;">
+                    <p style="margin:0 0 12px 0; color:#0f172a; font-size:16px; line-height:24px;">Hello ${name || "there"},</p>
+                    <p style="margin:0 0 16px 0; color:#475569; font-size:14px; line-height:22px;">
+                      This is to inform you that ${orgName ? `the organization <strong>${orgName}</strong>` : `your account`} has been disabled.
+                    </p>
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px 0; border:1px solid #fecaca; border-left:4px solid #dc2626; background-color:#fff7f7; border-radius:8px;">
+                      <tr>
+                        <td style="padding:14px;">
+                          ${reason ? `<p style="margin:0; color:#991b1b; font-size:14px; line-height:22px;"><strong>Reason:</strong> ${reason}</p>` : `<p style="margin:0; color:#991b1b; font-size:14px; line-height:22px;">No specific reason was provided.</p>`}
+                        </td>
+                      </tr>
+                    </table>
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:18px;">
+                      ${orgName ? `<tr><td style="padding:4px 8px 4px 0; color:#334155; font-size:13px;"><strong>Organization</strong></td><td style="color:#0f172a; font-size:13px;">${orgName}</td></tr>` : ''}
+                      ${name ? `<tr><td style="padding:4px 8px 4px 0; color:#334155; font-size:13px;"><strong>User</strong></td><td style="color:#0f172a; font-size:13px;">${name}</td></tr>` : ''}
+                      ${disabledBy ? `<tr><td style="padding:4px 8px 4px 0; color:#334155; font-size:13px;"><strong>Actioned by</strong></td><td style="color:#0f172a; font-size:13px;">${disabledBy}</td></tr>` : ''}
+                      ${effectiveDate ? `<tr><td style="padding:4px 8px 4px 0; color:#334155; font-size:13px;"><strong>Effective</strong></td><td style="color:#0f172a; font-size:13px;">${effectiveDate}</td></tr>` : ''}
+                    </table>
+                    <p style="margin:0 0 18px 0; color:#475569; font-size:14px; line-height:22px;">
+                      If you believe this action was made in error, please contact our support team.
+                    </p>
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td class="cta" align="center" style="background-color:#1d4ed8; border-radius:8px;">
+                          <a href="mailto:${from}" style="display:inline-block; padding:12px 18px; color:#ffffff; font-size:14px; font-weight:700; text-decoration:none;">
+                            Contact Support
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background-color:#f8fafc; border-top:1px solid #e2e8f0; padding:15px 28px;">
+                    <p style="margin:0; color:#94a3b8; font-size:12px; line-height:18px;">This is an important account notification from ${appName}.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
         </table>
-        <p style="margin-top:12px;">If you believe this is an error or need assistance, please contact our support team.</p>
-        <p>Best,<br/>The ${appName} team</p>
-      </div>
+      </body>
+      </html>
     `;
 
     await mailer.sendMail({

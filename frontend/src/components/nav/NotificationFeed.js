@@ -7,7 +7,13 @@ const normalizeRole = (value = "") => value.toString().trim().toLowerCase();
 
 function NotificationFeed({ userRole }) {
   const [isOpen, setIsOpen] = useState(false);
-  const { notifications, removeNotification, clearNotifications } = useNotifications();
+  const {
+    notifications,
+    unreadCount,
+    removeNotification,
+    clearNotifications,
+    markNotificationsAsRead,
+  } = useNotifications();
   const notificationRef = useRef(null);
 
   const filteredNotifications = useMemo(() => {
@@ -17,6 +23,17 @@ function NotificationFeed({ userRole }) {
       (n) => normalizeRole(n.role) === normalizedUserRole,
     );
   }, [notifications, userRole]);
+
+  const visibleUnreadCount = useMemo(() => {
+    const normalizedUserRole = normalizeRole(userRole);
+
+    // Context data is already scoped by role/org on fetch; this keeps badge precise.
+    if (normalizedUserRole !== "superadmin") return unreadCount;
+
+    return filteredNotifications.reduce((count, n) => (
+      n.readAt ? count : count + 1
+    ), 0);
+  }, [filteredNotifications, unreadCount, userRole]);
 
   // Handle clicking outside to close
   useEffect(() => {
@@ -34,17 +51,33 @@ function NotificationFeed({ userRole }) {
     clearNotifications(visibleIds);
   };
 
+  const handleToggle = () => {
+    setIsOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        const unreadIds = filteredNotifications
+          .filter((n) => !n.readAt)
+          .map((n) => n.id);
+
+        if (unreadIds.length > 0) {
+          markNotificationsAsRead(unreadIds);
+        }
+      }
+      return next;
+    });
+  };
+
   return (
     <div ref={notificationRef} className="relative">
       <button
         type="button"
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={handleToggle}
         className="relative flex h-11 w-11 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-600 shadow-sm transition hover:border-emerald-200 hover:text-emerald-600"
       >
         <BellIcon className="h-6 w-6" />
-        {filteredNotifications.length > 0 && (
+        {visibleUnreadCount > 0 && (
           <span className="absolute -right-0.5 -top-0.5 min-w-[1.2rem] rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-            {filteredNotifications.length}
+            {visibleUnreadCount}
           </span>
         )}
       </button>
@@ -55,7 +88,7 @@ function NotificationFeed({ userRole }) {
             <div>
               <p className="text-sm font-semibold text-slate-900">Notifications</p>
               <p className="text-xs text-slate-500">
-                {filteredNotifications.length > 0 ? `${filteredNotifications.length} new updates` : "All caught up"}
+                {visibleUnreadCount > 0 ? `${visibleUnreadCount} new updates` : "All caught up"}
               </p>
             </div>
             {filteredNotifications.length > 0 && (

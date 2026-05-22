@@ -47,6 +47,7 @@ const mergeNotifications = (base = [], incoming = []) => {
 
 export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const latestCreatedAtRef = useRef("");
   const token = useAuthStore((s) => s.token);
   const userOrgId = useAuthStore((s) => s.user?.orgId || null);
@@ -95,7 +96,16 @@ export const NotificationProvider = ({ children }) => {
       }
 
       const data = await res.json();
-      return Array.isArray(data) ? data : [];
+
+      if (Array.isArray(data)) {
+        // Backward compatibility if API is old shape.
+        return { notifications: data, unreadCount: data.length };
+      }
+
+      return {
+        notifications: Array.isArray(data?.notifications) ? data.notifications : [],
+        unreadCount: Number.isFinite(Number(data?.unreadCount)) ? Number(data.unreadCount) : 0,
+      };
     },
     [getAuthHeaders, userOrgId, userRole],
   );
@@ -104,12 +114,16 @@ export const NotificationProvider = ({ children }) => {
     let mounted = true;
     latestCreatedAtRef.current = "";
     setNotifications([]);
+    setUnreadCount(0);
 
     const loadInitial = async () => {
       try {
-        const loaded = await fetchNotifications({ incremental: false });
+        const { notifications: loaded, unreadCount: latestUnread } = await fetchNotifications({
+          incremental: false,
+        });
         if (!mounted) return;
         setNotifications(loaded);
+        setUnreadCount(latestUnread);
         syncLatestCreatedAt(loaded);
       } catch (error) {
         console.error(error);
@@ -118,15 +132,20 @@ export const NotificationProvider = ({ children }) => {
 
     const pollForNew = async () => {
       try {
-        const loaded = await fetchNotifications({
+        const { notifications: loaded, unreadCount: latestUnread } = await fetchNotifications({
           incremental: Boolean(latestCreatedAtRef.current),
         });
-        if (!mounted || !loaded.length) return;
-        setNotifications((prev) => {
-          const merged = mergeNotifications(prev, loaded);
-          syncLatestCreatedAt(merged);
-          return merged;
-        });
+        if (!mounted) return;
+
+        if (loaded.length) {
+          setNotifications((prev) => {
+            const merged = mergeNotifications(prev, loaded);
+            syncLatestCreatedAt(merged);
+            return merged;
+          });
+        }
+
+        setUnreadCount(latestUnread);
       } catch (error) {
         console.error(error);
       }
@@ -166,6 +185,8 @@ export const NotificationProvider = ({ children }) => {
       message,
       time: "Just now",
       createdAt: new Date().toISOString(),
+      readAt: null,
+      isRead: false,
     };
 
     setNotifications((prev) => {
@@ -173,6 +194,7 @@ export const NotificationProvider = ({ children }) => {
       syncLatestCreatedAt(merged);
       return merged;
     });
+    setUnreadCount((prev) => prev + 1);
 
     try {
       const res = await fetch(`${API_URL}/notifications`, {
@@ -203,15 +225,90 @@ export const NotificationProvider = ({ children }) => {
       });
     } catch (error) {
       console.error(error);
+      // Roll back optimistic unread increment when persist fails.
+      setUnreadCount((prev) => Math.max(0, prev - 1));
     }
   }, [getAuthHeaders, syncLatestCreatedAt, userOrgId, userRole]);
 
-  const removeNotification = async (id) => {
+  const markNotificationsAsRead = useCallback(async (idsToMark) => {
+    const ids = Array.isArray(idsToMark)
+      ? idsToMark
+      : Array.from(idsToMark || []);
+
+    if (!ids.length) return;
+
+    const idSet = new Set(ids);
+    const nowIso = new Date().toISOString();
+
     setNotifications((prev) => {
+      const next = prev.map((n) => {
+        if (!idSet.has(n.id) || n.readAt) return n;
+        return {
+          ...n,
+          readAt: nowIso,
+          isRead: true,
+        };
+      });
+      return next;
+    });
+
+    setUnreadCount((prev) => Math.max(0, prev - ids.length));
+
+    try {
+      const normalizedRole = String(userRole || "").toLowerCase();
+      const res = await fetch(`${API_URL}/notifications/read`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({
+          ids,
+          role: userRole || "",
+          orgId: normalizedRole !== "superadmin" ? userOrgId || null : null,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to mark notifications as read");
+      }
+
+      const payload = await res.json();
+      if (Number.isFinite(Number(payload?.unreadCount))) {
+        setUnreadCount(Number(payload.unreadCount));
+      }
+    } catch (error) {
+      console.error(error);
+      // Re-sync from server if mark-read fails.
+      try {
+        const { notifications: loaded, unreadCount: latestUnread } = await fetchNotifications({
+          incremental: false,
+        });
+        setNotifications(loaded);
+        setUnreadCount(latestUnread);
+        syncLatestCreatedAt(loaded);
+      } catch (syncError) {
+        console.error(syncError);
+      }
+    }
+  }, [fetchNotifications, getAuthHeaders, syncLatestCreatedAt, userOrgId, userRole]);
+
+  const removeNotification = async (id) => {
+    let shouldDecrementUnread = false;
+    setNotifications((prev) => {
+      const target = prev.find((n) => n.id === id);
+      if (target && !target.readAt) {
+        shouldDecrementUnread = true;
+      }
       const next = prev.filter((n) => n.id !== id);
       syncLatestCreatedAt(next);
       return next;
     });
+
+    if (shouldDecrementUnread) {
+      setUnreadCount((count) => Math.max(0, count - 1));
+    }
+
     try {
       await fetch(`${API_URL}/notifications/${id}`, {
         method: "DELETE",
@@ -228,11 +325,20 @@ export const NotificationProvider = ({ children }) => {
       : Array.from(idsToClear || []);
     const idSet = new Set(ids);
 
+    let removedUnread = 0;
     setNotifications((prev) => {
+      removedUnread = prev.reduce((count, n) => {
+        if (!idSet.has(n.id)) return count;
+        return n.readAt ? count : count + 1;
+      }, 0);
       const next = prev.filter((n) => !idSet.has(n.id));
       syncLatestCreatedAt(next);
       return next;
     });
+
+    if (removedUnread > 0) {
+      setUnreadCount((count) => Math.max(0, count - removedUnread));
+    }
 
     if (!ids.length) return;
 
@@ -251,8 +357,15 @@ export const NotificationProvider = ({ children }) => {
   };
 
   return (
-    <NotificationContext.Provider 
-      value={{ notifications, addNotification, removeNotification, clearNotifications }}
+    <NotificationContext.Provider
+      value={{
+        notifications,
+        unreadCount,
+        addNotification,
+        removeNotification,
+        clearNotifications,
+        markNotificationsAsRead,
+      }}
     >
       {children}
     </NotificationContext.Provider>

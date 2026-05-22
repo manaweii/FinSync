@@ -9,6 +9,8 @@ const notificationSchema = new Schema(
     orgId: { type: Schema.Types.ObjectId, ref: "Organization", default: null },
     title: { type: String, required: true, trim: true },
     message: { type: String, required: true, trim: true },
+    // Null means unread. Set to a timestamp once acknowledged/read.
+    readAt: { type: Date, default: null, index: true },
     dedupeKey: {
       type: String,
       trim: true,
