@@ -10,7 +10,7 @@ function isDisabledStatus(value) {
     .trim()
     .toLowerCase();
 
-  return ["disabled", "inactive", "deactivated", "blocked"].includes(normalized);
+  return ["disabled", "inactive"].includes(normalized);
 }
 
 function hasDisabledFlag(user) {
