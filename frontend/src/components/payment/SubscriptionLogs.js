@@ -3,7 +3,6 @@ import React, {
   useEffect,
   useMemo,
   useCallback,
-  useRef,
 } from "react";
 import {
   MagnifyingGlassIcon,
@@ -15,9 +14,6 @@ import {
   UsersIcon,
   ArrowTrendingDownIcon,
   ClockIcon,
-  PencilSquareIcon,
-  XMarkIcon,
-  CheckIcon,
 } from "@heroicons/react/24/outline";
 
 // ─── Brand ────────────────────────────────────────────────────────────────────
@@ -231,232 +227,6 @@ const KPICard = ({ label, value, sub, accent, Icon, trend, isPlaceholder }) => (
   </div>
 );
 
-// ─── Edit Modal ───────────────────────────────────────────────────────────────
-const EditModal = ({ log, onClose, onSave }) => {
-  const [form, setForm] = useState({
-    user: log.user || "",
-    role: log.role || "",
-    organization: log.organization || log.org || "",
-    plan: log.plan || "",
-    type: log.type || log.subscriptionType || "signup",
-    status: log.result || log.status || "",
-  });
-  const overlayRef = useRef(null);
-
-  // Close on backdrop click
-  const handleOverlayClick = (e) => {
-    if (e.target === overlayRef.current) onClose();
-  };
-
-  // Close on Escape
-  useEffect(() => {
-    const handler = (e) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
-
-  const field = (key, label, options = null) => (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <label
-        style={{
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          color: "#64748B",
-        }}
-      >
-        {label}
-      </label>
-      {options ? (
-        <select
-          value={form[key]}
-          onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-          style={inputStyle}
-        >
-          {options.map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <input
-          value={form[key]}
-          onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-          style={inputStyle}
-        />
-      )}
-    </div>
-  );
-
-  const inputStyle = {
-    padding: "9px 12px",
-    borderRadius: 10,
-    border: "1px solid #E2E8F0",
-    fontSize: 13,
-    color: "#0F172A",
-    outline: "none",
-    background: "#F8FAFC",
-    fontFamily: "inherit",
-    width: "100%",
-    boxSizing: "border-box",
-  };
-
-  return (
-    <div
-      ref={overlayRef}
-      onClick={handleOverlayClick}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 50,
-        background: "rgba(15,23,42,0.45)",
-        backdropFilter: "blur(4px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 16,
-      }}
-    >
-      <div
-        style={{
-          background: "#fff",
-          borderRadius: 20,
-          width: "100%",
-          maxWidth: 520,
-          boxShadow: "0 20px 60px rgba(15,23,42,.18)",
-          overflow: "hidden",
-        }}
-      >
-        {/* Modal header */}
-        <div
-          style={{
-            padding: "20px 24px",
-            borderBottom: "1px solid #F1F5F9",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <div>
-            <p
-              style={{
-                fontSize: 16,
-                fontWeight: 700,
-                color: "#0F172A",
-                margin: 0,
-              }}
-            >
-              Edit Subscription
-            </p>
-            <p style={{ fontSize: 12, color: "#94A3B8", marginTop: 2 }}>
-              ID:{" "}
-              <span style={{ fontFamily: "monospace", color: "#64748B" }}>
-                {log._id || log.id || "—"}
-              </span>
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              border: "1px solid #E2E8F0",
-              background: "#F8FAFC",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <XMarkIcon style={{ width: 16, height: 16, color: "#64748B" }} />
-          </button>
-        </div>
-
-        {/* Modal body */}
-        <div
-          style={{
-            padding: "24px",
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 16,
-          }}
-        >
-          {field("user", "User")}
-          {field("role", "Role")}
-          {field("organization", "Organization")}
-          {field("plan", "Plan")}
-          {field("type", "Type", [
-            "signup",
-            "renewal",
-            "upgrade",
-            "downgrade",
-            "cancellation",
-          ])}
-          {field("status", "Status", [
-            "Active",
-            "Pending",
-            "Disabled",
-            "Canceled",
-          ])}
-        </div>
-
-        {/* Modal footer */}
-        <div
-          style={{
-            padding: "16px 24px",
-            borderTop: "1px solid #F1F5F9",
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 10,
-          }}
-        >
-          <button
-            onClick={onClose}
-            style={{
-              padding: "9px 20px",
-              borderRadius: 10,
-              border: "1px solid #E2E8F0",
-              background: "#fff",
-              color: "#475569",
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: "pointer",
-              fontFamily: "inherit",
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => onSave(log._id || log.id, form)}
-            style={{
-              padding: "9px 20px",
-              borderRadius: 10,
-              border: "none",
-              background: `linear-gradient(135deg, ${B.blue}, ${B.teal})`,
-              color: "#fff",
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: "pointer",
-              fontFamily: "inherit",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
-            <CheckIcon style={{ width: 14, height: 14 }} />
-            Save Changes
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // ─── Shared button styles ─────────────────────────────────────────────────────
 const btnBase = {
   display: "inline-flex",
@@ -506,9 +276,6 @@ export default function SuperadminDashboard() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Edit modal
-  const [editingLog, setEditingLog] = useState(null);
-
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchSubscriptions = useCallback(async () => {
     try {
@@ -545,27 +312,6 @@ export default function SuperadminDashboard() {
     URL.revokeObjectURL(url);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logs, search, startDate, endDate]);
-
-  // ── Edit handlers ──────────────────────────────────────────────────────────
-  const handleEdit = useCallback((log) => setEditingLog(log), []);
-  const handleSave = useCallback((id, formData) => {
-    // TODO: call PATCH /api/subscription/:id with formData
-    console.log("Saving changes for ID:", id, formData);
-    setLogs((prev) =>
-      prev.map((l) =>
-        (l._id || l.id) === id
-          ? {
-              ...l,
-              ...formData,
-              organization: formData.organization,
-              result: formData.status,
-              status: formData.status,
-            }
-          : l,
-      ),
-    );
-    setEditingLog(null);
-  }, []);
 
   // ── Filtered logs ──────────────────────────────────────────────────────────
   const filteredLogs = useMemo(() => {
@@ -641,7 +387,6 @@ export default function SuperadminDashboard() {
     "Plan",
     "Type",
     "Status",
-    "Action",
   ];
 
   // ── Shared input style ─────────────────────────────────────────────────────
@@ -658,7 +403,6 @@ export default function SuperadminDashboard() {
         .fs-dashboard * { font-family: 'DM Sans', system-ui, sans-serif; }
         .btn-outline:hover { background: #F8FAFC !important; border-color: #CBD5E1 !important; }
         .btn-primary:hover { opacity: 0.92; }
-        .edit-btn:hover { background: ${B.blueLight} !important; color: ${B.blue} !important; border-color: ${B.blue} !important; }
         .row-hover:hover { background: #F0F9FF !important; }
         .page-btn:hover { background: #F1F5F9 !important; }
       `}</style>
@@ -1171,34 +915,6 @@ export default function SuperadminDashboard() {
                         >
                           <StatusBadge status={log.result || log.status} />
                         </td>
-                        <td
-                          style={{ padding: "13px 20px", whiteSpace: "nowrap" }}
-                        >
-                          <button
-                            className="edit-btn"
-                            onClick={() => handleEdit(log)}
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 5,
-                              padding: "6px 12px",
-                              borderRadius: 8,
-                              border: "1px solid #E2E8F0",
-                              background: "#fff",
-                              color: "#475569",
-                              fontSize: 12,
-                              fontWeight: 600,
-                              cursor: "pointer",
-                              fontFamily: "inherit",
-                              transition: "all 0.15s ease",
-                            }}
-                          >
-                            <PencilSquareIcon
-                              style={{ width: 13, height: 13 }}
-                            />
-                            Edit
-                          </button>
-                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1394,15 +1110,6 @@ export default function SuperadminDashboard() {
           {/* end table card */}
         </div>
       </div>
-
-      {/* Edit Modal */}
-      {editingLog && (
-        <EditModal
-          log={editingLog}
-          onClose={() => setEditingLog(null)}
-          onSave={handleSave}
-        />
-      )}
     </>
   );
 }
