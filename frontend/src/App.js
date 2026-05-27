@@ -36,6 +36,7 @@ import BalanceSheetReport from "./components/datamanager/BalanceSheetReport";
 import FileImportPage from "./pages/FileImportPage";
 import FinSyncChatbot from "./components/chat/FinSyncChatbot";
 import { isSuperadminRole } from "./utils/roles";
+import useDisabledSessionMonitor from "./hooks/useDisabledSessionMonitor";
 
 function DashboardRoute() {
   const { role, user } = useAuthStore();
@@ -53,6 +54,7 @@ function App() {
   return (
     <NotificationProvider>
       <BrowserRouter>
+        <SessionStatusMonitor />
         <Navbar isLoggedIn={isLoggedIn} role={role} />
 
         <Routes>
@@ -211,6 +213,11 @@ function App() {
       </BrowserRouter>
     </NotificationProvider>
   );
+}
+
+function SessionStatusMonitor() {
+  useDisabledSessionMonitor();
+  return null;
 }
 
 export default App;
