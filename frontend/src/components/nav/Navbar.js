@@ -148,16 +148,18 @@ function Navbar() {
                       Profile
                     </Link>
 
-                    <Link
-                      to="/dashboard-settings"
-                      className="block px-4 py-2 text-slate-700 hover:bg-slate-50"
-                      onClick={() => {
-                        setIsOpen(false);
-                        navigate("/dashboard-settings");
-                      }}
-                    >
-                      Settings
-                    </Link>
+                    {!isSuperadmin && (
+                      <Link
+                        to="/dashboard-settings"
+                        className="block px-4 py-2 text-slate-700 hover:bg-slate-50"
+                        onClick={() => {
+                          setIsOpen(false);
+                          navigate("/dashboard-settings");
+                        }}
+                      >
+                        Settings
+                      </Link>
+                    )}
 
                     <button
                       onClick={handleLogoutClick}

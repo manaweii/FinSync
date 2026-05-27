@@ -128,7 +128,9 @@ function App() {
             path="/dashboard-settings"
             element={
               <RequireAuth>
-                <DashboardSettings />
+                <RequireRole allowedRoles={["admin", "user"]}>
+                  <DashboardSettings />
+                </RequireRole>
               </RequireAuth>
             }
           />
