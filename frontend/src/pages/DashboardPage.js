@@ -32,6 +32,7 @@ import DataPreview from "../components/dashboard/DataPreview";
 import AlertsSection from "../components/dashboard/AlertsSection";
 import QuickActions from "../components/dashboard/QuickActions";
 import SupportCard from "../components/dashboard/SupportCard";
+import DynamicChart from "../components/dashboard/Chart";
 import {
   buildCategoryRevenueData,
   buildDashboardMetrics,
@@ -40,7 +41,7 @@ import {
   findDateBounds,
   formatCurrencyCompact,
 } from "../utils/financialData";
-import { buildRecordDataset, loadManualRows } from "../utils/recordsData";
+import { buildRecordDataset } from "../utils/recordsData";
 
 ChartJS.register(
   CategoryScale,
@@ -57,6 +58,7 @@ ChartJS.register(
 const DASHBOARD_WIDGET_KEYS = [
   "kpis",
   "trend",
+  "dynamicChart",
   "expensePie",
   "categoryBar",
   "dataPreview",
@@ -70,8 +72,7 @@ const DashboardPage = () => {
   const { token, user: currentUser } = useAuthStore();
   const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
-  const [imports, setImports] = useState([]);
-  const [manualRows, setManualRows] = useState([]);
+  const [dbRecords, setDbRecords] = useState([]);
   const [orgSubscription, setOrgSubscription] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState("all");
   const [loadingList, setLoadingList] = useState(true);
@@ -83,30 +84,35 @@ const DashboardPage = () => {
   }, []);
 
   useEffect(() => {
-    setManualRows(loadManualRows(currentUser?.orgId));
-  }, [currentUser?.orgId]);
-
-  useEffect(() => {
     const fetchImports = async () => {
       try {
         setLoadingList(true);
-        const orgId = currentUser?.orgId || "null";
-        const res = await fetch(`${API_BASE}/past-imports/${orgId}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        if (!res.ok) throw new Error("Failed to fetch imports");
-        const data = await res.json();
-        setImports(Array.isArray(data) ? data : []);
+        const orgName = currentUser?.orgName || "";
+        if (!orgName) {
+          setDbRecords([]);
+          return;
+        }
+
+        const recordsRes = await fetch(
+          `${API_BASE}/records?orgName=${encodeURIComponent(orgName)}`,
+          {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          },
+        );
+        if (!recordsRes.ok) throw new Error("Failed to fetch records");
+
+        const recordsData = await recordsRes.json();
+        setDbRecords(Array.isArray(recordsData) ? recordsData : []);
       } catch (err) {
         console.error("Error loading imports:", err);
-        setError("Could not load imported files.");
+        setError("Could not load records.");
       } finally {
         setLoadingList(false);
       }
     };
 
     fetchImports();
-  }, [API_BASE, currentUser?.orgId, token]);
+  }, [API_BASE, currentUser?.orgName, token]);
 
   useEffect(() => {
     const fetchOrgSubscription = async () => {
@@ -142,11 +148,10 @@ const DashboardPage = () => {
   const importDetail = useMemo(
     () =>
       buildRecordDataset({
-        imports,
-        manualRows,
+        dbRecords,
         selectedSource: "all",
       }),
-    [imports, manualRows],
+    [dbRecords],
   );
 
   const transactionRows = useMemo(() => importDetail.rows || [], [importDetail]);
@@ -178,6 +183,17 @@ const DashboardPage = () => {
       return d && d.toISOString().slice(0, 7) === selectedMonth;
     });
   }, [selectedMonth, transactionRows]);
+
+  const dynamicChartFilters = useMemo(() => {
+    if (selectedMonth === "all") return {};
+    const [year, month] = selectedMonth.split("-").map((value) => Number(value));
+    if (!year || !month) return {};
+    const lastDay = new Date(year, month, 0).getDate();
+    return {
+      fromDate: `${selectedMonth}-01`,
+      toDate: `${selectedMonth}-${String(lastDay).padStart(2, "0")}`,
+    };
+  }, [selectedMonth]);
 
   const metrics = useMemo(() => {
     const summary = buildDashboardMetrics(filteredTransactions);
@@ -276,7 +292,7 @@ const DashboardPage = () => {
     }
   }, [availableMonths, selectedMonth]);
 
-  const chartWidgetKeys = ["kpis", "trend", "expensePie", "categoryBar"];
+  const chartWidgetKeys = ["kpis", "trend", "dynamicChart", "expensePie", "categoryBar"];
   const sidebarWidgetKeys = ["alertsSection", "quickActions", "supportCard"];
 
   const orderedChartWidgets = visibleLayout.filter((key) =>
@@ -305,6 +321,9 @@ const DashboardPage = () => {
           periodLabel={periodLabel}
         />
       ) : null;
+    }
+    if (key === "dynamicChart") {
+      return <DynamicChart data={transactionRows} filters={dynamicChartFilters} />;
     }
     if (key === "expensePie") {
       return showExpensePie ? (
@@ -415,9 +434,13 @@ const DashboardPage = () => {
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
                     {orderedChartWidgets.map((key) => (
-                      <SortableWidget key={key} id={key}>
-                        {renderWidget(key)}
-                      </SortableWidget>
+                        <SortableWidget
+                          key={key}
+                          id={key}
+                          className={key === "dynamicChart" ? "sm:col-span-2" : ""}
+                        >
+                          {renderWidget(key)}
+                        </SortableWidget>
                     ))}
                   </div>
 

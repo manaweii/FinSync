@@ -8,11 +8,6 @@ import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import useAuthStore from "../store/useAuthStore";
 
-const TEMPLATE_FILES = {
-  csv: "/ImportTemplate/financial_template.csv",
-  excel: "/ImportTemplate/financial_template.xlsx",
-};
-
 const IMPORTS_PER_PAGE = 8;
 
 const REQUIRED_IMPORT_COLUMNS = [
@@ -101,11 +96,10 @@ function FileImportPage() {
     currentPage * IMPORTS_PER_PAGE,
   );
 
-  // load past imports when page opens
+  // load past imports when org context is ready
   useEffect(() => {
     loadImports();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentUser?.orgId, token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -125,10 +119,16 @@ function FileImportPage() {
   }, []);
 
   const loadImports = async () => {
+    if (!currentUser?.orgId) {
+      setImports([]);
+      setCurrentPage(1);
+      return;
+    }
+
     try {
       setLoading(true);
       const res = await fetch(
-        `${API_BASE}/past-imports/${currentUser?.orgId || null}`,
+        `${API_BASE}/past-imports/${currentUser.orgId}`,
         {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         },
@@ -157,15 +157,25 @@ function FileImportPage() {
   };
 
   const handleDownloadTemplate = (format) => {
-    const fileUrl =
-      format === "excel" ? TEMPLATE_FILES.excel : TEMPLATE_FILES.csv;
-    const fileName =
-      format === "excel" ? "financial_template.xlsx" : "financial_template.csv";
+    if (format === "excel") {
+      const worksheet = XLSX.utils.aoa_to_sheet([REQUIRED_IMPORT_COLUMNS]);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+      XLSX.writeFile(workbook, "financial_template.xlsx");
+      setShowDownloadOptions(false);
+      return;
+    }
 
+    const csvHeader = `${REQUIRED_IMPORT_COLUMNS.join(",")}\n`;
+    const blob = new Blob([csvHeader], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = fileUrl;
-    link.download = fileName;
+    link.href = url;
+    link.download = "financial_template.csv";
     link.click();
+    window.URL.revokeObjectURL(url);
     setShowDownloadOptions(false);
   };
 

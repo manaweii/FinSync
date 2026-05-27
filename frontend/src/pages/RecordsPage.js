@@ -11,11 +11,10 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import useAuthStore from "../store/useAuthStore";
-import { parseDateValue } from "../utils/financialData";
 import {
-  buildImportedRowsFromImports,
-  loadManualRows,
-  saveManualRows,
+  buildRowsFromDatabaseRecords,
+  buildSourceOptionsFromRows,
+  RECORDS_VISIBLE_COLUMNS,
 } from "../utils/recordsData";
 
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
@@ -195,8 +194,7 @@ export default function RecordsPage() {
   const token = useAuthStore((s) => s.token);
   const currentUser = useAuthStore((s) => s.user);
 
-  const [imports, setImports] = useState([]);
-  const [manualRows, setManualRows] = useState([]);
+  const [dbRecords, setDbRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
@@ -208,57 +206,9 @@ export default function RecordsPage() {
   const [editingRecordId, setEditingRecordId] = useState(null);
   const [formState, setFormState] = useState(defaultFormState);
 
-  useEffect(() => {
-    setManualRows(loadManualRows(currentUser?.orgId));
-  }, [currentUser?.orgId]);
-
-  useEffect(() => {
-    if (!currentUser?.orgId) return;
-    saveManualRows(currentUser.orgId, manualRows);
-  }, [currentUser?.orgId, manualRows]);
-
-  useEffect(() => {
-    const fetchImports = async () => {
-      if (!currentUser?.orgId) {
-        setImports([]);
-        setLoading(false);
-        setError("Organization context is missing.");
-        return;
-      }
-
-      try {
-        setLoading(true);
-        setError("");
-
-        const res = await fetch(
-          `${API_BASE}/past-imports/${currentUser.orgId}`,
-          {
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-          },
-        );
-
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(text || "Failed to load imported records");
-        }
-
-        const data = await res.json();
-        setImports(Array.isArray(data) ? data : []);
-        setCurrentPage(1);
-      } catch (err) {
-        console.error("Error loading imports for records page:", err);
-        setError(err.message || "Failed to load imported records");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchImports();
-  }, [currentUser?.orgId, token]);
-
-  const loadImports = async () => {
-    if (!currentUser?.orgId) {
-      setImports([]);
+  const loadRecords = async () => {
+    if (!currentUser?.orgName) {
+      setDbRecords([]);
       setLoading(false);
       setError("Organization context is missing.");
       return;
@@ -268,42 +218,45 @@ export default function RecordsPage() {
       setLoading(true);
       setError("");
 
-      const res = await fetch(`${API_BASE}/past-imports/${currentUser.orgId}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || "Failed to load imported records");
+      const recordsRes = await fetch(
+        `${API_BASE}/records?orgName=${encodeURIComponent(currentUser.orgName)}`,
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        },
+      );
+      if (!recordsRes.ok) {
+        const text = await recordsRes.text();
+        throw new Error(text || "Failed to load records");
       }
 
-      const data = await res.json();
-      setImports(Array.isArray(data) ? data : []);
+      const recordsData = await recordsRes.json();
+      setDbRecords(Array.isArray(recordsData) ? recordsData : []);
       setCurrentPage(1);
     } catch (err) {
-      console.error("Error loading imports for records page:", err);
-      setError(err.message || "Failed to load imported records");
+      console.error("Error loading records page data:", err);
+      setError(err.message || "Failed to load records");
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    loadRecords();
+  }, [currentUser?.orgName, token]);
+
+  const allRows = useMemo(() => {
+    return buildRowsFromDatabaseRecords(dbRecords, {
+      summarizeFruityGoOrders: true,
+    });
+  }, [dbRecords]);
+
   const fileOptions = useMemo(
     () =>
-      imports.map((imp) => ({
-        id: imp._id,
-        fileName: imp.fileName || "Untitled import",
+      buildSourceOptionsFromRows(allRows).map((option) => ({
+        id: option.id,
+        fileName: option.label,
       })),
-    [imports],
-  );
-
-  const importedRows = useMemo(() => {
-    return buildImportedRowsFromImports(imports);
-  }, [imports]);
-
-  const allRows = useMemo(
-    () => [...manualRows, ...importedRows],
-    [manualRows, importedRows],
+    [allRows],
   );
 
   const fileTypeOptions = useMemo(() => {
@@ -313,17 +266,7 @@ export default function RecordsPage() {
   }, [allRows]);
 
   const visibleColumns = useMemo(
-    () => [
-      "__fileName",
-      "__fileType",
-      "__importedOn",
-      "date",
-      "account",
-      "accountType",
-      "amount",
-      "category",
-      "description",
-    ],
+    () => RECORDS_VISIBLE_COLUMNS,
     [],
   );
 
@@ -445,57 +388,80 @@ export default function RecordsPage() {
       description:
         row.description || row.Description || row.desc || row.Desc || "",
     });
-    setEditingRecordId(row.__recordId);
+    setEditingRecordId(row.__recordDocId || row.__recordId);
   };
 
-  const handleAddRecord = (e) => {
+  const handleAddRecord = async (e) => {
     e.preventDefault();
 
-    const newRow = {
-      __recordId: `manual-${Date.now()}`,
-      __fileId: "manual",
-      __fileName: "Manual Record",
-      __fileType: "Manual",
-      __importedOn: new Date().toISOString(),
-      date: formState.date,
-      parsedDate: parseDateValue(formState.date),
-      account: formState.account,
-      accountType: formState.accountType,
-      amount: Number(formState.amount),
-      category: formState.category,
-      description: formState.description,
-    };
+    try {
+      const res = await fetch(`${API_BASE}/records/manual`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          orgName: currentUser?.orgName || "",
+          date: formState.date,
+          account: formState.account,
+          accountType: formState.accountType,
+          amount: Number(formState.amount),
+          category: formState.category,
+          description: formState.description,
+        }),
+      });
 
-    setManualRows((current) => [newRow, ...current]);
-    setCurrentPage(1);
-    closeModals();
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(result?.message || "Failed to add record");
+      }
+
+      await loadRecords();
+      closeModals();
+      setCurrentPage(1);
+    } catch (err) {
+      alert(err.message || "Failed to add record");
+    }
   };
 
-  const handleEditRecord = (e) => {
+  const handleEditRecord = async (e) => {
     e.preventDefault();
 
-    setManualRows((current) =>
-      current.map((row) =>
-        row.__recordId === editingRecordId
-          ? {
-              ...row,
-              date: formState.date,
-              parsedDate: parseDateValue(formState.date),
-              account: formState.account,
-              accountType: formState.accountType,
-              amount: Number(formState.amount),
-              category: formState.category,
-              description: formState.description,
-            }
-          : row,
-      ),
-    );
+    try {
+      const res = await fetch(`${API_BASE}/records/manual/${editingRecordId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          orgName: currentUser?.orgName || "",
+          date: formState.date,
+          account: formState.account,
+          accountType: formState.accountType,
+          amount: Number(formState.amount),
+          category: formState.category,
+          description: formState.description,
+        }),
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(result?.message || "Failed to update record");
+      }
 
-    closeModals();
+      await loadRecords();
+      closeModals();
+    } catch (err) {
+      alert(err.message || "Failed to update record");
+    }
   };
 
-  const selectedEditableRow =
-    manualRows.find((row) => row.__recordId === editingRecordId) || null;
+  const selectedEditableRow = allRows.find(
+    (row) => (row.__recordDocId || row.__recordId) === editingRecordId,
+  ) || null;
+
+  const manualRecordCount = allRows.filter((row) => row.__isManual).length;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-50 via-emerald-50/40 to-slate-50 py-12 px-4">
@@ -511,18 +477,18 @@ export default function RecordsPage() {
             Financial Records.
           </h1>
           <p className="mt-2 text-sm text-slate-500 max-w-2xl mx-auto">
-            All CSV and Excel imports for your organization are shown here in
-            one table, so you can review every imported row from a single page.
+            All CSV/Excel imports plus FruityGo checkout records are shown in
+            one table, so you can review every row from a single page.
           </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3 mb-6">
           <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
             <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-              Imported Files
+              Data Sources
             </p>
             <p className="mt-2 text-3xl font-semibold text-slate-900">
-              {imports.length}
+              {fileOptions.length}
             </p>
           </div>
           <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
@@ -557,7 +523,7 @@ export default function RecordsPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={loadImports}
+                  onClick={loadRecords}
                   className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 hover:text-slate-700"
                   aria-label="Refresh records"
                 >
@@ -666,8 +632,8 @@ export default function RecordsPage() {
               </div>
             ) : filteredRows.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-                No imported rows found. Import a CSV or Excel file to see
-                records here.
+                No rows found. Import a CSV/Excel file or place FruityGo orders
+                to see records here.
               </div>
             ) : (
               <>
@@ -684,6 +650,10 @@ export default function RecordsPage() {
                               ? "Source File"
                               : column === "__fileType"
                                 ? "File Type"
+                                : column === "orgName"
+                                  ? "Organization"
+                                  : column === "transactionId"
+                                    ? "Transaction ID"
                                 : column === "__importedOn"
                                   ? "Imported On"
                                   : column === "accountType"
@@ -722,9 +692,7 @@ export default function RecordsPage() {
                             <button
                               type="button"
                               onClick={() => openEditModal(row)}
-                              disabled={
-                                !String(row.__recordId).startsWith("manual-")
-                              }
+                              disabled={!row.__isManual}
                               className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                               aria-label={`Edit record ${normalizeValue(row.description || row.Description || row.__recordId)}`}
                             >
@@ -743,8 +711,8 @@ export default function RecordsPage() {
                     Showing {paginatedRows.length} of {filteredRows.length}{" "}
                     record
                     {filteredRows.length === 1 ? "" : "s"} on this page.
-                    {manualRows.length > 0
-                      ? ` ${manualRows.length} manual record${manualRows.length === 1 ? "" : "s"} can be edited.`
+                    {manualRecordCount > 0
+                      ? ` ${manualRecordCount} manual record${manualRecordCount === 1 ? "" : "s"} can be edited.`
                       : ""}
                   </span>
 

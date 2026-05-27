@@ -1,89 +1,150 @@
 import { normalizeTransactionRows } from "./financialData";
 
-export function getImportId(imp) {
-  return imp?._id || imp?.id || null;
+export const RECORDS_VISIBLE_COLUMNS = [
+  "__fileName",
+  "__fileType",
+  "orgName",
+  "transactionId",
+  "__importedOn",
+  "date",
+  "account",
+  "accountType",
+  "amount",
+  "category",
+  "description",
+];
+
+function toDateInputString(value) {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString().slice(0, 10);
 }
 
-export function parseImportedDataRows(importRecord) {
-  if (!importRecord?.importedData) return [];
+function getSourceLabel(record = {}) {
+  const source = String(record?.source || "").toLowerCase();
+  if (source === "import") return "Import";
+  if (source === "manual") return "Manual";
+  if (source === "fruitygo") return "FruityGo";
+  return record?.source || "Record";
+}
 
-  try {
-    const parsed = JSON.parse(importRecord.importedData);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (error) {
-    console.error("Failed to parse imported data:", getImportId(importRecord), error);
-    return [];
+function getFileName(record = {}) {
+  const source = String(record?.source || "").toLowerCase();
+  if (source === "import") {
+    return record?.metadata?.fileName || "Imported File";
   }
-}
-
-export function buildImportedRowsFromImports(imports = []) {
-  return imports.flatMap((imp) =>
-    normalizeTransactionRows(parseImportedDataRows(imp), (_, index) => ({
-      __recordId: `${getImportId(imp)}-${index}`,
-      __fileId: getImportId(imp),
-      __fileName: imp.fileName || "Untitled import",
-      __fileType: imp.fileType || "Unknown",
-      __importedOn: imp.importedOn,
-    })),
-  );
-}
-
-function getManualRecordsStorageKey(orgId) {
-  return `finsync-manual-records:${orgId || "unknown-org"}`;
-}
-
-export function normalizeManualRows(rows = []) {
-  return normalizeTransactionRows(rows, (row, index) => ({
-    __recordId: row.__recordId || `manual-${index}`,
-    __fileId: "manual",
-    __fileName: row.__fileName || "Manual Record",
-    __fileType: row.__fileType || "Manual",
-    __importedOn: row.__importedOn || new Date().toISOString(),
-  }));
-}
-
-export function loadManualRows(orgId) {
-  if (typeof window === "undefined") return [];
-
-  try {
-    const raw = window.localStorage.getItem(getManualRecordsStorageKey(orgId));
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return normalizeManualRows(Array.isArray(parsed) ? parsed : []);
-  } catch (error) {
-    console.error("Failed to load manual records:", error);
-    return [];
+  if (source === "manual") {
+    return "Manual Record";
   }
-}
-
-export function saveManualRows(orgId, rows = []) {
-  if (typeof window === "undefined") return;
-
-  try {
-    const serializableRows = rows.map(({ parsedDate, ...row }) => row);
-    window.localStorage.setItem(
-      getManualRecordsStorageKey(orgId),
-      JSON.stringify(serializableRows),
-    );
-  } catch (error) {
-    console.error("Failed to save manual records:", error);
+  if (source === "fruitygo") {
+    return record?.transactionId
+      ? `FruityGo ${record.transactionId}`
+      : "FruityGo Record";
   }
+  return record?.transactionId || "Record";
 }
 
-export function buildRecordDataset({ imports = [], manualRows = [], selectedSource = "all" }) {
-  const scopedImports =
+function buildSummaryRow(record, baseMeta, recordIndex) {
+  const nestedEntries = Array.isArray(record?.journalEntries)
+    ? record.journalEntries
+    : [];
+  const totalSales = nestedEntries
+    .filter((entry) => String(entry?.accountType || "").toLowerCase() === "income")
+    .reduce((sum, entry) => sum + Number(entry?.amount || 0), 0);
+  const totalCogs = nestedEntries
+    .filter((entry) => String(entry?.category || "").toLowerCase() === "cogs")
+    .reduce((sum, entry) => sum + Number(entry?.amount || 0), 0);
+  const tax = Number(record?.orderTotals?.taxVat13pct || 0);
+  const total = Number(record?.orderTotals?.grandTotal || 0);
+  const itemCount = Array.isArray(record?.lineItems)
+    ? record.lineItems.reduce((sum, item) => sum + Number(item?.qty || 0), 0)
+    : 0;
+
+  return {
+    ...baseMeta,
+    __recordId: `${record?._id || `record-${recordIndex}`}-summary`,
+    date: toDateInputString(baseMeta.__importedOn),
+    account: "FruityGo Order",
+    accountType: "Income",
+    amount: total,
+    category: "Order Summary",
+    description: `Items: ${itemCount}, Sales: ${totalSales}, COGS: ${totalCogs}, VAT: ${tax}, Total: ${total}`,
+  };
+}
+
+export function buildRowsFromDatabaseRecords(
+  records = [],
+  { summarizeFruityGoOrders = false } = {},
+) {
+  const expandedRows = records.flatMap((record, recordIndex) => {
+    const source = String(record?.source || "").toLowerCase();
+    const nestedEntries = Array.isArray(record?.journalEntries)
+      ? record.journalEntries
+      : [];
+    const sourceId =
+      source === "import"
+        ? record?.metadata?.importId || record?.transactionId || record?._id || "records"
+        : source === "manual"
+          ? "manual"
+        : record?.transactionId || record?._id || "records";
+
+    const baseMeta = {
+      __fileId: String(sourceId),
+      __fileName: getFileName(record),
+      __fileType: getSourceLabel(record),
+      __importedOn:
+        record?.importedOn || record?.createdAt || record?.transactionDate,
+      __recordDocId: record?._id || null,
+      __isManual: source === "manual",
+      orgName: record?.orgName || "",
+      transactionId: record?.transactionId || "",
+    };
+
+    if (summarizeFruityGoOrders && source === "fruitygo" && nestedEntries.length > 0) {
+      return [buildSummaryRow(record, baseMeta, recordIndex)];
+    }
+
+    if (nestedEntries.length === 0) {
+      return [
+        {
+          ...record,
+          ...baseMeta,
+          __recordId: `${record?._id || `record-${recordIndex}`}`,
+        },
+      ];
+    }
+
+    return nestedEntries.map((entry, entryIndex) => ({
+      ...entry,
+      ...baseMeta,
+      __recordId: `${record?._id || `record-${recordIndex}`}-${entryIndex}`,
+    }));
+  });
+
+  return normalizeTransactionRows(expandedRows);
+}
+
+export function buildRecordDataset({
+  dbRecords = [],
+  selectedSource = "all",
+}) {
+  const allRows = buildRowsFromDatabaseRecords(dbRecords);
+  const scopedRows =
     selectedSource === "all"
-      ? imports
-      : imports.filter((imp) => getImportId(imp) === selectedSource);
+      ? allRows
+      : allRows.filter(
+          (row) => String(row.__fileId || "") === String(selectedSource || ""),
+        );
 
-  const importedRows = buildImportedRowsFromImports(scopedImports);
-  const allRows = [...manualRows, ...importedRows];
   const columns = Array.from(
     new Set(
-      allRows.flatMap((row) =>
+      scopedRows.flatMap((row) =>
         Object.keys(row).filter((key) => !key.startsWith("__") && key !== "parsedDate"),
       ),
     ),
+  );
+
+  const matchedRecord = allRows.find(
+    (row) => String(row.__fileId || "") === String(selectedSource || ""),
   );
 
   return {
@@ -91,18 +152,32 @@ export function buildRecordDataset({ imports = [], manualRows = [], selectedSour
     fileName:
       selectedSource === "all"
         ? "All Records"
-        : scopedImports[0]?.fileName || "Selected Records",
+        : matchedRecord?.__fileName || "Selected Records",
     fileType:
       selectedSource === "all"
         ? "Combined"
-        : scopedImports[0]?.fileType || "Unknown",
+        : matchedRecord?.__fileType || "Unknown",
     importedOn:
       selectedSource === "all"
         ? null
-        : scopedImports[0]?.importedOn || null,
-    records: allRows.length,
+        : matchedRecord?.__importedOn || null,
+    records: scopedRows.length,
     columns,
-    rows: allRows,
-    previewRows: allRows.slice(0, 200),
+    rows: scopedRows,
+    previewRows: scopedRows.slice(0, 200),
   };
+}
+
+export function buildSourceOptionsFromRows(rows = []) {
+  const sourceMap = new Map();
+  rows.forEach((row) => {
+    const id = String(row.__fileId || "");
+    if (!id || sourceMap.has(id)) return;
+    sourceMap.set(id, row.__fileName || "Unknown source");
+  });
+
+  return Array.from(sourceMap.entries()).map(([id, fileName]) => ({
+    id,
+    label: fileName,
+  }));
 }

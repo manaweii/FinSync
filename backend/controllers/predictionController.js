@@ -1,4 +1,4 @@
-import ImportModel from "../models/Import.js";
+import RecordModel from "../models/Record.js";
 import PredictionMilestone from "../models/PredictionMilestone.js";
 
 const DEFAULT_FORECAST_MONTHS = 6;
@@ -48,7 +48,14 @@ const getCategoryType = (row) =>
   String(row?.Category || row?.category || row?.Type || row?.type || "").toLowerCase();
 
 const getMonthKeyForRow = (row) =>
-  monthKeyFromDate(row?.Date || row?.date || row?.Month || row?.month);
+  monthKeyFromDate(
+    row?.Date ||
+      row?.date ||
+      row?.TransactionDate ||
+      row?.transactionDate ||
+      row?.Month ||
+      row?.month,
+  );
 
 const inferRevenue = (row) => {
   const directRevenue =
@@ -353,15 +360,29 @@ const projectMilestones = (milestones, forecast) => {
   });
 };
 
-const parseImportedRows = (imports) => {
+const parseRecordRows = (records) => {
   const rows = [];
 
-  imports.forEach((entry) => {
+  records.forEach((record) => {
     try {
-      const parsed = JSON.parse(entry.importedData || "[]");
-      if (Array.isArray(parsed)) rows.push(...parsed);
+      const entries = Array.isArray(record?.journalEntries) ? record.journalEntries : [];
+      const fallbackDate = record?.transactionDate || record?.importedOn || record?.createdAt || null;
+
+      if (!entries.length) return;
+
+      entries.forEach((entry) => {
+        rows.push({
+          date: entry?.date || "",
+          account: entry?.account || "",
+          accountType: entry?.accountType || "",
+          amount: Number(entry?.amount || 0),
+          description: entry?.description || "",
+          category: entry?.category || "",
+          transactionDate: fallbackDate,
+        });
+      });
     } catch (error) {
-      console.error("Failed to parse imported data for predictions:", entry?._id, error);
+      console.error("Failed to parse record data for predictions:", record?._id, error);
     }
   });
 
@@ -380,8 +401,13 @@ export const getOrgPredictions = async (req, res) => {
       return res.status(400).json({ message: "Organization id is required" });
     }
 
-    const imports = await ImportModel.find({ orgId }).sort({ importedOn: -1 }).lean();
-    const rows = parseImportedRows(imports);
+    const records = await RecordModel.find({
+      source: "import",
+      "metadata.orgId": String(orgId),
+    })
+      .sort({ importedOn: -1, transactionDate: -1, createdAt: -1 })
+      .lean();
+    const rows = parseRecordRows(records);
     const historical = buildMonthlySeries(rows);
     const anomalies = detectAnomalies(rows);
     const milestones = await PredictionMilestone.find({ orgId }).sort({ createdAt: -1 }).lean();

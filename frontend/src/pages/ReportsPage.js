@@ -10,9 +10,9 @@ import Footer from "../components/homepage/Footer";
 import useAuthStore from "../store/useAuthStore";
 import { CalendarIcon } from "@heroicons/react/24/outline";
 import {
+  buildRowsFromDatabaseRecords,
   buildRecordDataset,
-  getImportId,
-  loadManualRows,
+  buildSourceOptionsFromRows,
 } from "../utils/recordsData";
 
 function ReportsPage() {
@@ -23,8 +23,7 @@ function ReportsPage() {
   const fromRef = useRef(null);
   const toRef = useRef(null);
 
-  const [imports, setImports] = useState([]);
-  const [manualRows, setManualRows] = useState([]);
+  const [dbRecords, setDbRecords] = useState([]);
   const [selectedImport, setSelectedImport] = useState("all");
   const [loadingImports, setLoadingImports] = useState(false);
   const [error, setError] = useState(null);
@@ -35,34 +34,35 @@ function ReportsPage() {
   });
   const [appliedFilters, setAppliedFilters] = useState({});
 
-  useEffect(() => {
-    setManualRows(loadManualRows(currentUser?.orgId));
-  }, [currentUser?.orgId]);
-
   const loadImports = useCallback(async () => {
     setLoadingImports(true);
     setError(null);
     try {
-      if (!currentUser?.orgId) {
-        setImports([]);
+      if (!currentUser?.orgName) {
+        setDbRecords([]);
         return;
       }
-      const res = await fetch(`${API_BASE}/past-imports/${currentUser.orgId}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) {
-        const t = await res.text().catch(() => "");
-        throw new Error(t || "Failed to load imports");
+
+      const recordsRes = await fetch(
+        `${API_BASE}/records?orgName=${encodeURIComponent(currentUser.orgName)}`,
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        },
+      );
+      if (!recordsRes.ok) {
+        const t = await recordsRes.text().catch(() => "");
+        throw new Error(t || "Failed to load records");
       }
-      const data = await res.json();
-      setImports(Array.isArray(data) ? data : []);
+
+      const recordsData = await recordsRes.json();
+      setDbRecords(Array.isArray(recordsData) ? recordsData : []);
     } catch (err) {
       console.error("loadImports error:", err);
-      setError(err.message || "Failed to load imports");
+      setError(err.message || "Failed to load records");
     } finally {
       setLoadingImports(false);
     }
-  }, [API_BASE, currentUser?.orgId, token]);
+  }, [API_BASE, currentUser?.orgName, token]);
 
   useEffect(() => {
     loadImports();
@@ -71,12 +71,16 @@ function ReportsPage() {
   const importDetail = useMemo(
     () =>
       buildRecordDataset({
-        imports,
-        manualRows,
+        dbRecords,
         selectedSource: selectedImport,
       }),
-    [imports, manualRows, selectedImport],
+    [dbRecords, selectedImport],
   );
+
+  const sourceOptions = useMemo(() => {
+    const rows = buildRowsFromDatabaseRecords(dbRecords);
+    return buildSourceOptionsFromRows(rows);
+  }, [dbRecords]);
 
   const handleImportSelect = (e) => {
     setSelectedImport(e.target.value || "all");
@@ -221,10 +225,9 @@ function ReportsPage() {
                     className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-500"
                   >
                     <option value="all">All records</option>
-                    {imports.map((imp) => (
-                      <option key={getImportId(imp)} value={getImportId(imp)}>
-                        {imp.fileName} —{" "}
-                        {new Date(imp.importedOn).toLocaleDateString()}
+                    {sourceOptions.map((source) => (
+                      <option key={source.id} value={source.id}>
+                        {source.label}
                       </option>
                     ))}
                   </select>

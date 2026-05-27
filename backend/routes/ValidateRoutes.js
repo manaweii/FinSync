@@ -4,6 +4,12 @@ import { login, requestPasswordReset, confirmNewPassword, CreateUser, getProfile
 import { getUsers, UpdateUser, DeleteUser } from "../repositories/userRepo.js";
 import { CreateOrganization, LoadOrganization, UpdateOrganization, DeleteOrganization } from "../repositories/organizationRepo.js";
 import { uploadFile, pastImportData, getImportById } from "../controllers/importController.js";
+import {
+  createManualRecord,
+  getRecordsByOrgName,
+  saveFruityGoRecords,
+  updateManualRecord,
+} from "../controllers/recordController.js";
 import { saveDashboardSettings, getDashboardSettings } from "../controllers/dashboardController.js";
 import { getOrgPredictions, savePredictionMilestone } from "../controllers/predictionController.js";
 import { askChatbot } from "../controllers/chatbotController.js";
@@ -26,7 +32,24 @@ function mapNotification(doc) {
     message: doc.message,
     time: new Date(doc.createdAt).toLocaleString(),
     createdAt: doc.createdAt,
+    readAt: doc.readAt || null,
+    isRead: Boolean(doc.readAt),
   };
+}
+
+function applyNotificationScope({ requestedRole, orgId }) {
+  const query = {};
+  const normalizedRole = requestedRole.toLowerCase();
+
+  if (normalizedRole && normalizedRole !== "superadmin") {
+    query.role = { $regex: `^${escapeRegex(requestedRole)}$`, $options: "i" };
+  }
+
+  if (orgId) {
+    query.orgId = orgId;
+  }
+
+  return query;
 }
 
 // Login
@@ -54,6 +77,12 @@ router.post("/upload", uploadFile);
 router.get("/past-imports/:orgId", pastImportData);
 router.get('/imports/:id', getImportById);
 
+// Records routes
+router.post("/records/fruitygo", saveFruityGoRecords);
+router.get("/records", getRecordsByOrgName);
+router.post("/records/manual", createManualRecord);
+router.put("/records/manual/:id", updateManualRecord);
+
 // Dashboard settings
 router.post('/dashboard-settings', saveDashboardSettings);
 router.get('/dashboard-settings/:id', getDashboardSettings);
@@ -69,7 +98,6 @@ router.post("/chatbot/ask", askChatbot);
 router.get("/notifications", async (req, res) => {
   try {
     const requestedRole = (req.query.role || "").toString().trim();
-    const normalizedRole = requestedRole.toLowerCase();
     const afterRaw = (req.query.after || "").toString().trim();
     const orgId = (req.query.orgId || "").toString().trim();
 
@@ -78,16 +106,11 @@ router.get("/notifications", async (req, res) => {
       ? Math.min(Math.max(requestedLimit, 1), 500)
       : 200;
 
-    const query = {};
-    if (normalizedRole && normalizedRole !== "superadmin") {
-      query.role = { $regex: `^${escapeRegex(requestedRole)}$`, $options: "i" };
+    if (orgId && !mongoose.Types.ObjectId.isValid(orgId)) {
+      return res.status(400).json({ message: "Invalid orgId" });
     }
-    if (orgId) {
-      if (!mongoose.Types.ObjectId.isValid(orgId)) {
-        return res.status(400).json({ message: "Invalid orgId" });
-      }
-      query.orgId = orgId;
-    }
+
+    const query = applyNotificationScope({ requestedRole, orgId });
 
     if (afterRaw) {
       const afterDate = new Date(afterRaw);
@@ -97,13 +120,57 @@ router.get("/notifications", async (req, res) => {
       query.createdAt = { $gt: afterDate };
     }
 
-    const docs = await Notification.find(query).sort({ createdAt: -1 }).limit(limit).lean();
+    const unreadCountQuery = { ...applyNotificationScope({ requestedRole, orgId }), readAt: null };
+
+    const [docs, unreadCount] = await Promise.all([
+      Notification.find(query).sort({ createdAt: -1 }).limit(limit).lean(),
+      Notification.countDocuments(unreadCountQuery),
+    ]);
+
     const notifications = docs.map(mapNotification);
 
-    return res.json(notifications);
+    return res.json({ notifications, unreadCount });
   } catch (error) {
     console.error("Failed to load notifications:", error);
     return res.status(500).json({ message: "Failed to load notifications" });
+  }
+});
+
+router.patch("/notifications/read", async (req, res) => {
+  try {
+    const requestedRole = (req.body?.role || "").toString().trim();
+    const orgId = (req.body?.orgId || "").toString().trim();
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+
+    if (orgId && !mongoose.Types.ObjectId.isValid(orgId)) {
+      return res.status(400).json({ message: "Invalid orgId" });
+    }
+
+    const scopeQuery = applyNotificationScope({ requestedRole, orgId });
+    const updateQuery = {
+      ...scopeQuery,
+      readAt: null,
+    };
+
+    if (ids.length) {
+      const validIds = ids.filter((id) => mongoose.Types.ObjectId.isValid(id));
+      if (!validIds.length) {
+        const unreadCount = await Notification.countDocuments({ ...scopeQuery, readAt: null });
+        return res.json({ updatedCount: 0, unreadCount });
+      }
+      updateQuery._id = { $in: validIds };
+    }
+
+    const result = await Notification.updateMany(updateQuery, { $set: { readAt: new Date() } });
+    const unreadCount = await Notification.countDocuments({ ...scopeQuery, readAt: null });
+
+    return res.json({
+      updatedCount: result.modifiedCount || 0,
+      unreadCount,
+    });
+  } catch (error) {
+    console.error("Failed to mark notifications as read:", error);
+    return res.status(500).json({ message: "Failed to mark notifications as read" });
   }
 });
 
@@ -124,6 +191,7 @@ router.post("/notifications", async (req, res) => {
       orgId: orgId || null,
       title,
       message,
+      readAt: null,
     });
 
     return res.status(201).json({
@@ -135,6 +203,8 @@ router.post("/notifications", async (req, res) => {
       message: created.message,
       time: new Date(created.createdAt).toLocaleString(),
       createdAt: created.createdAt,
+      readAt: created.readAt || null,
+      isRead: Boolean(created.readAt),
     });
   } catch (error) {
     console.error("Failed to create notification:", error);

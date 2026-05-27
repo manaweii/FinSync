@@ -10,6 +10,7 @@ import UserOrgRelation from "../models/UserOrgRelation.js";
 import ImportModel from "../models/Import.js";
 import Subscription from "../models/Subscription.js";
 import DashboardSetting from "../models/DashboardSetting.js";
+import RecordModel from "../models/Record.js";
 
 export async function connectAuthDB() {
   // Reuse existing connection when possible
@@ -42,6 +43,7 @@ export async function connectAuthDB() {
       UserRoleRelation.createCollection(),
       UserOrgRelation.createCollection(),
       ImportModel.createCollection(),
+      RecordModel.createCollection(),
     ]);
 
     console.log("Collections ensured");
@@ -90,5 +92,4 @@ export async function connectSubscriptionDB() {
 }
 
 export default connectAuthDB;
-
 

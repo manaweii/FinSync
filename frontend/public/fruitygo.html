@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FruityGo — Farm to Doorstep</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap"
+    rel="stylesheet" />
+
+  <style>
+    /* ── Reset & Base ── */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --cream: #FAF7F2;
+      --ink: #1C1C1A;
+      --ink-muted: #6B6B67;
+      --forest: #2D5016;
+      --forest-light: #4A7A28;
+      --sage: #8FAF6E;
+      --parchment: #F0EBE0;
+      --border: rgba(45, 80, 22, 0.15);
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--cream);
+      color: var(--ink);
+      min-height: 100vh;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    .serif {
+      font-family: 'Playfair Display', Georgia, serif;
+    }
+
+    /* ── Cart FAB ── */
+    .cart-fab {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--forest);
+      color: white;
+      border: none;
+      border-radius: 100px;
+      padding: 10px 20px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(45, 80, 22, 0.3);
+      transition: background 0.2s, transform 0.15s;
+    }
+
+    .cart-fab:hover {
+      background: var(--forest-light);
+      transform: translateY(-2px);
+    }
+
+    .cart-count {
+      background: white;
+      color: var(--forest);
+      border-radius: 50%;
+      width: 22px;
+      height: 22px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .cart-count.visible {
+      display: flex;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      padding: 6rem 2rem 4rem;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 60% 80% at 50% 0%, rgba(143, 175, 110, 0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(45, 80, 22, 0.07);
+      border: 1px solid rgba(45, 80, 22, 0.18);
+      border-radius: 100px;
+      padding: 4px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--forest);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 1.25rem;
+    }
+
+    .brand-name {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(3.5rem, 8vw, 6.5rem);
+      font-weight: 600;
+      color: var(--forest);
+      letter-spacing: -2px;
+      display: block;
+      line-height: 1;
+      margin-bottom: 0.75rem;
+    }
+
+    .brand-name span {
+      color: var(--sage);
+      font-style: italic;
+    }
+
+    .hero p {
+      font-size: 17px;
+      color: var(--ink-muted);
+      font-weight: 300;
+      max-width: 480px;
+      margin: 0 auto 2.5rem;
+    }
+
+    .hero-stats {
+      display: flex;
+      justify-content: center;
+      gap: 3rem;
+    }
+
+    .hero-stat-num {
+      font-family: 'Playfair Display', serif;
+      font-size: 2rem;
+      font-weight: 600;
+      color: var(--forest);
+      display: block;
+    }
+
+    .hero-stat-label {
+      font-size: 12px;
+      color: var(--ink-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Section ── */
+    .section {
+      padding: 4rem 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 2.5rem;
+    }
+
+    .section-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 2rem;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+    }
+
+    .section-subtitle {
+      font-size: 13px;
+      color: var(--ink-muted);
+    }
+
+    /* ── Product Grid ── */
+    .product-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 2px;
+    }
+
+    /* ── Product Card ── */
+    .product-card {
+      background: white;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.3s, box-shadow 0.3s;
+      position: relative;
+    }
+
+    .product-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 60px rgba(45, 80, 22, 0.12);
+      z-index: 1;
+    }
+
+    .product-card:hover .card-add-btn {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .product-card:hover .product-img img {
+      transform: scale(1.06);
+    }
+
+    .product-img {
+      width: 100%;
+      aspect-ratio: 1;
+      overflow: hidden;
+      position: relative;
+      background: var(--parchment);
+    }
+
+    .product-img img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.4s ease;
+    }
+
+    .product-category-badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 2;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 3px 10px;
+      font-size: 11px;
+      color: var(--ink-muted);
+      font-weight: 500;
+    }
+
+    .product-info {
+      padding: 1.25rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .product-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 6px;
+    }
+
+    .product-desc {
+      font-size: 13px;
+      color: var(--ink-muted);
+      font-weight: 300;
+      line-height: 1.5;
+      margin-bottom: 1rem;
+    }
+
+    .product-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .product-price {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: var(--forest);
+    }
+
+    .product-price span {
+      font-size: 12px;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 400;
+      color: var(--ink-muted);
+    }
+
+    .card-add-btn {
+      background: var(--forest);
+      color: white;
+      border: none;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, opacity 0.25s, transform 0.25s;
+      opacity: 0;
+      transform: translateY(6px);
+    }
+
+    .card-add-btn:hover {
+      background: var(--forest-light);
+    }
+
+    .card-add-btn.in-cart {
+      opacity: 1;
+      transform: translateY(0);
+      background: var(--sage);
+      font-size: 15px;
+    }
+
+    /* ── Cart Overlay & Drawer ── */
+    .cart-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(28, 28, 26, 0.4);
+      z-index: 200;
+      transition: opacity 0.3s;
+      opacity: 1;
+    }
+
+    .cart-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .cart-drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: min(420px, 100vw);
+      background: white;
+      z-index: 201;
+      display: flex;
+      flex-direction: column;
+      border-left: 1px solid var(--border);
+      transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+
+    .cart-drawer.closed {
+      transform: translateX(100%);
+    }
+
+    .cart-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .cart-header h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.4rem;
+      font-weight: 600;
+    }
+
+    .cart-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: var(--ink-muted);
+      transition: color 0.2s;
+      line-height: 1;
+    }
+
+    .cart-close:hover {
+      color: var(--ink);
+    }
+
+    .cart-body {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .cart-items {
+      padding: 1rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      flex: 1;
+    }
+
+    .cart-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .cart-item-thumb {
+      width: 52px;
+      height: 52px;
+      border-radius: 10px;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: var(--parchment);
+    }
+
+    .cart-item-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .cart-item-info {
+      flex: 1;
+    }
+
+    .cart-item-name {
+      font-weight: 500;
+      font-size: 14px;
+      color: var(--ink);
+    }
+
+    .cart-item-price {
+      font-size: 13px;
+      color: var(--ink-muted);
+      margin-top: 2px;
+    }
+
+    .cart-qty {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .qty-btn {
+      background: none;
+      border: 1px solid var(--border);
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ink);
+      transition: border-color 0.2s;
+      line-height: 1;
+    }
+
+    .qty-btn:hover {
+      border-color: var(--forest);
+    }
+
+    .qty-num {
+      font-size: 14px;
+      font-weight: 500;
+      min-width: 16px;
+      text-align: center;
+    }
+
+    .cart-remove {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--sage);
+      font-size: 18px;
+      padding: 4px;
+      transition: color 0.2s;
+      line-height: 1;
+    }
+
+    .cart-remove:hover {
+      color: #c0392b;
+    }
+
+    .empty-cart {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: var(--ink-muted);
+      padding: 3rem;
+    }
+
+    .empty-cart-icon {
+      font-size: 3.5rem;
+      opacity: 0.4;
+    }
+
+    .empty-cart p {
+      font-size: 14px;
+    }
+
+    .empty-cart small {
+      font-size: 12px;
+    }
+
+    /* ── Cart Footer ── */
+    .cart-footer {
+      padding: 1.5rem;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .cart-totals {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 1.25rem;
+    }
+
+    .cart-total-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      color: var(--ink-muted);
+    }
+
+    .cart-total-row.grand {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--ink);
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
+      margin-top: 4px;
+    }
+
+    .esewa-btn {
+      width: 100%;
+      padding: 14px;
+      background: #60bb46;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.2s, transform 0.15s;
+    }
+
+    .esewa-btn:hover:not(:disabled) {
+      background: #4da538;
+      transform: translateY(-1px);
+    }
+
+    .esewa-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .esewa-e {
+      font-family: serif;
+      font-size: 17px;
+      font-weight: 700;
+    }
+
+    .esewa-note {
+      font-size: 11px;
+      color: var(--ink-muted);
+      text-align: center;
+      margin-top: 8px;
+    }
+
+    /* ── Processing / Success ── */
+    .state-screen {
+      position: absolute;
+      inset: 0;
+      background: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      padding: 2rem;
+      z-index: 10;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--parchment);
+      border-top-color: var(--forest);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .processing-label {
+      font-size: 15px;
+      color: var(--ink-muted);
+    }
+
+    .processing-sublabel {
+      font-size: 12px;
+      color: var(--sage);
+    }
+
+    .success-icon {
+      font-size: 4rem;
+    }
+
+    .success-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.6rem;
+      font-weight: 600;
+      color: var(--forest);
+      text-align: center;
+    }
+
+    .success-msg {
+      font-size: 14px;
+      color: var(--ink-muted);
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    .txn-badge {
+      background: var(--parchment);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 12px;
+      font-family: monospace;
+      color: var(--ink-muted);
+    }
+
+    .continue-btn {
+      background: var(--forest);
+      color: white;
+      border: none;
+      border-radius: 100px;
+      padding: 10px 24px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background 0.2s;
+    }
+
+    .continue-btn:hover {
+      background: var(--forest-light);
+    }
+
+    /* ── Footer ── */
+    .site-footer {
+      border-top: 1px solid var(--border);
+      padding: 3rem 2rem;
+      text-align: center;
+      margin-top: 2rem;
+    }
+
+    .site-footer p {
+      font-size: 13px;
+      color: var(--ink-muted);
+    }
+
+    .site-footer small {
+      font-size: 11px;
+      color: var(--ink-muted);
+      display: block;
+      margin-top: 6px;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .hero {
+        padding: 4rem 1.5rem 2.5rem;
+      }
+
+      .section {
+        padding: 2.5rem 1rem;
+      }
+
+      .hero-stats {
+        gap: 1.5rem;
+      }
+
+      .product-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <button class="cart-fab" id="cartFab" onclick="openCart()">
+    🧺 Basket
+    <span class="cart-count" id="cartCount">0</span>
+  </button>
+
+  <section class="hero">
+    <div class="hero-eyebrow">🌿 Farm to doorstep</div>
+    <span class="brand-name serif">Fruity<span>Go</span></span>
+    <p>Handpicked seasonal fruits sourced directly from Himalayan farms and trusted growers across South Asia.</p>
+    <div class="hero-stats">
+      <div><span class="hero-stat-num">6+</span><span class="hero-stat-label">Varieties</span></div>
+      <div><span class="hero-stat-num">48h</span><span class="hero-stat-label">Farm fresh</span></div>
+      <div><span class="hero-stat-num">100%</span><span class="hero-stat-label">Natural</span></div>
+    </div>
+  </section>
+
+  <main class="section">
+    <div class="section-header">
+      <h2 class="section-title serif">Seasonal selection</h2>
+      <span class="section-subtitle">6 varieties available</span>
+    </div>
+    <div class="product-grid" id="productGrid"></div>
+  </main>
+
+  <footer class="site-footer">
+    <p>© 2026 FruityGo · Payments via eSewa · Financial sync via FinSync API</p>
+    <small>Cost margins processed server-side only · finsync_v2</small>
+  </footer>
+
+  <div class="cart-overlay hidden" id="cartOverlay" onclick="closeCart()"></div>
+
+  <div class="cart-drawer closed" id="cartDrawer">
+
+    <div class="state-screen" id="processingScreen" style="display:none;">
+      <div class="spinner"></div>
+      <div class="processing-label">Connecting to eSewa…</div>
+      <div class="processing-sublabel">Verifying transaction signature</div>
+    </div>
+
+    <div class="state-screen" id="successScreen" style="display:none;">
+      <button
+        style="position:absolute; top:20px; right:20px; background:none; border:none; font-size:24px; cursor:pointer; color:var(--ink-muted);"
+        onclick="closeCart()">×</button>
+      <div class="success-icon">✅</div>
+      <div class="success-title">Order confirmed!</div>
+      <div class="success-msg">Payment verified and synced to financial records.</div>
+      <div class="txn-badge" id="txnBadge">—</div>
+      <button class="continue-btn" onclick="onSuccessContinue()">Continue shopping</button>
+    </div>
+
+    <div class="cart-header">
+      <h2 class="serif">Your basket</h2>
+      <button class="cart-close" onclick="closeCart()">×</button>
+    </div>
+
+    <div class="cart-body" id="cartBody">
+    </div>
+
+  </div>
+
+  <script>
+    // ── Product Data ──────────────────────────────────────────────
+    // ── Updated Product Data ──────────────────────────────────────
+    const PRODUCTS = [
+      {
+        id: "p1", name: "Mango", price: 280, costPrice: 160, category: "Tropical",
+        imageURL: "https://images.unsplash.com/photo-1669207334420-66d0e3450283?q=80&w=987&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+        description: "The king of fruits — golden, fragrant, impossibly sweet."
+      },
+      {
+        id: "p2", name: "Strawberry", price: 180, costPrice: 108, category: "Berries",
+        imageURL: "https://images.unsplash.com/photo-1601004890684-d8cbf643f5f2?w=600&auto=format&fit=crop",
+        description: "Sun-ripened hill station berries, tartly divine."
+      },
+      {
+        id: "p3", name: "Dragon Fruit", price: 320, costPrice: 192, category: "Exotic",
+        imageURL: "https://images.unsplash.com/photo-1698546690393-45482eb06942?q=80&w=987&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+        description: "Electric pink skin, speckled flesh, delicate sweetness."
+      },
+      {
+        id: "p4", name: "Avocado", price: 240, costPrice: 144, category: "Exotic",
+        imageURL: "https://images.unsplash.com/photo-1704960961383-67dd63756199?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+        description: "Buttery, rich, and nourishing — nature's superfood."
+      },
+      {
+        id: "p5", name: "Blueberry", price: 420, costPrice: 252, category: "Berries",
+        imageURL: "https://images.unsplash.com/photo-1554795808-3231c32711cf?q=80&w=1036&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+        description: "Antioxidant-packed mountain berries, hand-picked fresh."
+      },
+      {
+        id: "p6", name: "Watermelon", price: 120, costPrice: 72, category: "Summer",
+        imageURL: "https://images.unsplash.com/photo-1589984662646-e7b2e4962f18?w=600&auto=format&fit=crop",
+        description: "Crisp, ice-cold sweetness from the fertile plains."
+      }
+    ];
+
+    // ── State ─────────────────────────────────────────────────────
+    const FINSYNC_API_BASE = (window.FINSYNC_API_BASE || "http://localhost:5000/api").replace(/\/$/, "");
+    const FRUITYGO_ORG_NAME = new URLSearchParams(window.location.search).get("orgName")?.trim() || "FruityGo";
+
+    let cart = [];
+    let checkoutState = "idle";
+
+    // ── Cart Helpers ──────────────────────────────────────────────
+    function getCartItem(id) { return cart.find(i => i.id === id); }
+
+    function addItem(productId) {
+      const product = PRODUCTS.find(p => p.id === productId);
+      const exists = getCartItem(productId);
+      if (exists) exists.qty++;
+      else cart.push({ ...product, qty: 1 });
+      renderAll();
+    }
+
+    function removeItem(id) {
+      cart = cart.filter(i => i.id !== id);
+      renderAll();
+    }
+
+    function updateQty(id, delta) {
+      cart = cart
+        .map(i => i.id === id ? { ...i, qty: Math.max(0, i.qty + delta) } : i)
+        .filter(i => i.qty > 0);
+      renderAll();
+    }
+
+    function getSubtotal() { return cart.reduce((s, i) => s + i.price * i.qty, 0); }
+    function getTax() { return Math.round(getSubtotal() * 0.13); }
+    function getTotal() { return getSubtotal() + getTax(); }
+    function getItemCount() { return cart.reduce((s, i) => s + i.qty, 0); }
+
+    // ── Cart Open / Close ─────────────────────────────────────────
+    function openCart() {
+      document.getElementById('cartOverlay').classList.remove('hidden');
+      document.getElementById('cartDrawer').classList.remove('closed');
+    }
+
+    function closeCart() {
+      if (checkoutState === 'success') resetCheckout();
+      document.getElementById('cartOverlay').classList.add('hidden');
+      document.getElementById('cartDrawer').classList.add('closed');
+    }
+
+    // ── Checkout ──────────────────────────────────────────────────
+    async function checkout() {
+      if (!cart.length || checkoutState === 'processing') return;
+      checkoutState = 'processing';
+      renderScreens();
+
+      // Show eSewa payment modal
+      await showEsewaModal();
+
+      const txnId = 'FRS-' + Date.now();
+
+      // Simulate signature verify (~0.6s)
+      await new Promise(r => setTimeout(r, 600));
+      // Simulate FinSync API call (~0.4s)
+      await new Promise(r => setTimeout(r, 400));
+
+      const payload = buildFinSyncPayload(cart, txnId);
+      try {
+        const saveResult = await persistOrderToFinSync(payload);
+        document.getElementById('txnBadge').textContent = `${txnId} · ${saveResult.rowsCreated || 0} rows`;
+      } catch (error) {
+        console.error("Failed to persist FruityGo records:", error);
+        alert(`Payment succeeded, but FinSync save failed: ${error.message}`);
+        checkoutState = 'idle';
+        renderAll();
+        return;
+      }
+
+      cart = [];
+      checkoutState = 'success';
+      renderAll();
+    }
+
+    // ── eSewa Modal ──────────────────────────────────────────────
+    function showEsewaModal() {
+      return new Promise((resolve) => {
+        // Create modal overlay
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.inset = 0;
+        overlay.style.background = 'rgba(28,28,26,0.45)';
+        overlay.style.zIndex = 9999;
+        overlay.style.display = 'flex';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+
+        // Modal box
+        const modal = document.createElement('div');
+        modal.style.background = 'white';
+        modal.style.borderRadius = '16px';
+        modal.style.boxShadow = '0 8px 32px rgba(0,0,0,0.13)';
+        modal.style.padding = '2.5rem 2.5rem 2rem';
+        modal.style.maxWidth = '340px';
+        modal.style.textAlign = 'center';
+        modal.style.position = 'relative';
+        modal.innerHTML = `
+          <div style="font-size:2.5rem; color:#60bb46; margin-bottom:10px;">e</div>
+          <div style="font-size:1.2rem; font-weight:600; margin-bottom:8px;">eSewa Payment Gateway</div>
+          <div style="font-size:14px; color:#6B6B67; margin-bottom:18px;">Redirecting to eSewa for payment authorization…</div>
+          <div class="spinner" style="margin: 18px auto 0;"></div>
+        `;
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        // Simulate eSewa payment (~2.2s)
+        setTimeout(() => {
+          // Show payment success popup
+          modal.innerHTML = `
+            <div style="font-size:2.5rem; color:#60bb46; margin-bottom:10px;">✅</div>
+            <div style="font-size:1.2rem; font-weight:600; margin-bottom:8px;">Payment Successful</div>
+            <div style="font-size:14px; color:#6B6B67; margin-bottom:18px;">Your payment was processed by eSewa.<br>Thank you for your order!</div>
+            <button id="esewaSuccessBtn" style="background:#60bb46;color:white;border:none;border-radius:100px;padding:10px 28px;font-size:15px;font-weight:500;cursor:pointer;">Continue</button>
+          `;
+          document.getElementById('esewaSuccessBtn').onclick = () => {
+            document.body.removeChild(overlay);
+            resolve();
+          };
+        }, 2200);
+      });
+    }
+
+    // ── FinSync Payload ───────────────────────────────────────────
+    function buildFinSyncPayload(cartItems, transactionId) {
+      const subtotal = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
+      return {
+        orgName: FRUITYGO_ORG_NAME,
+        schema_version: "finsync_v2",
+        timestamp: new Date().toISOString(),
+        transactionId,
+        source: "fruitygo",
+        currency: "NPR",
+        line_items: cartItems.map(item => ({
+          product_id: item.id,
+          product_name: item.name,
+          category: item.category,
+          qty: item.qty,
+          selling_price_unit: item.price,
+          selling_price_total: item.price * item.qty,
+          cost_price_unit: item.costPrice,
+          cost_price_total: item.costPrice * item.qty,
+          gross_profit_line: (item.price - item.costPrice) * item.qty
+        })),
+        order_totals: {
+          subtotal,
+          discount: 0,
+          tax_vat_13pct: Math.round(subtotal * 0.13),
+          grand_total: Math.round(subtotal * 1.13)
+        },
+        accounting_targets: ["profit_and_loss", "balance_sheet", "cash_flow"]
+      };
+    }
+
+    async function persistOrderToFinSync(payload) {
+      const response = await fetch(`${FINSYNC_API_BASE}/records/fruitygo`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to save records");
+      }
+
+      return result;
+    }
+
+    // ── Render: Product Grid ──────────────────────────────────────
+    function renderGrid() {
+      const grid = document.getElementById('productGrid');
+      grid.innerHTML = PRODUCTS.map(p => {
+        const inCart = !!getCartItem(p.id);
+        return `
+          <div class="product-card" onclick="addItem('${p.id}')">
+            <div class="product-img">
+              <span class="product-category-badge">${p.category}</span>
+              <img src="${p.imageURL}" alt="${p.name}" loading="lazy" />
+            </div>
+            <div class="product-info">
+              <div class="product-name serif">${p.name}</div>
+              <div class="product-desc">${p.description}</div>
+              <div class="product-footer">
+                <div class="product-price">रू ${p.price} <span>/ 500g</span></div>
+                <button
+                  class="card-add-btn ${inCart ? 'in-cart' : ''}"
+                  onclick="event.stopPropagation(); addItem('${p.id}')"
+                >${inCart ? '✓' : '+'}</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ── Render: FAB Count ─────────────────────────────────────────
+    function renderFAB() {
+      const countEl = document.getElementById('cartCount');
+      const count = getItemCount();
+      countEl.textContent = count;
+      countEl.classList.toggle('visible', count > 0);
+    }
+
+    // ── Render: Cart Body ─────────────────────────────────────────
+    function renderCartBody() {
+      const body = document.getElementById('cartBody');
+      if (cart.length === 0) {
+        body.innerHTML = `
+          <div class="empty-cart">
+            <div class="empty-cart-icon">🧺</div>
+            <p>Your basket is empty</p>
+            <small>Click any fruit to add it</small>
+          </div>
+        `;
+        return;
+      }
+
+      const itemsHTML = cart.map(item => `
+        <div class="cart-item">
+          <div class="cart-item-thumb">
+            <img src="${item.imageURL}" alt="${item.name}" />
+          </div>
+          <div class="cart-item-info">
+            <div class="cart-item-name">${item.name}</div>
+            <div class="cart-item-price">रू ${item.price} × ${item.qty} = रू ${item.price * item.qty}</div>
+          </div>
+          <div class="cart-qty">
+            <button class="qty-btn" onclick="updateQty('${item.id}', -1)">−</button>
+            <span class="qty-num">${item.qty}</span>
+            <button class="qty-btn" onclick="updateQty('${item.id}', 1)">+</button>
+          </div>
+          <button class="cart-remove" onclick="removeItem('${item.id}')">×</button>
+        </div>
+      `).join('');
+
+      const isProcessing = checkoutState === 'processing';
+
+      body.innerHTML = `
+        <div class="cart-items">${itemsHTML}</div>
+        <div class="cart-footer">
+          <div class="cart-totals">
+            <div class="cart-total-row"><span>Subtotal</span><span>रू ${getSubtotal()}</span></div>
+            <div class="cart-total-row"><span>VAT (13%)</span><span>रू ${getTax()}</span></div>
+            <div class="cart-total-row grand"><span>Total</span><span>रू ${getTotal()}</span></div>
+          </div>
+          <button class="esewa-btn" onclick="checkout()" ${isProcessing ? 'disabled' : ''}>
+            <span class="esewa-e">e</span>
+            Pay with eSewa · रू ${getTotal()}
+          </button>
+          <p class="esewa-note">Secured by eSewa · HMAC-SHA256 verified</p>
+        </div>
+      `;
+    }
+
+    // ── Render: Overlay Screens ───────────────────────────────────
+    function renderScreens() {
+      document.getElementById('processingScreen').style.display =
+        checkoutState === 'processing' ? 'flex' : 'none';
+      document.getElementById('successScreen').style.display =
+        checkoutState === 'success' ? 'flex' : 'none';
+    }
+
+    // ── Render All ────────────────────────────────────────────────
+    function renderAll() {
+      renderGrid();
+      renderFAB();
+      renderCartBody();
+      renderScreens();
+    }
+
+    // ── Init ──────────────────────────────────────────────────────
+    renderAll();
+
+    function resetCheckout() {
+      checkoutState = "idle";
+      renderScreens();
+    }
+
+    function onSuccessContinue() {
+      resetCheckout();
+      closeCart(); 
+    }
+  </script>
+</body>
+
+</html>

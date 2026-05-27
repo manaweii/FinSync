@@ -4,6 +4,7 @@ import { persist } from 'zustand/middleware';
 const DEFAULT_LAYOUT = [
   'kpis',
   'trend',
+  'dynamicChart',
   'expensePie',
   'categoryBar',
   'dataPreview',
