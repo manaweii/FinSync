@@ -1,4 +1,12 @@
+import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
+
 import RecordModel from "../models/Record.js";
+import Organization from "../models/Organization.js";
+import Role from "../models/Role.js";
+import User from "../models/User.js";
+import UserOrgRelation from "../models/UserOrgRelation.js";
+import UserRoleRelation from "../models/UserRoleRelation.js";
 
 const toNumber = (value, fallback = 0) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : fallback;
@@ -9,6 +17,78 @@ const toNumber = (value, fallback = 0) => {
 
 const toText = (value, fallback = "") =>
   String(value == null ? fallback : value).trim();
+
+const isStrictNumber = (value) => /^-?\d+(\.\d+)?$/.test(toText(value));
+const isAlphabetText = (value, { required = false } = {}) => {
+  const text = toText(value);
+  if (!text) return !required;
+  return /^[a-zA-Z\s]+$/.test(text);
+};
+
+const normalizeRole = (value) => toText(value).toLowerCase();
+
+const extractToken = (req) => {
+  const authHeader = req.headers.authorization || req.headers.Authorization || "";
+  if (!authHeader) return null;
+
+  if (authHeader.startsWith("Bearer ")) {
+    return authHeader.slice(7).trim();
+  }
+
+  return authHeader.trim() || null;
+};
+
+const getAuthContext = async (req) => {
+  const token = extractToken(req);
+  if (!token) {
+    return { error: { code: 401, message: "Authorization token missing" } };
+  }
+
+  let payload;
+  try {
+    payload = jwt.verify(token, process.env.JWT_SECRET);
+  } catch {
+    return { error: { code: 401, message: "Invalid or expired token" } };
+  }
+
+  const userId = payload?.userId;
+  if (!userId) {
+    return { error: { code: 401, message: "Invalid token payload" } };
+  }
+
+  const user = await User.findById(userId).lean();
+  if (!user) {
+    return { error: { code: 404, message: "User not found" } };
+  }
+
+  if (user.status && user.status !== "Active") {
+    return { error: { code: 403, message: "User account is inactive" } };
+  }
+
+  const orgRelation = await UserOrgRelation.findOne({ userId: user._id }).lean();
+  if (!orgRelation?.orgId) {
+    return { error: { code: 400, message: "Organization context is missing" } };
+  }
+
+  const org = await Organization.findById(orgRelation.orgId).lean();
+  if (!org) {
+    return { error: { code: 404, message: "Organization not found" } };
+  }
+
+  if (org.status && org.status !== "Active") {
+    return { error: { code: 403, message: "Organization is inactive" } };
+  }
+
+  const roleRelation = await UserRoleRelation.findOne({ userId: user._id }).lean();
+  const role = roleRelation ? await Role.findById(roleRelation.roleId).lean() : null;
+
+  return {
+    userId: user._id,
+    orgId: org._id,
+    orgName: org.orgName || org.name || org.Orgname || "",
+    roleName: role?.name || "User",
+  };
+};
 
 const parseTimestamp = (value) => {
   const d = new Date(value);
@@ -210,8 +290,17 @@ export const createManualRecord = async (req, res) => {
     if (!date || !account || !accountType || !description) {
       return res.status(400).json({ message: "date, account, accountType, and description are required" });
     }
-    if (!Number.isFinite(amount)) {
+    if (!isStrictNumber(payload.amount) || !Number.isFinite(amount)) {
       return res.status(400).json({ message: "amount must be a valid number" });
+    }
+    if (!isAlphabetText(account, { required: true })) {
+      return res.status(400).json({ message: "account must contain letters and spaces only" });
+    }
+    if (!isAlphabetText(accountType, { required: true })) {
+      return res.status(400).json({ message: "accountType must contain letters and spaces only" });
+    }
+    if (!isAlphabetText(category, { required: true })) {
+      return res.status(400).json({ message: "category must contain letters and spaces only" });
     }
 
     const transactionDate = parseTimestamp(date) || new Date();
@@ -267,8 +356,17 @@ export const updateManualRecord = async (req, res) => {
     if (!date || !account || !accountType || !description) {
       return res.status(400).json({ message: "date, account, accountType, and description are required" });
     }
-    if (!Number.isFinite(amount)) {
+    if (!isStrictNumber(payload.amount) || !Number.isFinite(amount)) {
       return res.status(400).json({ message: "amount must be a valid number" });
+    }
+    if (!isAlphabetText(account, { required: true })) {
+      return res.status(400).json({ message: "account must contain letters and spaces only" });
+    }
+    if (!isAlphabetText(accountType, { required: true })) {
+      return res.status(400).json({ message: "accountType must contain letters and spaces only" });
+    }
+    if (!isAlphabetText(category, { required: true })) {
+      return res.status(400).json({ message: "category must contain letters and spaces only" });
     }
 
     const transactionDate = parseTimestamp(date) || new Date();
@@ -301,6 +399,47 @@ export const updateManualRecord = async (req, res) => {
   } catch (err) {
     console.error("updateManualRecord error:", err);
     return res.status(500).json({ message: "Failed to update manual record" });
+  }
+};
+
+export const deleteRecord = async (req, res) => {
+  try {
+    const id = toText(req.params?.id);
+    if (!id) return res.status(400).json({ message: "record id is required" });
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid record id" });
+    }
+
+    const authContext = await getAuthContext(req);
+    if (authContext.error) {
+      return res.status(authContext.error.code).json({ message: authContext.error.message });
+    }
+
+    if (normalizeRole(authContext.roleName) !== "admin") {
+      return res.status(403).json({ message: "Admin privileges are required to delete records" });
+    }
+
+    const requestedOrgName = toText(req.body?.orgName || req.query?.orgName);
+    if (requestedOrgName && requestedOrgName !== authContext.orgName) {
+      return res.status(403).json({ message: "Cannot delete records outside your organization" });
+    }
+
+    const deleted = await RecordModel.findOneAndDelete({
+      _id: id,
+      orgName: authContext.orgName,
+    }).lean();
+
+    if (!deleted) {
+      return res.status(404).json({ message: "Record not found" });
+    }
+
+    return res.status(200).json({
+      message: "Record deleted",
+      deletedId: id,
+    });
+  } catch (err) {
+    console.error("deleteRecord error:", err);
+    return res.status(500).json({ message: "Failed to delete record" });
   }
 };
 

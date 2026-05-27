@@ -1,13 +1,15 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Footer from "../components/homepage/Footer";
 import {
   ArrowDownTrayIcon,
   ArrowPathIcon,
   CalendarDaysIcon,
   ChevronDownIcon,
+  ExclamationTriangleIcon,
   MagnifyingGlassIcon,
   PencilSquareIcon,
   PlusIcon,
+  TrashIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import useAuthStore from "../store/useAuthStore";
@@ -18,7 +20,7 @@ import {
 } from "../utils/recordsData";
 
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
-const RECORDS_PER_PAGE = 15;
+const RECORDS_PER_PAGE = 8;
 
 const defaultFormState = {
   date: "",
@@ -49,10 +51,108 @@ const formatDateInputValue = (value) => {
     : parsed.toISOString().slice(0, 10);
 };
 
+const getRowSortTime = (row = {}) => {
+  const candidates = [row.__importedOn, row.createdAt, row.transactionDate, row.date];
+  for (const value of candidates) {
+    if (!value) continue;
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return parsed.getTime();
+  }
+  return 0;
+};
+
+const getAmountTextClass = (row = {}) => {
+  const amount = Number(row.amount || row.Amount || 0);
+  const accountType = String(row.accountType || row["Account Type"] || "").toLowerCase();
+
+  if (amount < 0 || accountType === "expense") return "font-semibold text-rose-600";
+  if (amount > 0) return "font-semibold text-emerald-600";
+  return "text-slate-500";
+};
+
+const sanitizeAmountInput = (value) => {
+  const cleaned = String(value || "").replace(/[^\d.-]/g, "");
+  const sign = cleaned.startsWith("-") ? "-" : "";
+  const unsigned = cleaned.replace(/-/g, "");
+  const [whole = "", ...decimalParts] = unsigned.split(".");
+  const decimal = decimalParts.join("");
+  return `${sign}${whole}${decimalParts.length > 0 ? `.${decimal}` : ""}`;
+};
+
+const sanitizeAlphabetInput = (value) =>
+  String(value || "").replace(/[^a-zA-Z\s]/g, "");
+
+const isValidAmount = (value) => /^-?\d+(\.\d+)?$/.test(String(value).trim());
+const isValidAlphabetText = (value, { required = false } = {}) => {
+  const text = String(value || "").trim();
+  if (!text) return !required;
+  return /^[a-zA-Z\s]+$/.test(text);
+};
+
+const getManualFormErrors = (form) => {
+  const errors = {};
+
+  if (!form.date) {
+    errors.date = "Date is required.";
+  }
+  if (!form.amount) {
+    errors.amount = "Amount is required.";
+  } else if (!isValidAmount(form.amount)) {
+    errors.amount = "Amount must be a valid number.";
+  }
+  if (!form.account) {
+    errors.account = "Account is required.";
+  } else if (!isValidAlphabetText(form.account, { required: true })) {
+    errors.account = "Account must contain letters and spaces only.";
+  }
+  if (form.category && !isValidAlphabetText(form.category)) {
+    errors.category = "Category must contain letters and spaces only.";
+  }
+  if (!form.description) {
+    errors.description = "Description is required.";
+  }
+
+  return errors;
+};
+
+const getInputClass = (hasError) =>
+  `w-full rounded-3xl border px-5 py-4 text-lg text-slate-700 outline-none transition placeholder:text-slate-400 focus:ring-4 ${
+    hasError
+      ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100"
+      : "border-slate-200 focus:border-cyan-400 focus:ring-cyan-100"
+  }`;
+
+function FieldError({ id, message }) {
+  if (!message) return null;
+
+  return (
+    <p id={id} className="mt-2 px-2 text-sm font-medium text-rose-600">
+      {message}
+    </p>
+  );
+}
+
+function ValidatedInput({ error, idPrefix, name, className = "", ...props }) {
+  const errorId = `${idPrefix}-${name}-error`;
+
+  return (
+    <>
+      <input
+        {...props}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? errorId : undefined}
+        className={`${getInputClass(Boolean(error))} ${className}`.trim()}
+      />
+      <FieldError id={errorId} message={error} />
+    </>
+  );
+}
+
 function RecordModal({
   isOpen,
   mode,
   form,
+  errors = {},
   onChange,
   onClose,
   onSubmit,
@@ -61,6 +161,22 @@ function RecordModal({
   if (!isOpen) return null;
 
   const isEdit = mode === "edit";
+  const handleAmountChange = (value) => {
+    const sanitizedValue = sanitizeAmountInput(value);
+    onChange(
+      "amount",
+      sanitizedValue,
+      sanitizedValue !== value ? "Amount must contain numbers only." : "",
+    );
+  };
+  const handleAlphabetChange = (field, value, label) => {
+    const sanitizedValue = sanitizeAlphabetInput(value);
+    onChange(
+      field,
+      sanitizedValue,
+      sanitizedValue !== value ? `${label} must contain letters and spaces only.` : "",
+    );
+  };
 
   return (
     <div
@@ -98,41 +214,52 @@ function RecordModal({
           </button>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={onSubmit}>
+        <form className="mt-8 space-y-6" onSubmit={onSubmit} noValidate>
           <div className="grid gap-5 md:grid-cols-2">
             <label className="block">
               <span className="sr-only">Date</span>
-              <input
+              <ValidatedInput
+                idPrefix={mode}
+                name="date"
                 type="date"
                 value={form.date}
                 onChange={(e) => onChange("date", e.target.value)}
-                className="w-full rounded-3xl border border-slate-200 px-5 py-4 text-lg text-slate-700 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                error={errors.date}
                 required
               />
             </label>
 
             <label className="block">
               <span className="sr-only">Amount</span>
-              <input
-                type="number"
+              <ValidatedInput
+                idPrefix={mode}
+                name="amount"
+                type="text"
                 inputMode="decimal"
-                step="0.01"
                 value={form.amount}
-                onChange={(e) => onChange("amount", e.target.value)}
+                onChange={(e) => handleAmountChange(e.target.value)}
                 placeholder="Amount"
-                className="w-full rounded-3xl border border-slate-200 px-5 py-4 text-lg text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                pattern="-?[0-9]+(\\.[0-9]+)?"
+                title="Enter a valid number, for example 1200 or 1200.50"
+                error={errors.amount}
                 required
               />
             </label>
 
             <label className="block">
               <span className="sr-only">Account</span>
-              <input
+              <ValidatedInput
+                idPrefix={mode}
+                name="account"
                 type="text"
                 value={form.account}
-                onChange={(e) => onChange("account", e.target.value)}
+                onChange={(e) =>
+                  handleAlphabetChange("account", e.target.value, "Account")
+                }
                 placeholder="Account"
-                className="w-full rounded-3xl border border-slate-200 px-5 py-4 text-lg text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                pattern="[A-Za-z\\s]+"
+                title="Use letters and spaces only"
+                error={errors.account}
                 required
               />
             </label>
@@ -155,23 +282,31 @@ function RecordModal({
 
             <label className="block">
               <span className="sr-only">Category</span>
-              <input
+              <ValidatedInput
+                idPrefix={mode}
+                name="category"
                 type="text"
                 value={form.category}
-                onChange={(e) => onChange("category", e.target.value)}
+                onChange={(e) =>
+                  handleAlphabetChange("category", e.target.value, "Category")
+                }
                 placeholder="Category"
-                className="w-full rounded-3xl border border-slate-200 px-5 py-4 text-lg text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                pattern="[A-Za-z\\s]*"
+                title="Use letters and spaces only"
+                error={errors.category}
               />
             </label>
 
             <label className="block">
               <span className="sr-only">Description</span>
-              <input
+              <ValidatedInput
+                idPrefix={mode}
+                name="description"
                 type="text"
                 value={form.description}
                 onChange={(e) => onChange("description", e.target.value)}
                 placeholder="Description"
-                className="w-full rounded-3xl border border-slate-200 px-5 py-4 text-lg text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                error={errors.description}
                 required
               />
             </label>
@@ -190,6 +325,152 @@ function RecordModal({
   );
 }
 
+function ConfirmDeleteModal({
+  isOpen,
+  recordLabel,
+  deleting,
+  onCancel,
+  onConfirm,
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-8"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-record-title"
+      onClick={deleting ? undefined : onCancel}
+    >
+      <div
+        className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-4">
+          <div className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
+            <ExclamationTriangleIcon className="h-6 w-6" />
+          </div>
+          <div>
+            <h3
+              id="delete-record-title"
+              className="text-xl font-semibold text-slate-900"
+            >
+              Delete record?
+            </h3>
+            <p className="mt-2 text-sm text-slate-500">
+              Are you sure you want to delete this record?
+            </p>
+            {recordLabel ? (
+              <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-xs text-slate-600">
+                {recordLabel}
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={deleting}
+            className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={deleting}
+            className="inline-flex items-center gap-2 rounded-2xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <TrashIcon className="h-4 w-4" />
+            {deleting ? "Deleting..." : "Delete"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DescriptionCell({ value }) {
+  const text = normalizeValue(value);
+  const lines = text.includes("\n")
+    ? text.split("\n")
+    : text.startsWith("Items:")
+      ? text.split(/,\s+/)
+      : [text];
+  const structuredLines = lines
+    .map((line) => {
+      const [label, ...rest] = line.split(":");
+      return {
+        label: rest.length > 0 ? label.trim() : "",
+        value: rest.length > 0 ? rest.join(":").trim() : line.trim(),
+      };
+    })
+    .filter(({ value }) => value);
+  const itemLine = structuredLines.find(
+    ({ label }) => label.toLowerCase() === "items",
+  );
+  const metricLines = structuredLines.filter(({ label }) =>
+    ["sales", "cogs", "vat"].includes(label.toLowerCase()),
+  );
+  const otherLines = structuredLines.filter(({ label }) => {
+    const normalizedLabel = label.toLowerCase();
+    return normalizedLabel !== "items" && !["sales", "cogs", "vat"].includes(normalizedLabel);
+  });
+  const itemList = itemLine?.value.split(/,\s*/).filter(Boolean) || [];
+
+  return (
+    <div className="max-w-[240px] whitespace-normal text-[11px] leading-5 text-slate-700">
+      {itemLine ? (
+        <div>
+          <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            Items
+          </span>
+          <div className="mt-0.5 space-y-0.5">
+            {itemList.map((item) => (
+              <span key={item} className="block break-words font-medium text-slate-700">
+                {item}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {metricLines.length > 0 ? (
+        <div className={itemLine ? "mt-1" : ""}>
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
+            {metricLines.map(({ label, value }) => (
+              <span key={label} className="whitespace-nowrap">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  {label}
+                </span>{" "}
+                <span className="font-semibold text-slate-800">{value}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {otherLines.map(({ label, value }, index) => (
+        <div
+          key={`${label}-${value}-${index}`}
+          className="mt-1"
+        >
+          {label ? (
+            <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              {label}
+            </span>
+          ) : null}
+          <span className="block break-words font-semibold text-slate-800">
+            {value}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function RecordsPage() {
   const token = useAuthStore((s) => s.token);
   const currentUser = useAuthStore((s) => s.user);
@@ -204,9 +485,12 @@ export default function RecordsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingRecordId, setEditingRecordId] = useState(null);
+  const [recordPendingDelete, setRecordPendingDelete] = useState(null);
+  const [deletingRecord, setDeletingRecord] = useState(false);
   const [formState, setFormState] = useState(defaultFormState);
+  const [formErrors, setFormErrors] = useState({});
 
-  const loadRecords = async () => {
+  const loadRecords = useCallback(async () => {
     if (!currentUser?.orgName) {
       setDbRecords([]);
       setLoading(false);
@@ -238,16 +522,16 @@ export default function RecordsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser?.orgName, token]);
 
   useEffect(() => {
     loadRecords();
-  }, [currentUser?.orgName, token]);
+  }, [loadRecords]);
 
   const allRows = useMemo(() => {
     return buildRowsFromDatabaseRecords(dbRecords, {
       summarizeFruityGoOrders: true,
-    });
+    }).sort((a, b) => getRowSortTime(b) - getRowSortTime(a));
   }, [dbRecords]);
 
   const fileOptions = useMemo(
@@ -266,7 +550,11 @@ export default function RecordsPage() {
   }, [allRows]);
 
   const visibleColumns = useMemo(
-    () => RECORDS_VISIBLE_COLUMNS,
+    () =>
+      RECORDS_VISIBLE_COLUMNS.filter(
+        (column) =>
+          !["__fileName", "orgName", "transactionId"].includes(column),
+      ),
     [],
   );
 
@@ -326,13 +614,11 @@ export default function RecordsPage() {
     if (filteredRows.length === 0) return;
 
     const headers = visibleColumns.map((column) =>
-      column === "__fileName"
-        ? "Source File"
-        : column === "__fileType"
-          ? "File Type"
-          : column === "__importedOn"
-            ? "Imported On"
-            : column,
+      column === "__fileType"
+        ? "Source"
+        : column === "__importedOn"
+          ? "Imported On"
+          : column,
     );
 
     const escapeCsv = (value) =>
@@ -363,18 +649,29 @@ export default function RecordsPage() {
     window.URL.revokeObjectURL(url);
   };
 
-  const updateFormField = (field, value) => {
+  const updateFormField = (field, value, fieldError = "") => {
     setFormState((current) => ({ ...current, [field]: value }));
+    setFormErrors((current) => {
+      if (fieldError) {
+        return { ...current, [field]: fieldError };
+      }
+      if (!current[field]) return current;
+      const { [field]: _removed, ...remaining } = current;
+      return remaining;
+    });
   };
 
   const closeModals = () => {
     setIsAddModalOpen(false);
     setEditingRecordId(null);
+    setRecordPendingDelete(null);
     setFormState(defaultFormState);
+    setFormErrors({});
   };
 
   const openAddModal = () => {
     setFormState(defaultFormState);
+    setFormErrors({});
     setIsAddModalOpen(true);
   };
 
@@ -388,11 +685,19 @@ export default function RecordsPage() {
       description:
         row.description || row.Description || row.desc || row.Desc || "",
     });
+    setFormErrors({});
     setEditingRecordId(row.__recordDocId || row.__recordId);
+  };
+
+  const validateManualForm = () => {
+    const errors = getManualFormErrors(formState);
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleAddRecord = async (e) => {
     e.preventDefault();
+    if (!validateManualForm()) return;
 
     try {
       const res = await fetch(`${API_BASE}/records/manual`, {
@@ -427,6 +732,7 @@ export default function RecordsPage() {
 
   const handleEditRecord = async (e) => {
     e.preventDefault();
+    if (!validateManualForm()) return;
 
     try {
       const res = await fetch(`${API_BASE}/records/manual/${editingRecordId}`, {
@@ -457,6 +763,49 @@ export default function RecordsPage() {
     }
   };
 
+  const openDeleteModal = (row) => {
+    setRecordPendingDelete(row);
+  };
+
+  const closeDeleteModal = () => {
+    if (deletingRecord) return;
+    setRecordPendingDelete(null);
+  };
+
+  const handleDeleteRecord = async () => {
+    const recordId =
+      recordPendingDelete?.__recordDocId || recordPendingDelete?.__recordId;
+    if (!recordId) return;
+
+    try {
+      setDeletingRecord(true);
+      const res = await fetch(`${API_BASE}/records/${recordId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          orgName: currentUser?.orgName || "",
+        }),
+      });
+
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(result?.message || "Failed to delete record");
+      }
+
+      setDbRecords((current) =>
+        current.filter((record) => String(record?._id) !== String(recordId)),
+      );
+      setRecordPendingDelete(null);
+    } catch (err) {
+      alert(err.message || "Failed to delete record");
+    } finally {
+      setDeletingRecord(false);
+    }
+  };
+
   const selectedEditableRow = allRows.find(
     (row) => (row.__recordDocId || row.__recordId) === editingRecordId,
   ) || null;
@@ -477,7 +826,7 @@ export default function RecordsPage() {
             Financial Records.
           </h1>
           <p className="mt-2 text-sm text-slate-500 max-w-2xl mx-auto">
-            All CSV/Excel imports plus FruityGo checkout records are shown in
+            All CSV/Excel imports plus online checkout records are shown in
             one table, so you can review every row from a single page.
           </p>
         </div>
@@ -576,9 +925,9 @@ export default function RecordsPage() {
                     value={selectedFileType}
                     onChange={(e) => setSelectedFileType(e.target.value)}
                     className="min-w-[132px] appearance-none rounded-2xl border border-slate-200 bg-white px-4 py-3 pr-10 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-100"
-                    aria-label="Filter by file type"
+                    aria-label="Filter by source"
                   >
-                    <option value="all">All Types</option>
+                    <option value="all">All Sources</option>
                     {fileTypeOptions.map((type) => (
                       <option key={type} value={type}>
                         {type}
@@ -646,23 +995,17 @@ export default function RecordsPage() {
                             key={column}
                             className="whitespace-nowrap px-4 py-3 font-medium"
                           >
-                            {column === "__fileName"
-                              ? "Source File"
-                              : column === "__fileType"
-                                ? "File Type"
-                                : column === "orgName"
-                                  ? "Organization"
-                                  : column === "transactionId"
-                                    ? "Transaction ID"
-                                : column === "__importedOn"
-                                  ? "Imported On"
-                                  : column === "accountType"
-                                    ? "Account Type"
-                                    : column.charAt(0).toUpperCase() +
-                                      column.slice(1)}
+                            {column === "__fileType"
+                              ? "Source"
+                              : column === "__importedOn"
+                                ? "Imported On"
+                                : column === "accountType"
+                                  ? "Account Type"
+                                  : column.charAt(0).toUpperCase() +
+                                    column.slice(1)}
                           </th>
                         ))}
-                        <th className="whitespace-nowrap px-4 py-3 font-medium">
+                        <th className="sticky right-0 z-10 w-[104px] whitespace-nowrap border-l border-slate-100 bg-slate-50 px-4 py-3 text-center font-medium shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.45)]">
                           Actions
                         </th>
                       </tr>
@@ -673,7 +1016,11 @@ export default function RecordsPage() {
                           {visibleColumns.map((column) => (
                             <td
                               key={column}
-                              className="whitespace-nowrap px-4 py-3 text-slate-700"
+                              className={`whitespace-nowrap px-4 py-3 ${
+                                column === "amount"
+                                  ? getAmountTextClass(row)
+                                  : "text-slate-700"
+                              }`}
                             >
                               {column === "__importedOn"
                                 ? formatImportedOn(row[column])
@@ -685,20 +1032,33 @@ export default function RecordsPage() {
                                         maximumFractionDigits: 2,
                                       },
                                     )
+                                  : column === "description"
+                                    ? <DescriptionCell value={row[column]} />
                                   : normalizeValue(row[column])}
                             </td>
                           ))}
-                          <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                            <button
-                              type="button"
-                              onClick={() => openEditModal(row)}
-                              disabled={!row.__isManual}
-                              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                              aria-label={`Edit record ${normalizeValue(row.description || row.Description || row.__recordId)}`}
-                            >
-                              <PencilSquareIcon className="h-4 w-4" />
-                              Edit
-                            </button>
+                          <td className="sticky right-0 w-[104px] whitespace-nowrap border-l border-slate-100 bg-white px-4 py-3 text-slate-700 shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.45)]">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => openEditModal(row)}
+                                disabled={!row.__isManual}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                aria-label={`Edit record ${normalizeValue(row.description || row.Description || row.__recordId)}`}
+                                title="Edit record"
+                              >
+                                <PencilSquareIcon className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openDeleteModal(row)}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-rose-100 text-rose-600 transition hover:bg-rose-50"
+                                aria-label={`Delete record ${normalizeValue(row.description || row.Description || row.__recordId)}`}
+                                title="Delete record"
+                              >
+                                <TrashIcon className="h-4 w-4" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -727,12 +1087,9 @@ export default function RecordsPage() {
                     >
                       Previous
                     </button>
-                    <button
-                      type="button"
-                      className="h-7 rounded-full bg-emerald-600 px-3 text-xs font-medium text-white"
-                    >
-                      {currentPage}
-                    </button>
+                    <span className="h-7 rounded-full bg-emerald-600 px-3 text-xs font-medium leading-7 text-white">
+                      Page {currentPage} of {totalPages}
+                    </span>
                     <button
                       type="button"
                       onClick={() =>
@@ -755,31 +1112,34 @@ export default function RecordsPage() {
         isOpen={isAddModalOpen}
         mode="add"
         form={formState}
+        errors={formErrors}
         onChange={updateFormField}
         onClose={closeModals}
         onSubmit={handleAddRecord}
-        submitDisabled={
-          !formState.date ||
-          !formState.amount ||
-          !formState.description ||
-          !formState.account
-        }
+        submitDisabled={false}
       />
 
       <RecordModal
         isOpen={Boolean(editingRecordId)}
         mode="edit"
         form={formState}
+        errors={formErrors}
         onChange={updateFormField}
         onClose={closeModals}
         onSubmit={handleEditRecord}
-        submitDisabled={
-          !selectedEditableRow ||
-          !formState.date ||
-          !formState.amount ||
-          !formState.description ||
-          !formState.account
-        }
+        submitDisabled={!selectedEditableRow}
+      />
+      <ConfirmDeleteModal
+        isOpen={Boolean(recordPendingDelete)}
+        recordLabel={normalizeValue(
+          recordPendingDelete?.description ||
+            recordPendingDelete?.Description ||
+            recordPendingDelete?.transactionId ||
+            recordPendingDelete?.__recordDocId,
+        )}
+        deleting={deletingRecord}
+        onCancel={closeDeleteModal}
+        onConfirm={handleDeleteRecord}
       />
       <Footer />
     </div>

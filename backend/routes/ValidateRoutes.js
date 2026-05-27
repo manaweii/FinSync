@@ -6,6 +6,7 @@ import { CreateOrganization, LoadOrganization, UpdateOrganization, DeleteOrganiz
 import { uploadFile, pastImportData, getImportById } from "../controllers/importController.js";
 import {
   createManualRecord,
+  deleteRecord,
   getRecordsByOrgName,
   saveFruityGoRecords,
   updateManualRecord,
@@ -82,6 +83,7 @@ router.post("/records/fruitygo", saveFruityGoRecords);
 router.get("/records", getRecordsByOrgName);
 router.post("/records/manual", createManualRecord);
 router.put("/records/manual/:id", updateManualRecord);
+router.delete("/records/:id", deleteRecord);
 
 // Dashboard settings
 router.post('/dashboard-settings', saveDashboardSettings);

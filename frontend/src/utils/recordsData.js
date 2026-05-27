@@ -43,6 +43,18 @@ function getFileName(record = {}) {
   return record?.transactionId || "Record";
 }
 
+function formatLineItemNames(lineItems = []) {
+  if (!Array.isArray(lineItems) || lineItems.length === 0) return "No items";
+
+  return lineItems
+    .map((item) => {
+      const name = item?.productName || item?.product_name || "Product";
+      const qty = Number(item?.qty || 0);
+      return `${name} 500 gm${qty > 0 ? ` (Qty ${qty})` : ""}`;
+    })
+    .join(", ");
+}
+
 function buildSummaryRow(record, baseMeta, recordIndex) {
   const nestedEntries = Array.isArray(record?.journalEntries)
     ? record.journalEntries
@@ -55,9 +67,7 @@ function buildSummaryRow(record, baseMeta, recordIndex) {
     .reduce((sum, entry) => sum + Number(entry?.amount || 0), 0);
   const tax = Number(record?.orderTotals?.taxVat13pct || 0);
   const total = Number(record?.orderTotals?.grandTotal || 0);
-  const itemCount = Array.isArray(record?.lineItems)
-    ? record.lineItems.reduce((sum, item) => sum + Number(item?.qty || 0), 0)
-    : 0;
+  const itemNames = formatLineItemNames(record?.lineItems);
 
   return {
     ...baseMeta,
@@ -67,7 +77,12 @@ function buildSummaryRow(record, baseMeta, recordIndex) {
     accountType: "Income",
     amount: total,
     category: "Order Summary",
-    description: `Items: ${itemCount}, Sales: ${totalSales}, COGS: ${totalCogs}, VAT: ${tax}, Total: ${total}`,
+    description: [
+      `Items: ${itemNames}`,
+      `Sales: ${totalSales}`,
+      `COGS: ${totalCogs}`,
+      `VAT: ${tax}`,
+    ].join("\n"),
   };
 }
 
