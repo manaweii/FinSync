@@ -35,6 +35,8 @@ function NotificationFeed({ userRole }) {
     ), 0);
   }, [filteredNotifications, unreadCount, userRole]);
 
+  const badgeCount = visibleUnreadCount >= 9 ? "9+" : visibleUnreadCount;
+
   // Handle clicking outside to close
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -68,7 +70,11 @@ function NotificationFeed({ userRole }) {
   };
 
   return (
-    <div ref={notificationRef} className="relative">
+    <div
+      ref={notificationRef}
+      className="relative"
+      onMouseLeave={() => setIsOpen(false)}
+    >
       <button
         type="button"
         onClick={handleToggle}
@@ -77,41 +83,43 @@ function NotificationFeed({ userRole }) {
         <BellIcon className="h-6 w-6" />
         {visibleUnreadCount > 0 && (
           <span className="absolute -right-0.5 -top-0.5 min-w-[1.2rem] rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-            {visibleUnreadCount}
+            {badgeCount}
           </span>
         )}
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-3 w-[22rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl z-50">
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-            <div>
-              <p className="text-sm font-semibold text-slate-900">Notifications</p>
-              <p className="text-xs text-slate-500">
-                {visibleUnreadCount > 0 ? `${visibleUnreadCount} new updates` : "All caught up"}
-              </p>
-            </div>
-            {filteredNotifications.length > 0 && (
-              <button onClick={handleClearAll} className="text-xs font-medium text-emerald-600 hover:text-emerald-700">
-                Clear all
-              </button>
-            )}
-          </div>
-
-          <div className="max-h-96 overflow-y-auto p-4">
-            {filteredNotifications.length > 0 ? (
-              filteredNotifications.map((n) => (
-                <NotificationItem
-                  key={n.id}
-                  {...n}
-                  onRead={() => removeNotification(n.id)}
-                />
-              ))
-            ) : (
-              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center">
-                <p className="text-sm font-medium text-slate-700">No new notifications</p>
+        <div className="absolute right-0 top-full z-50 w-[22rem] max-w-[calc(100vw-2rem)] pt-3">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Notifications</p>
+                <p className="text-xs text-slate-500">
+                  {visibleUnreadCount > 0 ? `${visibleUnreadCount} new updates` : "All caught up"}
+                </p>
               </div>
-            )}
+              {filteredNotifications.length > 0 && (
+                <button onClick={handleClearAll} className="text-xs font-medium text-emerald-600 hover:text-emerald-700">
+                  Clear all
+                </button>
+              )}
+            </div>
+
+            <div className="max-h-96 overflow-y-auto p-4">
+              {filteredNotifications.length > 0 ? (
+                filteredNotifications.map((n) => (
+                  <NotificationItem
+                    key={n.id}
+                    {...n}
+                    onRead={() => removeNotification(n.id)}
+                  />
+                ))
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center">
+                  <p className="text-sm font-medium text-slate-700">No new notifications</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

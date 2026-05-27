@@ -41,6 +41,19 @@ function Navbar() {
 
   const logoPath = isLoggedIn ? "/dashboard" : "/";
 
+  const isActiveLink = (path) => {
+    if (path.includes("#")) {
+      const [pathname, hash] = path.split("#");
+      return location.pathname === pathname && location.hash === `#${hash}`;
+    }
+
+    if (path === "/") {
+      return location.pathname === "/" && !location.hash;
+    }
+
+    return location.pathname === path || location.pathname.startsWith(`${path}/`);
+  };
+
   const handleLogoutClick = () => {
     // use zustand to clear in-memory auth
     clearAuth();
@@ -86,15 +99,24 @@ function Navbar() {
 
         {/* center: nav links */}
         <div className="flex items-center gap-8 text-sm">
-          {linksToShow.map((item) => (
-            <Link
-              key={item}
-              to={linkMap[item] || "/"}
-              className="text-slate-500 hover:text-emerald-600 transition-colors"
-            >
-              {item}
-            </Link>
-          ))}
+          {linksToShow.map((item) => {
+            const path = linkMap[item] || "/";
+            const isActive = isActiveLink(path);
+
+            return (
+              <Link
+                key={item}
+                to={path}
+                className={
+                  isActive
+                    ? "font-bold text-teal-600 transition-colors"
+                    : "text-slate-500 hover:text-teal-600 transition-colors"
+                }
+              >
+                {item}
+              </Link>
+            );
+          })}
         </div>
 
         {/* right side */}
@@ -103,7 +125,11 @@ function Navbar() {
             <>
               <NotificationFeed userRole={role} />
 
-              <div ref={profileMenuRef} className="relative">
+              <div
+                ref={profileMenuRef}
+                className="relative"
+                onMouseLeave={() => setIsOpen(false)}
+              >
                 <button
                   onClick={() => setIsOpen(!isOpen)}
                   className="flex items-center gap-3 rounded-full border border-slate-100 bg-white px-3 py-2 shadow-sm"
@@ -119,54 +145,56 @@ function Navbar() {
                 </button>
 
                 {isOpen && (
-                  <div className="absolute right-0 mt-2 w-44 rounded-md border bg-white py-1 text-sm shadow-lg">
-                    {isSuperadmin && (
+                  <div className="absolute right-0 top-full w-44 pt-2">
+                    <div className="rounded-md border bg-white py-1 text-sm shadow-lg">
+                      {isSuperadmin && (
+                        <Link
+                          to={linkMap.Organization}
+                          className="block px-4 py-2 text-slate-700 hover:bg-slate-50"
+                          onClick={() => setIsOpen(false)}
+                        >
+                          Organization
+                        </Link>
+                      )}
+
+                      {isAdmin && (
+                        <Link
+                          to={linkMap.Users}
+                          className="block px-4 py-2 text-slate-700 hover:bg-slate-50"
+                          onClick={() => setIsOpen(false)}
+                        >
+                          Users
+                        </Link>
+                      )}
+
                       <Link
-                        to={linkMap.Organization}
+                        to={linkMap.Profile}
                         className="block px-4 py-2 text-slate-700 hover:bg-slate-50"
                         onClick={() => setIsOpen(false)}
                       >
-                        Organization
+                        Profile
                       </Link>
-                    )}
 
-                    {isAdmin && (
-                      <Link
-                        to={linkMap.Users}
-                        className="block px-4 py-2 text-slate-700 hover:bg-slate-50"
-                        onClick={() => setIsOpen(false)}
+                      {!isSuperadmin && (
+                        <Link
+                          to="/dashboard-settings"
+                          className="block px-4 py-2 text-slate-700 hover:bg-slate-50"
+                          onClick={() => {
+                            setIsOpen(false);
+                            navigate("/dashboard-settings");
+                          }}
+                        >
+                          Settings
+                        </Link>
+                      )}
+
+                      <button
+                        onClick={handleLogoutClick}
+                        className="w-full text-left px-4 py-2 text-red-600 hover:bg-slate-50"
                       >
-                        Users
-                      </Link>
-                    )}
-
-                    <Link
-                      to={linkMap.Profile}
-                      className="block px-4 py-2 text-slate-700 hover:bg-slate-50"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      Profile
-                    </Link>
-
-                    {!isSuperadmin && (
-                      <Link
-                        to="/dashboard-settings"
-                        className="block px-4 py-2 text-slate-700 hover:bg-slate-50"
-                        onClick={() => {
-                          setIsOpen(false);
-                          navigate("/dashboard-settings");
-                        }}
-                      >
-                        Settings
-                      </Link>
-                    )}
-
-                    <button
-                      onClick={handleLogoutClick}
-                      className="w-full text-left px-4 py-2 text-red-600 hover:bg-slate-50"
-                    >
-                      Logout
-                    </button>
+                        Logout
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
