@@ -114,12 +114,6 @@ export default function OrganizationManagement() {
 
           <div className="flex flex-wrap gap-3">
             <button
-              onClick={() => navigate("/subscription-logs")}
-              className="inline-flex items-center gap-2 rounded-full bg-white border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition"
-            >
-              <span>Payment Log</span>
-            </button>
-            <button
               onClick={() => navigate("/create-organization")}
               className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-blue-700 transition"
             >

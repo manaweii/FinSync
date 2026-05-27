@@ -469,6 +469,8 @@ router.get("/subscription/logs", async (req, res) => {
       role: "Admin",
       organization: sub.orgName,
       plan: sub.planName || "Starter",
+      type: sub.type || "signup",
+      subscriptionType: sub.type || "signup",
       result: String(sub.status || "Pending"),
     }));
 

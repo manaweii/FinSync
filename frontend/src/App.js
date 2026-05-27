@@ -14,6 +14,7 @@ import SubscriptionLogs from "./components/payment/SubscriptionLogs";
 
 import LoginPage from "./components/auth/Login";
 import RequireAuth from "./components/auth/RequireAuth";
+import RequireRole from "./components/auth/RequireRole";
 import NewPassword from "./components/auth/NewPassword";
 import useAuthStore from "./store/useAuthStore";
 import ResetPassword from "./components/auth/ResetPassword";
@@ -34,6 +35,17 @@ import CashFlowReport from "./components/datamanager/CashFlowReport";
 import BalanceSheetReport from "./components/datamanager/BalanceSheetReport";
 import FileImportPage from "./pages/FileImportPage";
 import FinSyncChatbot from "./components/chat/FinSyncChatbot";
+import { isSuperadminRole } from "./utils/roles";
+
+function DashboardRoute() {
+  const { role, user } = useAuthStore();
+
+  if (isSuperadminRole(user?.role || role)) {
+    return <SubscriptionLogs />;
+  }
+
+  return <DashboardPage />;
+}
 
 function App() {
   const { isLoggedIn, role } = useAuthStore();
@@ -75,7 +87,7 @@ function App() {
             path="/dashboard"
             element={
               <RequireAuth>
-                <DashboardPage />
+                <DashboardRoute />
               </RequireAuth>
             }
           />
@@ -128,7 +140,9 @@ function App() {
             path="/users"
             element={
               <RequireAuth>
-                <UserManagement />
+                <RequireRole allowedRoles={["admin"]}>
+                  <UserManagement />
+                </RequireRole>
               </RequireAuth>
             }
           />
@@ -136,7 +150,9 @@ function App() {
             path="/create-user"
             element={
               <RequireAuth>
-                <CreateUser />
+                <RequireRole allowedRoles={["admin"]}>
+                  <CreateUser />
+                </RequireRole>
               </RequireAuth>
             }
           />
@@ -146,7 +162,9 @@ function App() {
             path="/organizations"
             element={
               <RequireAuth>
-                <OrganizationManagement />
+                <RequireRole allowedRoles={["superadmin"]}>
+                  <OrganizationManagement />
+                </RequireRole>
               </RequireAuth>
             }
           />
@@ -154,7 +172,9 @@ function App() {
             path="/create-organization"
             element={
               <RequireAuth>
-                <CreateOrganization />
+                <RequireRole allowedRoles={["superadmin"]}>
+                  <CreateOrganization />
+                </RequireRole>
               </RequireAuth>
             }
           />

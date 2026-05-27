@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import Initials from "./Initials";
 import NotificationFeed from "./NotificationFeed";
 import useAuthStore from "../../store/useAuthStore";
+import { isAdminRole, isSuperadminRole } from "../../utils/roles";
 
 function Navbar() {
   const location = useLocation();
@@ -11,10 +12,16 @@ function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const profileMenuRef = useRef(null);
   const { user, isLoggedIn, role, clearAuth } = useAuthStore();
+  const isSuperadmin = isSuperadminRole(user?.role || role);
+  const isAdmin = isAdminRole(user?.role || role);
 
   const publicLinks = ["Home", "Features", "Platform", "Pricing", "Contact"];
   const privateLinks = ["Dashboard", "Import", "Record", "Prediction", "Report"];
-  const linksToShow = isLoggedIn ? privateLinks : publicLinks;
+  const linksToShow = isLoggedIn
+    ? isSuperadmin
+      ? []
+      : privateLinks
+    : publicLinks;
 
   const linkMap = {
     Home: "/",
@@ -113,7 +120,7 @@ function Navbar() {
 
                 {isOpen && (
                   <div className="absolute right-0 mt-2 w-44 rounded-md border bg-white py-1 text-sm shadow-lg">
-                    {role === "Superadmin" && (
+                    {isSuperadmin && (
                       <Link
                         to={linkMap.Organization}
                         className="block px-4 py-2 text-slate-700 hover:bg-slate-50"
@@ -123,7 +130,7 @@ function Navbar() {
                       </Link>
                     )}
 
-                    {role === "Admin" && (
+                    {isAdmin && (
                       <Link
                         to={linkMap.Users}
                         className="block px-4 py-2 text-slate-700 hover:bg-slate-50"
