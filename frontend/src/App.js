@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useEffect } from "react";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Navbar from "./components/nav/Navbar";
 import Profile from "./components/nav/Profile";
 import Terms from "./components/auth/TermsConditions";
@@ -54,6 +55,7 @@ function App() {
   return (
     <NotificationProvider>
       <BrowserRouter>
+        <ScrollToTop />
         <SessionStatusMonitor />
         <Navbar isLoggedIn={isLoggedIn} role={role} />
 
@@ -219,6 +221,16 @@ function App() {
 
 function SessionStatusMonitor() {
   useDisabledSessionMonitor();
+  return null;
+}
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
   return null;
 }
 
