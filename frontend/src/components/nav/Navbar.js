@@ -10,6 +10,7 @@ function Navbar() {
   const navigate = useNavigate();
 
   const [isOpen, setIsOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState("Home");
   const profileMenuRef = useRef(null);
   const { user, isLoggedIn, role, clearAuth } = useAuthStore();
   const isSuperadmin = isSuperadminRole(user?.role || role);
@@ -41,27 +42,22 @@ function Navbar() {
 
   const logoPath = isLoggedIn ? "/dashboard" : "/";
 
-  const isActiveLink = (path) => {
-    if (path.includes("#")) {
-      const [pathname, hash] = path.split("#");
-      return location.pathname === pathname && location.hash === `#${hash}`;
-    }
-
-    if (path === "/") {
-      return location.pathname === "/" && !location.hash;
-    }
-
-    return location.pathname === path || location.pathname.startsWith(`${path}/`);
-  };
-
   const handleLogoutClick = () => {
-    // use zustand to clear in-memory auth
     clearAuth();
     setIsOpen(false);
     navigate("/Login");
   };
 
-  const handleSectionScroll = (e, path) => {
+  const handleSectionScroll = (e, path, item) => {
+    // If it's the Home link, scroll to top
+    if (item === "Home" && location.pathname === "/") {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setActiveSection("Home");
+      window.history.pushState(null, "", "/");
+      return;
+    }
+
     // If it's a hash link on the same page, scroll to section
     if (path.includes("#") && location.pathname === "/") {
       e.preventDefault();
@@ -69,8 +65,8 @@ function Navbar() {
       const element = document.getElementById(hash);
       if (element) {
         element.scrollIntoView({ behavior: "smooth" });
-        // Update URL without page reload
         window.history.pushState(null, "", `#${hash}`);
+        setActiveSection(item);
       }
     }
   };
@@ -87,11 +83,51 @@ function Navbar() {
     };
 
     document.addEventListener("mousedown", handleClickOutside);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
+
+  // Detect which section is currently in view or update base on hash on initial load
+  useEffect(() => {
+    if (location.pathname !== "/") {
+      setActiveSection(null);
+      return;
+    }
+
+    // If there's an immediate hash on load, map it correctly
+    if (location.hash === "#featureSection") setActiveSection("Features");
+    else if (location.hash === "#platformSection") setActiveSection("Platform");
+    else setActiveSection("Home");
+
+    const handleScroll = () => {
+      const sections = [
+        { id: "featureSection", name: "Features" },
+        { id: "platformSection", name: "Platform" },
+      ];
+
+      let currentSection = "Home";
+
+      // If user is near the top of the viewport, fallback to Home
+      if (window.scrollY < 120) {
+        currentSection = "Home";
+      } else {
+        for (const section of sections) {
+          const element = document.getElementById(section.id);
+          if (element) {
+            const rect = element.getBoundingClientRect();
+            // Triggers active when section top crosses into the upper half of screen
+            if (rect.top <= window.innerHeight / 2 && rect.bottom >= 100) {
+              currentSection = section.name;
+            }
+          }
+        }
+      }
+
+      setActiveSection(currentSection);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [location.pathname, location.hash]);
 
   if (location.pathname === "/Login") {
     return null;
@@ -115,13 +151,19 @@ function Navbar() {
         <div className="flex items-center gap-8 text-sm">
           {linksToShow.map((item) => {
             const path = linkMap[item] || "/";
-            const isActive = isActiveLink(path);
+            
+            // Core Logic Adjustment:
+            // 1. If on home page, use the `activeSection` state strictly for landing tabs
+            // 2. Otherwise, match paths traditionally
+            const isActive = location.pathname === "/" && ["Home", "Features", "Platform"].includes(item)
+              ? activeSection === item
+              : location.pathname === path || location.pathname.startsWith(`${path}/`);
 
             return (
               <Link
                 key={item}
                 to={path}
-                onClick={(e) => handleSectionScroll(e, path)}
+                onClick={(e) => handleSectionScroll(e, path, item)}
                 className={
                   isActive
                     ? "font-bold text-teal-600 transition-colors"
