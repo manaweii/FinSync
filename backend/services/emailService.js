@@ -1,6 +1,64 @@
 import nodemailer from "nodemailer";
 
 let transporter;
+const DEFAULT_EMAIL_LOGO_URL =
+  "https://drive.google.com/uc?export=view&id=1gbUZ6OjSyotrMX3Puhb0hWhc469c4-bT";
+
+export function getEmailLogoMarkup(appName = "FinSync") {
+  const logoUrl = process.env.EMAIL_LOGO_URL || DEFAULT_EMAIL_LOGO_URL;
+
+  return `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0;">
+      <tr>
+        <td style="background-color:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:10px 14px;">
+          <img
+            src="${logoUrl}"
+            width="150"
+            alt="${appName} logo"
+            style="display:block; width:150px; max-width:150px; height:auto; border:0; outline:none; text-decoration:none;"
+          >
+        </td>
+      </tr>
+    </table>
+  `;
+}
+
+export function getEmailHeaderMarkup({
+  appName = "FinSync",
+  title,
+  subtitle = "",
+  backgroundColor = "#1e293b",
+  padding = "24px 28px",
+}) {
+  return `
+    <td style="background-color:${backgroundColor}; padding:${padding};">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td valign="middle" style="padding:0 18px 0 0;">
+            <p style="margin:0; color:#ffffff; font-size:20px; line-height:28px; font-weight:700;">${title}</p>
+            ${
+              subtitle
+                ? `<p style="margin:6px 0 0 0; color:#cbd5e1; font-size:13px; line-height:18px;">${subtitle}</p>`
+                : ""
+            }
+          </td>
+          <td align="right" valign="middle" width="180" style="width:180px;">
+            ${getEmailLogoMarkup(appName)}
+          </td>
+        </tr>
+      </table>
+    </td>
+  `;
+}
+
+function escapeHtml(value = "") {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 function getRequiredEnv(name) {
   const value = process.env[name];
@@ -64,9 +122,11 @@ export async function sendPasswordResetOtpEmail({ email, otp, fullName }) {
           <td align="center" style="padding:28px 12px;">
             <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#ffffff; border-radius:14px; border:1px solid #dbe2ff; overflow:hidden;">
               <tr>
-                <td style="background-color:#1e293b; padding:22px 28px;">
-                  <p style="margin:0; color:#ffffff; font-size:18px; font-weight:700;">Security Verification</p>
-                </td>
+                ${getEmailHeaderMarkup({
+                  appName,
+                  title: "Security Verification",
+                  padding: "22px 28px",
+                })}
               </tr>
               <tr>
                 <td class="pad" style="padding:28px;">
@@ -174,10 +234,11 @@ export async function sendSuperadminSignupAlertEmail({
             <td align="center" style="padding:28px 12px;">
               <table role="presentation" class="container" width="620" cellpadding="0" cellspacing="0" border="0" style="width:620px; max-width:620px; background-color:#ffffff; border:1px solid #dbe4f2; border-radius:14px; overflow:hidden;">
                 <tr>
-                  <td style="background-color:#1e293b; padding:24px 28px;">
-                    <p style="margin:0; color:#ffffff; font-size:20px; font-weight:700;">${headline}</p>
-                    <p style="margin:6px 0 0 0; color:#cbd5e1; font-size:13px;">Subscription activity on ${appName}</p>
-                  </td>
+                  ${getEmailHeaderMarkup({
+                    appName,
+                    title: headline,
+                    subtitle: `Subscription activity on ${appName}`,
+                  })}
                 </tr>
                 <tr>
                   <td class="pad" style="padding:24px 28px 16px 28px;">
@@ -242,19 +303,94 @@ export async function sendContactNotificationToTeam({ recipient, payload }) {
     const mailer = createTransporter();
     const from = process.env.SMTP_FROM || process.env.SMTP_USER;
     const appName = process.env.APP_NAME || "FinSync";
+    const safeName = escapeHtml(payload.name);
+    const safeEmail = escapeHtml(payload.email);
+    const safeCompany = escapeHtml(payload.company || "N/A");
+    const safeTopic = escapeHtml(payload.topic || "General");
+    const safeMessage = escapeHtml(payload.message);
+
     await mailer.sendMail({
       from,
       to: recipient,
       subject: `[${appName}] New contact form submission: ${payload.topic || 'General'}`,
       text: `From: ${payload.name} <${payload.email}>\nCompany: ${payload.company || 'N/A'}\nTopic: ${payload.topic || 'General'}\n\n${payload.message}`,
       html: `
-        <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; line-height: 1.6;">
-          <h3>New contact form submission</h3>
-          <p><strong>From:</strong> ${payload.name} &lt;${payload.email}&gt;</p>
-          <p><strong>Company:</strong> ${payload.company || 'N/A'}</p>
-          <p><strong>Topic:</strong> ${payload.topic || 'General'}</p>
-          <div style="white-space:pre-wrap; margin-top: 12px;">${String(payload.message).replace(/</g, '&lt;')}</div>
-        </div>
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <meta http-equiv="X-UA-Compatible" content="IE=edge">
+          <style>
+            @media only screen and (max-width: 620px) {
+              .container { width: 100% !important; }
+              .pad { padding-left: 20px !important; padding-right: 20px !important; }
+            }
+          </style>
+        </head>
+        <body style="margin:0; padding:0; background-color:#f1f5f9; font-family:Arial, Helvetica, sans-serif;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f1f5f9;">
+            <tr>
+              <td align="center" style="padding:28px 12px;">
+                <table role="presentation" class="container" width="620" cellpadding="0" cellspacing="0" border="0" style="width:620px; max-width:620px; background-color:#ffffff; border:1px solid #dbe4f2; border-radius:14px; overflow:hidden;">
+                  <tr>
+                    ${getEmailHeaderMarkup({
+                      appName,
+                      title: "New contact form submission",
+                      subtitle: `A new message was submitted from the ${appName} website.`,
+                    })}
+                  </tr>
+                  <tr>
+                    <td class="pad" style="padding:24px 28px 16px 28px;">
+                      <p style="margin:0 0 10px 0; color:#0f172a; font-size:16px; line-height:24px;">Hello team,</p>
+                      <p style="margin:0; color:#475569; font-size:14px; line-height:22px;">A visitor has sent a message through the contact form.</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="pad" style="padding:0 28px 18px 28px;">
+                      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e2e8f0; border-radius:10px; overflow:hidden;">
+                        <tr>
+                          <td style="padding:14px 16px; background-color:#f8fafc; color:#334155; font-size:13px; border-bottom:1px solid #e2e8f0;">From</td>
+                          <td style="padding:14px 16px; background-color:#f8fafc; color:#0f172a; font-size:13px; font-weight:700; text-align:right; border-bottom:1px solid #e2e8f0;">${safeName}</td>
+                        </tr>
+                        <tr>
+                          <td style="padding:14px 16px; color:#334155; font-size:13px; border-bottom:1px solid #e2e8f0;">Email</td>
+                          <td style="padding:14px 16px; color:#1e40af; font-size:13px; font-weight:700; text-align:right; border-bottom:1px solid #e2e8f0;">${safeEmail}</td>
+                        </tr>
+                        <tr>
+                          <td style="padding:14px 16px; color:#334155; font-size:13px; border-bottom:1px solid #e2e8f0;">Company</td>
+                          <td style="padding:14px 16px; color:#0f172a; font-size:13px; font-weight:700; text-align:right; border-bottom:1px solid #e2e8f0;">${safeCompany}</td>
+                        </tr>
+                        <tr>
+                          <td style="padding:14px 16px; color:#334155; font-size:13px;">Topic</td>
+                          <td style="padding:14px 16px; color:#0f172a; font-size:13px; font-weight:700; text-align:right;">${safeTopic}</td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="pad" style="padding:0 28px 24px 28px;">
+                      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #dbeafe; border-left:4px solid #3b82f6; background-color:#f8fbff; border-radius:8px;">
+                        <tr>
+                          <td style="padding:14px;">
+                            <p style="margin:0 0 8px 0; color:#1e293b; font-size:13px; font-weight:700; line-height:20px;">Message</p>
+                            <div style="white-space:pre-wrap; color:#334155; font-size:14px; line-height:22px;">${safeMessage}</div>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="background-color:#f8fafc; border-top:1px solid #e2e8f0; padding:15px 28px;">
+                      <p style="margin:0; color:#94a3b8; font-size:12px; line-height:18px;">This is an automated contact notification from ${appName}.</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
       `,
     });
     return { sent: true };
@@ -295,9 +431,11 @@ export async function sendContactConfirmationEmail({ to, name }) {
               <td align="center" style="padding:28px 12px;">
                 <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#ffffff; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden;">
                   <tr>
-                    <td style="background-color:#1e293b; padding:22px 28px;">
-                      <p style="margin:0; color:#ffffff; font-size:18px; font-weight:700;">We Received Your Message</p>
-                    </td>
+                    ${getEmailHeaderMarkup({
+                      appName,
+                      title: "We Received Your Message",
+                      padding: "22px 28px",
+                    })}
                   </tr>
                   <tr>
                     <td class="pad" style="padding:26px 28px;">
@@ -379,9 +517,11 @@ export async function sendDisabledNotificationEmail({ to, name, orgName, disable
             <td align="center" style="padding:28px 12px;">
               <table role="presentation" class="container" width="620" cellpadding="0" cellspacing="0" border="0" style="width:620px; max-width:620px; background-color:#ffffff; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden;">
                 <tr>
-                  <td style="background-color:#0f172a; padding:24px 28px;">
-                    <p style="margin:0; color:#ffffff; font-size:19px; font-weight:700;">${orgName ? 'Organization access disabled' : 'Account access disabled'}</p>
-                  </td>
+                  ${getEmailHeaderMarkup({
+                    appName,
+                    title: orgName ? 'Organization access disabled' : 'Account access disabled',
+                    backgroundColor: "#0f172a",
+                  })}
                 </tr>
                 <tr>
                   <td class="pad" style="padding:26px 28px 16px 28px;">

@@ -1,6 +1,10 @@
 import express from 'express';
 import nodemailer from 'nodemailer';
-import { sendContactNotificationToTeam, sendContactConfirmationEmail } from '../services/emailService.js';
+import {
+  getEmailHeaderMarkup,
+  sendContactNotificationToTeam,
+  sendContactConfirmationEmail,
+} from '../services/emailService.js';
 
 const router = express.Router();
 
@@ -102,9 +106,11 @@ router.post('/contact/send', async (req, res) => {
                   <td align="center" style="padding:28px 12px;">
                     <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#ffffff; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden;">
                       <tr>
-                        <td style="background-color:#1e293b; padding:22px 28px;">
-                          <p style="margin:0; color:#ffffff; font-size:18px; font-weight:700;">We Received Your Message</p>
-                        </td>
+                        ${getEmailHeaderMarkup({
+                          appName: process.env.APP_NAME || 'FinSync',
+                          title: 'We Received Your Message',
+                          padding: '22px 28px',
+                        })}
                       </tr>
                       <tr>
                         <td style="padding:26px 28px;">
