@@ -91,21 +91,47 @@ const ContactPage = () => {
     e.preventDefault();
     setSuccess(null);
     setError(null);
-    if (!form.name || !form.email || !form.message) {
-      setError("Please fill required fields (name, email, message).");
+
+    // Validate all required fields
+    if (!form.name || !form.name.trim()) {
+      setError("Name is required.");
       return;
     }
+    if (!form.email || !form.email.trim()) {
+      setError("Email is required.");
+      return;
+    }
+    // Simple email validation
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    if (!form.company || !form.company.trim()) {
+      setError("Company name is required.");
+      return;
+    }
+    if (!form.message || !form.message.trim()) {
+      setError("Message is required.");
+      return;
+    }
+
+    // Validate terms checkbox
+    if (!form.agree) {
+      setError("Please agree to the Terms and Conditions before sending your message.");
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/contact/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: form.name,
-          email: form.email,
-          company: form.company,
-          topic: form.topic,
-          message: form.message,
+          name: form.name.trim(),
+          email: form.email.trim(),
+          company: form.company.trim(),
+          topic: form.topic.trim(),
+          message: form.message.trim(),
         }),
       });
       const data = await res.json();
@@ -260,7 +286,7 @@ const ContactPage = () => {
                 {/* Company name */}
                 <div className="flex flex-col">
                   <label className="text-xs font-medium text-slate-700 mb-1">
-                    Company name
+                    Company name 
                   </label>
                   <input
                     type="text"
@@ -268,6 +294,7 @@ const ContactPage = () => {
                     value={form.company}
                     onChange={(e) => handleChange("company", e.target.value)}
                     className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
+                    required
                   />
                 </div>
 
