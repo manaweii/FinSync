@@ -115,8 +115,10 @@ function FileImportPage() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [toast, setToast] = useState(null);
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
   const downloadMenuRef = useRef(null);
+  const toastTimerRef = useRef(null);
 
   // modal / preview state
   const [viewModalOpen, setViewModalOpen] = useState(false);
@@ -167,6 +169,20 @@ function FileImportPage() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
+
+  const showToast = (message, type = "success") => {
+    setToast({ message, type });
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => {
+      setToast(null);
+    }, 3000);
+  };
 
   const loadImports = async () => {
     if (!currentUser?.orgId) {
@@ -228,54 +244,63 @@ function FileImportPage() {
 
   const handleUpload = async () => {
     if (!selectedFile) {
-      alert("Please choose a file first.");
+      showToast("Please choose a file first.", "error");
       return;
     }
 
     try {
       setUploading(true);
 
-      return new Promise((resolve) => {
-        const ext = selectedFile.name.toLowerCase();
-        if (ext.endsWith(".csv")) {
-          Papa.parse(selectedFile, {
-            header: true,
-            skipEmptyLines: true,
-            complete: async (results) => {
-              if (results.errors && results.errors.length > 0) {
-                console.log("PapaParse errors:", results.errors);
-              }
-
-              const rows = results.data;
-              // don't upload immediately; run a scan and require confirmation
-              openScanModalFor(rows, "CSV");
-              console.log("Parsed CSV rows:", rows);
-            },
-          });
-        } else {
-          const reader = new FileReader();
-          reader.onload = async (e) => {
-            try {
-              const data = new Uint8Array(e.target.result);
-              const workbook = XLSX.read(data, { type: "array" });
-              const json = XLSX.utils.sheet_to_json(
-                workbook.Sheets[workbook.SheetNames[0]],
-              );
-              const rows = json;
-              openScanModalFor(rows, "Excel");
-              console.log("Parsed Excel rows:", rows);
-            } catch (err) {
-              console.error("Error parsing Excel:", err);
-              alert("Failed to parse Excel file.");
+      const ext = selectedFile.name.toLowerCase();
+      if (ext.endsWith(".csv")) {
+        Papa.parse(selectedFile, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+            if (results.errors && results.errors.length > 0) {
+              console.log("PapaParse errors:", results.errors);
             }
-          };
-          reader.readAsArrayBuffer(selectedFile);
-        }
-      });
+
+            const rows = results.data;
+            // don't upload immediately; run a scan and require confirmation
+            openScanModalFor(rows, "CSV");
+            console.log("Parsed CSV rows:", rows);
+            setUploading(false);
+          },
+          error: (parseError) => {
+            console.error("Error parsing CSV:", parseError);
+            showToast("Failed to parse CSV file.", "error");
+            setUploading(false);
+          },
+        });
+      } else {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: "array" });
+            const json = XLSX.utils.sheet_to_json(
+              workbook.Sheets[workbook.SheetNames[0]],
+            );
+            const rows = json;
+            openScanModalFor(rows, "Excel");
+            console.log("Parsed Excel rows:", rows);
+          } catch (err) {
+            console.error("Error parsing Excel:", err);
+            showToast("Failed to parse Excel file.", "error");
+          } finally {
+            setUploading(false);
+          }
+        };
+        reader.onerror = () => {
+          showToast("Failed to read the selected file.", "error");
+          setUploading(false);
+        };
+        reader.readAsArrayBuffer(selectedFile);
+      }
     } catch (err) {
       console.error(err);
-      alert("Network error during upload");
-    } finally {
+      showToast("Network error during upload", "error");
       setUploading(false);
     }
   };
@@ -530,31 +555,56 @@ function FileImportPage() {
       orgName: currentUser?.orgName || null,
     };
 
-    const res = await fetch(`${API_BASE}/upload`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify(payload),
-    });
+    try {
+      setUploading(true);
+      const res = await fetch(`${API_BASE}/upload`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(payload),
+      });
 
-    const createdImport = await res.json().catch(() => ({}));
+      const createdImport = await res.json().catch(() => ({}));
 
-    if (!res.ok) {
-      const msg = createdImport.message || "Upload failed";
-      alert(msg);
-      return;
+      if (!res.ok) {
+        const msg = createdImport.message || "File upload failed";
+        showToast(msg, "error");
+        return;
+      }
+
+      setImports((prev) => [createdImport, ...prev]);
+      setSelectedFile(null);
+      setCurrentPage(1);
+      showToast("File uploaded and saved", "success");
+    } catch (err) {
+      console.error("Upload failed:", err);
+      showToast("File upload failed. Please try again.", "error");
+    } finally {
+      setUploading(false);
     }
-
-    setImports((prev) => [createdImport, ...prev]);
-    setSelectedFile(null);
-    setCurrentPage(1);
-    alert("File uploaded and saved");
   };
 
   return (
     <>
+      {toast ? (
+        <div
+          className="fixed inset-0 z-[60] flex pointer-events-none items-center justify-center px-4"
+          aria-live="polite"
+        >
+          <div
+            className={`w-full max-w-sm rounded-xl px-5 py-4 text-center text-sm font-medium shadow-2xl ring-1 ${
+              toast.type === "error"
+                ? "bg-rose-50 text-rose-700 ring-rose-200"
+                : "bg-emerald-50 text-emerald-700 ring-emerald-200"
+            }`}
+            role={toast.type === "error" ? "alert" : "status"}
+          >
+            {toast.message}
+          </div>
+        </div>
+      ) : null}
       <div className="min-h-screen bg-gradient-to-b from-sky-50 via-emerald-50/40 to-slate-50 py-12 px-4">
         <div className="max-w-5xl mx-auto text-center mb-8">
           <span className="inline-flex items-center rounded-full bg-emerald-50 px-4 py-1 text-xs font-medium text-emerald-600 mb-4">

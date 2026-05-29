@@ -106,6 +106,8 @@ export function buildRowsFromDatabaseRecords(
       __fileId: String(sourceId),
       __fileName: getFileName(record),
       __fileType: getSourceLabel(record),
+      __source: source,
+      __importFileType: record?.metadata?.fileType || "",
       __importedOn:
         record?.importedOn || record?.createdAt || record?.transactionDate,
       __recordDocId: record?._id || null,

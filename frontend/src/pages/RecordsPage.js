@@ -52,6 +52,23 @@ const formatDateInputValue = (value) => {
 };
 
 const getRowSortTime = (row = {}) => {
+  const source = String(row.__source || "").toLowerCase();
+  const importFileType = String(row.__importFileType || "").toLowerCase();
+  const isFileImport =
+    source === "import" &&
+    (importFileType === "csv" ||
+      importFileType === "excel" ||
+      importFileType === "xlsx");
+
+  if (isFileImport) {
+    const fileDate = row.parsedDate || row.transactionDate || row.date;
+    const parsedFileDate =
+      fileDate instanceof Date ? fileDate : new Date(fileDate);
+    if (!Number.isNaN(parsedFileDate.getTime())) {
+      return parsedFileDate.getTime();
+    }
+  }
+
   const candidates = [
     row.__importedOn,
     row.createdAt,
