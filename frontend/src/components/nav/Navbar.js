@@ -61,6 +61,20 @@ function Navbar() {
     navigate("/Login");
   };
 
+  const handleSectionScroll = (e, path) => {
+    // If it's a hash link on the same page, scroll to section
+    if (path.includes("#") && location.pathname === "/") {
+      e.preventDefault();
+      const hash = path.split("#")[1];
+      const element = document.getElementById(hash);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth" });
+        // Update URL without page reload
+        window.history.pushState(null, "", `#${hash}`);
+      }
+    }
+  };
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -107,6 +121,7 @@ function Navbar() {
               <Link
                 key={item}
                 to={path}
+                onClick={(e) => handleSectionScroll(e, path)}
                 className={
                   isActive
                     ? "font-bold text-teal-600 transition-colors"
