@@ -28,6 +28,7 @@ const TEXT_REQUIRED_COLUMNS = [
 
 const ALLOWED_ACCOUNT_TYPES = [
   "income",
+  "revenue",
   "expense",
   "asset",
   "liability",
@@ -40,17 +41,60 @@ const normalizeHeader = (value) =>
     .toLowerCase()
     .replace(/\s+/g, " ");
 
-const isBlankValue = (value) => value == null || String(value).trim() === "";
+const normalizeCellText = (value) =>
+  String(value ?? "")
+    .replace(/^\uFEFF/, "")
+    .replace(/[\u200B-\u200D\u2060]/g, "")
+    .replace(/\u00A0/g, " ")
+    .trim();
+
+const formatDateParts = (year, month, day) =>
+  `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+const excelSerialToDate = (value) => {
+  const serial = Number(value);
+  if (!Number.isFinite(serial) || serial < 25569) return null;
+
+  const utcDays = Math.floor(serial - 25569);
+  const date = new Date(utcDays * 86400 * 1000);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const normalizeDateText = (value) => {
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return "";
+    return formatDateParts(
+      value.getFullYear(),
+      value.getMonth() + 1,
+      value.getDate(),
+    );
+  }
+
+  if (typeof value === "number") {
+    const excelDate = excelSerialToDate(value);
+    if (excelDate) {
+      return formatDateParts(
+        excelDate.getUTCFullYear(),
+        excelDate.getUTCMonth() + 1,
+        excelDate.getUTCDate(),
+      );
+    }
+  }
+
+  return normalizeCellText(value);
+};
+
+const isBlankValue = (value) => normalizeCellText(value) === "";
 
 const isValidDateValue = (value) => {
   if (isBlankValue(value)) return false;
-  const text = String(value).trim();
+  const text = normalizeDateText(value);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
 
-  const parsed = new Date(`${text}T00:00:00`);
+  const [year, month, day] = text.split("-").map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
   if (Number.isNaN(parsed.getTime())) return false;
 
-  const [year, month, day] = text.split("-").map(Number);
   return (
     parsed.getUTCFullYear() === year &&
     parsed.getUTCMonth() + 1 === month &&
@@ -60,8 +104,8 @@ const isValidDateValue = (value) => {
 
 const isValidNumberValue = (value) => {
   if (isBlankValue(value)) return false;
-  const cleaned = String(value).replace(/[ ,\u00A0]/g, "");
-  return !Number.isNaN(Number.parseFloat(cleaned));
+  const cleaned = normalizeCellText(value).replace(/[ ,]/g, "");
+  return cleaned !== "" && Number.isFinite(Number(cleaned));
 };
 
 function FileImportPage() {

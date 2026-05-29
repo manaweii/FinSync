@@ -17,7 +17,14 @@ const TEXT_REQUIRED_COLUMNS = [
   "Category",
 ];
 
-const ALLOWED_ACCOUNT_TYPES = ["income", "expense", "asset", "liability", "equity"];
+const ALLOWED_ACCOUNT_TYPES = [
+  "income",
+  "revenue",
+  "expense",
+  "asset",
+  "liability",
+  "equity",
+];
 
 const normalizeHeader = (value) =>
   String(value || "")
@@ -25,17 +32,61 @@ const normalizeHeader = (value) =>
     .toLowerCase()
     .replace(/\s+/g, " ");
 
-const isBlankValue = (value) => value == null || String(value).trim() === "";
+const normalizeCellText = (value) =>
+  String(value ?? "")
+    .replace(/^\uFEFF/, "")
+    .replace(/[\u200B-\u200D\u2060]/g, "")
+    .replace(/\u00A0/g, " ")
+    .trim();
+
+const formatDateParts = (year, month, day) =>
+  `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+const excelSerialToDate = (value) => {
+  const serial = Number(value);
+  if (!Number.isFinite(serial) || serial < 25569) return null;
+
+  const utcDays = Math.floor(serial - 25569);
+  const utcValue = utcDays * 86400 * 1000;
+  const date = new Date(utcValue);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const normalizeDateText = (value) => {
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return "";
+    return formatDateParts(
+      value.getFullYear(),
+      value.getMonth() + 1,
+      value.getDate(),
+    );
+  }
+
+  if (typeof value === "number") {
+    const excelDate = excelSerialToDate(value);
+    if (excelDate) {
+      return formatDateParts(
+        excelDate.getUTCFullYear(),
+        excelDate.getUTCMonth() + 1,
+        excelDate.getUTCDate(),
+      );
+    }
+  }
+
+  return normalizeCellText(value);
+};
+
+const isBlankValue = (value) => normalizeCellText(value) === "";
 
 const isValidDateValue = (value) => {
   if (isBlankValue(value)) return false;
-  const text = String(value).trim();
+  const text = normalizeDateText(value);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
 
-  const parsed = new Date(`${text}T00:00:00`);
+  const [year, month, day] = text.split("-").map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
   if (Number.isNaN(parsed.getTime())) return false;
 
-  const [year, month, day] = text.split("-").map(Number);
   return (
     parsed.getUTCFullYear() === year &&
     parsed.getUTCMonth() + 1 === month &&
@@ -45,17 +96,19 @@ const isValidDateValue = (value) => {
 
 const isValidNumberValue = (value) => {
   if (isBlankValue(value)) return false;
-  const cleaned = String(value).replace(/[ ,\u00A0]/g, "");
-  return !Number.isNaN(Number.parseFloat(cleaned));
+  const cleaned = normalizeCellText(value).replace(/[ ,]/g, "");
+  return cleaned !== "" && Number.isFinite(Number(cleaned));
 };
 
 const parseDate = (value) => {
-  const date = new Date(`${String(value).trim()}T00:00:00`);
+  const text = normalizeDateText(value);
+  const [year, month, day] = text.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
 const toNumber = (value, fallback = 0) => {
-  const parsed = Number.parseFloat(String(value).replace(/[,\s]/g, ""));
+  const parsed = Number(normalizeCellText(value).replace(/[,\s]/g, ""));
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
@@ -203,9 +256,7 @@ const validateImportRows = (rows = []) => {
 
     if (
       !ALLOWED_ACCOUNT_TYPES.includes(
-        String(row?.[accountTypeColumn] || "")
-          .trim()
-          .toLowerCase(),
+        normalizeCellText(row?.[accountTypeColumn]).toLowerCase(),
       )
     ) {
       return {
@@ -220,7 +271,8 @@ const validateImportRows = (rows = []) => {
 
 export const uploadFile = async (req, res) => {
   try {
-    const { fileName, fileType, records, data, userId, userName, orgId, orgName } = req.body;      // client may send uploader info
+    const { fileName, fileType, data, userId, userName, orgId, orgName } =
+      req.body; // client may send uploader info
 
     // basic payload validation
     if (!fileName || !data || !Array.isArray(data)) {
@@ -239,21 +291,6 @@ export const uploadFile = async (req, res) => {
       return res.status(400).json({ message: validation.message });
     }
 
-    const newImport = await ImportModel.create({
-      fileName,
-      fileType: fileType || "CSV",
-      importedOn: Date.now(),
-      records: records ?? data.length,
-      status: "Success",
-      userName,
-      userId,
-      orgId,
-      orgName,
-      notes: "",
-      importedData: JSON.stringify(data),
-    });
-
-    const importTransactionId = `IMP-${newImport._id}`;
     const normalizedColumnMap = Object.fromEntries(
       REQUIRED_IMPORT_COLUMNS.map((column) => [
         normalizeHeader(column),
@@ -263,20 +300,50 @@ export const uploadFile = async (req, res) => {
       ]),
     );
 
-    const docs = data.map((row, index) => {
-      const dateValue = row?.[normalizedColumnMap[normalizeHeader("Date")]];
-      const account = row?.[normalizedColumnMap[normalizeHeader("Account")]];
-      const accountType = row?.[normalizedColumnMap[normalizeHeader("Account Type")]];
-      const amount = row?.[normalizedColumnMap[normalizeHeader("Amount")]];
-      const description = row?.[normalizedColumnMap[normalizeHeader("Description")]];
-      const category = row?.[normalizedColumnMap[normalizeHeader("Category")]];
+    const sanitizedRows = data.map((row) => ({
+      Date: normalizeDateText(
+        row?.[normalizedColumnMap[normalizeHeader("Date")]],
+      ),
+      Account: normalizeCellText(
+        row?.[normalizedColumnMap[normalizeHeader("Account")]],
+      ),
+      "Account Type": normalizeCellText(
+        row?.[normalizedColumnMap[normalizeHeader("Account Type")]],
+      ),
+      Amount: toNumber(row?.[normalizedColumnMap[normalizeHeader("Amount")]], 0),
+      Description: normalizeCellText(
+        row?.[normalizedColumnMap[normalizeHeader("Description")]],
+      ),
+      Category: normalizeCellText(
+        row?.[normalizedColumnMap[normalizeHeader("Category")]],
+      ),
+    }));
+
+    const newImport = await ImportModel.create({
+      fileName,
+      fileType: fileType || "CSV",
+      importedOn: Date.now(),
+      records: sanitizedRows.length,
+      status: "Success",
+      userName,
+      userId,
+      orgId,
+      orgName,
+      notes: "",
+      importedData: JSON.stringify(sanitizedRows),
+    });
+
+    const importTransactionId = `IMP-${newImport._id}`;
+    const docs = sanitizedRows.map((row, index) => {
+      const dateValue = row.Date;
       const transactionDate = parseDate(dateValue) || new Date();
+      const rowTransactionId = `${importTransactionId}-${index + 1}`;
 
       return {
         orgName,
         source: "import",
         schemaVersion: "finsync_v2",
-        transactionId: importTransactionId,
+        transactionId: rowTransactionId,
         transactionDate,
         currency: "NPR",
         importedOn: newImport.importedOn || new Date(),
@@ -284,12 +351,12 @@ export const uploadFile = async (req, res) => {
         orderTotals: {},
         journalEntries: [
           {
-            date: String(dateValue || "").trim(),
-            account: String(account || "").trim(),
-            accountType: String(accountType || "").trim(),
-            amount: toNumber(amount, 0),
-            category: String(category || "").trim(),
-            description: String(description || "").trim(),
+            date: dateValue,
+            account: row.Account,
+            accountType: row["Account Type"],
+            amount: row.Amount,
+            category: row.Category,
+            description: row.Description,
           },
         ],
         metadata: {
@@ -307,15 +374,18 @@ export const uploadFile = async (req, res) => {
     });
 
     try {
-      await RecordModel.insertMany(docs);
+      await RecordModel.insertMany(docs, { ordered: true });
     } catch (recordErr) {
       await ImportModel.findByIdAndDelete(newImport._id).catch(() => {});
       throw recordErr;
     }
 
-    // process `rows` and insert into a Transactions collection
-
-    res.status(201).json(newImport);
+    res.status(201).json({
+      ...newImport.toObject(),
+      records: docs.length,
+      importedData: JSON.stringify(sanitizedRows),
+      rows: sanitizedRows,
+    });
   } catch (err) {
     console.error("Error saving import:", err);
     res.status(500).json({ message: "Failed to save import" });
