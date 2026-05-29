@@ -189,19 +189,6 @@ function CreateUser() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-sky-50 to-white flex items-center justify-center px-4">
-      {toast ? (
-        <div
-          className={`fixed top-5 left-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-xl px-4 py-3 text-xs font-medium shadow-lg ${
-            toast.type === "error"
-              ? "bg-rose-50 text-rose-700 ring-1 ring-rose-200"
-              : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-          }`}
-          role="status"
-          aria-live="polite"
-        >
-          {toast.message}
-        </div>
-      ) : null}
       <div className="w-full max-w-md">
         <div className="bg-white rounded-3xl shadow-[0_32px_80px_rgba(15,23,42,0.18)] px-10 py-10">
           {/* top icon */}
@@ -221,6 +208,20 @@ function CreateUser() {
 
           {/* form */}
           <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+            {toast ? (
+              <div
+                className={`rounded-xl px-4 py-3 text-xs font-medium ring-1 ${
+                  toast.type === "error"
+                    ? "bg-rose-50 text-rose-700 ring-rose-200"
+                    : "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                }`}
+                role={toast.type === "error" ? "alert" : "status"}
+                aria-live="polite"
+              >
+                {toast.message}
+              </div>
+            ) : null}
+
             {/* full name */}
             <div>
               <label className="block mb-1 text-slate-700" htmlFor="fullName">
