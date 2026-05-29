@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useAuthStore from "../../store/useAuthStore";
 
@@ -15,8 +15,26 @@ export default function CreateOrganization() {
     status: "Active",
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [toast, setToast] = useState(null);
+  const toastTimerRef = useRef(null);
+  const redirectTimerRef = useRef(null);
   const navigate = useNavigate();
   const token = useAuthStore((s) => s.token);
+
+  const showToast = (message, type = "success") => {
+    setToast({ message, type });
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => {
+      setToast(null);
+    }, 3000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
+    };
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -52,12 +70,14 @@ export default function CreateOrganization() {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        alert(data.message || "Failed to create organization");
+        showToast(data.message || "Failed to create organization", "error");
+        setIsLoading(false);
         return;
       }
     } catch (err) {
       console.error("Network error:", err);
-      alert(err.message || "Network error");
+      showToast(err.message || "Network error", "error");
+      setIsLoading(false);
       return;
     }
 
@@ -82,12 +102,14 @@ export default function CreateOrganization() {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        alert(data.message || "Failed to create User");
+        showToast(data.message || "Failed to create User", "error");
+        setIsLoading(false);
         return;
       }
     } catch (err) {
       console.error("Registration error:", err);
-      alert(err.message || "Registration error");
+      showToast(err.message || "Registration error", "error");
+      setIsLoading(false);
       return;
     }
 
@@ -110,17 +132,22 @@ export default function CreateOrganization() {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        alert(data.message || "Failed to create Subscription");
+        showToast(data.message || "Failed to create Subscription", "error");
+        setIsLoading(false);
         return;
       }
     } catch (err) {
       console.error("Action Failed:", err);
-      alert(err.message || "Action Failed");
+      showToast(err.message || "Action Failed", "error");
+      setIsLoading(false);
       return;
     }
 
-    alert("Organization and User created");
-    navigate("/organizations");
+    showToast("Organization and User created");
+    setIsLoading(false);
+    redirectTimerRef.current = setTimeout(() => {
+      navigate("/organizations");
+    }, 1800);
   };
 
   return (
@@ -133,6 +160,20 @@ export default function CreateOrganization() {
           <p className="text-xs text-center text-slate-500 mb-7">
             Add a new organization to the system.
           </p>
+
+          {toast ? (
+            <div
+              className={`mb-5 w-full rounded-xl px-4 py-3 text-xs font-medium shadow-sm ${
+                toast.type === "error"
+                  ? "bg-rose-50 text-rose-700 ring-1 ring-rose-200"
+                  : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+              }`}
+              role={toast.type === "error" ? "alert" : "status"}
+              aria-live="polite"
+            >
+              {toast.message}
+            </div>
+          ) : null}
 
           <form onSubmit={handleSubmit} className="space-y-4 text-xs">
             <div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import useAuthStore from "../../store/useAuthStore";
 import { useNotifications } from "../nav/NotificationContext";
@@ -19,6 +19,9 @@ function CreateUser() {
   const [orgs, setOrgs] = useState([]);
   const [orgsLoading, setOrgsLoading] = useState(true);
   const [orgsError, setOrgsError] = useState("");
+  const [toast, setToast] = useState(null);
+  const toastTimerRef = useRef(null);
+  const redirectTimerRef = useRef(null);
   const navigate = useNavigate();
   const token = useAuthStore((s) => s.token);
   // const setAuth = useAuthStore((s) => s.setAuth);
@@ -44,6 +47,21 @@ function CreateUser() {
   };
 
   const roleOptions = getRoleOptions();
+
+  const showToast = (message, type = "success") => {
+    setToast({ message, type });
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => {
+      setToast(null);
+    }, 3000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
+    };
+  }, []);
 
   // if only one allowed option, preselect it
   React.useEffect(() => {
@@ -131,7 +149,7 @@ function CreateUser() {
       if (!response.ok) {
         const msg =
           data.message || "Something went wrong while creating the user";
-        alert(msg);
+        showToast(msg, "error");
         setIsLoading(false);
         return;
       }
@@ -152,11 +170,13 @@ function CreateUser() {
 
       // Clear form and navigate to users list
       setForm({ fullName: "", orgName: "", email: "", password: "", role: "" });
-      alert(data.message || "User created successfully");
-      navigate("/users");
+      showToast(data.message || "User created successfully");
+      redirectTimerRef.current = setTimeout(() => {
+        navigate("/users");
+      }, 1800);
     } catch (err) {
       console.error(err);
-      alert("Network error");
+      showToast("Network error", "error");
     } finally {
       setIsLoading(false);
     }
@@ -169,6 +189,19 @@ function CreateUser() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-sky-50 to-white flex items-center justify-center px-4">
+      {toast ? (
+        <div
+          className={`fixed top-5 left-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-xl px-4 py-3 text-xs font-medium shadow-lg ${
+            toast.type === "error"
+              ? "bg-rose-50 text-rose-700 ring-1 ring-rose-200"
+              : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+          }`}
+          role="status"
+          aria-live="polite"
+        >
+          {toast.message}
+        </div>
+      ) : null}
       <div className="w-full max-w-md">
         <div className="bg-white rounded-3xl shadow-[0_32px_80px_rgba(15,23,42,0.18)] px-10 py-10">
           {/* top icon */}

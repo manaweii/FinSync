@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import useAuthStore from "../../store/useAuthStore";
 import { useNavigate } from "react-router-dom";
+import ConfirmDeleteModal from "./ConfirmDeleteModal";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
@@ -10,6 +11,8 @@ export default function OrganizationManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editingOrg, setEditingOrg] = useState(null);
+  const [orgPendingDelete, setOrgPendingDelete] = useState(null);
+  const [deletingOrg, setDeletingOrg] = useState(false);
   const token = useAuthStore((s) => s.token);
 
   const getAuthHeaders = () => {
@@ -83,18 +86,36 @@ export default function OrganizationManagement() {
     }
   }
 
-  async function deleteOrg(id) {
-    if (!window.confirm("Delete this organization?")) return;
+  function openDeleteModal(org) {
+    setOrgPendingDelete(org);
+  }
+
+  function closeDeleteModal() {
+    if (deletingOrg) return;
+    setOrgPendingDelete(null);
+  }
+
+  async function deleteOrg() {
+    const id = orgPendingDelete?._id || orgPendingDelete?.id;
+    if (!id) return;
+
     try {
+      setDeletingOrg(true);
       const res = await fetch(`${API_URL}/orgs/${id}`, {
         method: "DELETE",
         headers: { ...getAuthHeaders() },
       });
       if (!res.ok) throw new Error("Failed to delete organization");
       setOrgs((prev) => prev.filter((o) => (o._id || o.id) !== id));
+      if (editingOrg && (editingOrg._id || editingOrg.id) === id) {
+        setEditingOrg(null);
+      }
+      setOrgPendingDelete(null);
     } catch (err) {
       console.error(err);
       alert(err.message || "Could not delete organization");
+    } finally {
+      setDeletingOrg(false);
     }
   }
 
@@ -199,7 +220,7 @@ export default function OrganizationManagement() {
                             </button>
                             <button
                               className="text-red-600 hover:text-red-800 font-medium"
-                              onClick={() => deleteOrg(org._id || org.id)}
+                              onClick={() => openDeleteModal(org)}
                             >
                               Delete
                             </button>
@@ -331,6 +352,23 @@ export default function OrganizationManagement() {
           </div>
         </div>
       </div>
+      <ConfirmDeleteModal
+        isOpen={Boolean(orgPendingDelete)}
+        title="Delete organization?"
+        message="Are you sure you want to delete this organization?"
+        itemLabel={
+          orgPendingDelete?.name ||
+          orgPendingDelete?.orgName ||
+          orgPendingDelete?.Orgname ||
+          orgPendingDelete?.contactEmail ||
+          orgPendingDelete?.BillingEmail ||
+          orgPendingDelete?._id ||
+          orgPendingDelete?.id
+        }
+        deleting={deletingOrg}
+        onCancel={closeDeleteModal}
+        onConfirm={deleteOrg}
+      />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useAuthStore from "../../store/useAuthStore";
 import { useNotifications } from "../nav/NotificationContext";
+import ConfirmDeleteModal from "./ConfirmDeleteModal";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
@@ -15,6 +16,8 @@ function UserManagement() {
 
   // for editing
   const [editingUser, setEditingUser] = useState(null);
+  const [userPendingDelete, setUserPendingDelete] = useState(null);
+  const [deletingUser, setDeletingUser] = useState(false);
 
   const getAuthHeaders = () => {
     const headers = {};
@@ -114,12 +117,22 @@ function UserManagement() {
     }
   }
 
+  function openDeleteModal(user) {
+    setUserPendingDelete(user);
+  }
+
+  function closeDeleteModal() {
+    if (deletingUser) return;
+    setUserPendingDelete(null);
+  }
+
   // delete user from backend
-  async function deleteUser(id) {
-    if (!window.confirm("Delete this user?")) return;
+  async function deleteUser() {
+    const id = userPendingDelete?.id;
+    if (!id) return;
 
     try {
-      setLoading(true);
+      setDeletingUser(true);
       const res = await fetch(`${API_URL}/users/${id}`, {
         method: "DELETE",
         headers: { ...getAuthHeaders() },
@@ -135,11 +148,12 @@ function UserManagement() {
       if (editingUser && editingUser.id === id) {
         setEditingUser(null);
       }
+      setUserPendingDelete(null);
     } catch (err) {
       console.error(err);
       alert(err.message || "Could not delete user.");
     } finally {
-      setLoading(false);
+      setDeletingUser(false);
     }
   }
 
@@ -203,7 +217,7 @@ function UserManagement() {
                         <td className="px-5 py-4 text-right">
                           <div className="flex justify-end gap-3">
                             <button className="text-blue-600 hover:text-blue-800 font-medium" onClick={() => startEdit(user)}>Edit</button>
-                            <button className="text-red-600 hover:text-red-800 font-medium" onClick={() => deleteUser(user.id)}>Delete</button>
+                            <button className="text-red-600 hover:text-red-800 font-medium" onClick={() => openDeleteModal(user)}>Delete</button>
                           </div>
                         </td>
                       </tr>
@@ -304,6 +318,19 @@ function UserManagement() {
           </div>
         </div>
       </div>
+      <ConfirmDeleteModal
+        isOpen={Boolean(userPendingDelete)}
+        title="Delete user?"
+        message="Are you sure you want to delete this user?"
+        itemLabel={
+          userPendingDelete?.fullName ||
+          userPendingDelete?.email ||
+          userPendingDelete?.id
+        }
+        deleting={deletingUser}
+        onCancel={closeDeleteModal}
+        onConfirm={deleteUser}
+      />
     </div>
   );
 }
