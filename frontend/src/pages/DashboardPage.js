@@ -68,7 +68,13 @@ const DASHBOARD_WIDGET_KEYS = [
   "supportCard",
 ];
 
-const CHART_WIDGET_KEYS = ["kpis", "trend", "dynamicChart", "expensePie", "categoryBar"];
+const CHART_WIDGET_KEYS = [
+  "kpis",
+  "trend",
+  "dynamicChart",
+  "expensePie",
+  "categoryBar",
+];
 const SIDEBAR_WIDGET_KEYS = ["alertsSection", "quickActions", "supportCard"];
 
 const parseDateInput = (value, endOfDay = false) => {
@@ -145,7 +151,10 @@ const DashboardPage = () => {
     [dbRecords],
   );
 
-  const transactionRows = useMemo(() => importDetail.rows || [], [importDetail]);
+  const transactionRows = useMemo(
+    () => importDetail.rows || [],
+    [importDetail],
+  );
 
   const filteredTransactions = useMemo(() => {
     const fromDate = parseDateInput(dateRange.from);
@@ -186,7 +195,8 @@ const DashboardPage = () => {
   const hasInvalidDateRange =
     draftDateRange.from &&
     draftDateRange.to &&
-    parseDateInput(draftDateRange.from) > parseDateInput(draftDateRange.to, true);
+    parseDateInput(draftDateRange.from) >
+      parseDateInput(draftDateRange.to, true);
 
   const metrics = useMemo(() => {
     const summary = buildDashboardMetrics(filteredTransactions);
@@ -198,7 +208,10 @@ const DashboardPage = () => {
     };
   }, [filteredTransactions]);
 
-  const trendData = useMemo(() => buildTrendData(filteredTransactions), [filteredTransactions]);
+  const trendData = useMemo(
+    () => buildTrendData(filteredTransactions),
+    [filteredTransactions],
+  );
   const expenseBreakdown = useMemo(
     () => buildExpenseBreakdown(filteredTransactions),
     [filteredTransactions],
@@ -221,7 +234,9 @@ const DashboardPage = () => {
   }, [filteredTransactions]);
 
   const profitMargin =
-    metrics.revenue > 0 ? ((metrics.profit / metrics.revenue) * 100).toFixed(1) : "0.0";
+    metrics.revenue > 0
+      ? ((metrics.profit / metrics.revenue) * 100).toFixed(1)
+      : "0.0";
 
   const {
     showKPIs,
@@ -373,7 +388,9 @@ const DashboardPage = () => {
       ) : null;
     }
     if (key === "dynamicChart") {
-      return <DynamicChart data={transactionRows} filters={dynamicChartFilters} />;
+      return (
+        <DynamicChart data={transactionRows} filters={dynamicChartFilters} />
+      );
     }
     if (key === "expensePie") {
       return showExpensePie ? (
@@ -405,210 +422,219 @@ const DashboardPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-900 bg-clip-text text-transparent mb-2">
-              Dashboard
-            </h1>
-            <p className="text-slate-500">Your financial overview at a glance</p>
-          </div>
-          <div className="flex items-center justify-end gap-3">
-            <button
-              onClick={() => navigate("/import")}
-              className="px-6 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all duration-200"
-            >
-              New Report
-            </button>
-
-            <div
-              className="relative"
-              ref={dateRangeRef}
-              onMouseEnter={handleDateRangeMouseEnter}
-              onMouseLeave={handleDateRangeMouseLeave}
-            >
-              <button
-                type="button"
-                onClick={handleDateRangeToggle}
-                aria-label="Choose dashboard date range"
-                title={dateRangeLabel}
-                aria-expanded={isDateRangeOpen}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-all duration-200 hover:border-teal-200 hover:text-teal-700 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-400"
-              >
-                <FunnelIcon className="h-6 w-6" aria-hidden="true" />
-              </button>
-
-              {isDateRangeOpen && (
-                <div className="absolute right-0 z-30 mt-3 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-200/70">
-                  <div className="space-y-4">
-                    <div>
-                      <label
-                        htmlFor="dashboard-from-date"
-                        className="mb-1.5 block text-xs font-medium text-slate-600"
-                      >
-                        From Date
-                      </label>
-                      <input
-                        id="dashboard-from-date"
-                        type="date"
-                        value={draftDateRange.from}
-                        onChange={(e) =>
-                          setDraftDateRange((range) => ({
-                            ...range,
-                            from: e.target.value,
-                          }))
-                        }
-                        className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-100"
-                      />
-                    </div>
-
-                    <div>
-                      <label
-                        htmlFor="dashboard-to-date"
-                        className="mb-1.5 block text-xs font-medium text-slate-600"
-                      >
-                        To Date
-                      </label>
-                      <input
-                        id="dashboard-to-date"
-                        type="date"
-                        value={draftDateRange.to}
-                        onChange={(e) =>
-                          setDraftDateRange((range) => ({
-                            ...range,
-                            to: e.target.value,
-                          }))
-                        }
-                        className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-100"
-                      />
-                    </div>
-
-                    {hasInvalidDateRange && (
-                      <p className="text-xs font-medium text-red-500">
-                        From Date must be before To Date.
-                      </p>
-                    )}
-
-                    <div className="flex items-center justify-between gap-3 pt-1">
-                      <button
-                        type="button"
-                        onClick={clearDateRange}
-                        className="rounded-lg px-3 py-2 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
-                      >
-                        Clear
-                      </button>
-                      <button
-                        type="button"
-                        onClick={applyDateRange}
-                        disabled={hasInvalidDateRange}
-                        className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-teal-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                      >
-                        Apply
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {error && <p className="text-red-500 text-sm">{error}</p>}
-
-        {loadingList || !mounted ? (
-          <div className="flex items-center justify-center py-24">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-teal-500"></div>
-          </div>
-        ) : importDetail.records === 0 ? (
-          <div className="rounded-3xl border border-dashed border-teal-200 bg-white/80 px-8 py-16 text-center shadow-sm">
-            <div className="mx-auto max-w-2xl space-y-4">
-              <span className="inline-flex rounded-full bg-teal-50 px-4 py-1 text-sm font-medium text-teal-700">
-                No records yet
-              </span>
-              <h2 className="text-2xl font-semibold text-slate-900">
-                Add records to start using the dashboard
-              </h2>
+    <>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-900 bg-clip-text text-transparent mb-2">
+                Dashboard
+              </h1>
               <p className="text-slate-500">
-                Import a CSV or Excel file, or add records from the Records page, and
-                we&apos;ll build your financial overview here.
+                Your financial overview at a glance
               </p>
+            </div>
+            <div className="flex items-center justify-end gap-3">
               <button
                 onClick={() => navigate("/import")}
-                className="inline-flex items-center rounded-xl bg-gradient-to-r from-teal-500 to-teal-600 px-6 py-3 font-medium text-white shadow-lg transition-all duration-200 hover:shadow-xl"
+                className="px-6 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all duration-200"
               >
-                Go to Imports
+                New Report
               </button>
+
+              <div
+                className="relative"
+                ref={dateRangeRef}
+                onMouseEnter={handleDateRangeMouseEnter}
+                onMouseLeave={handleDateRangeMouseLeave}
+              >
+                <button
+                  type="button"
+                  onClick={handleDateRangeToggle}
+                  aria-label="Choose dashboard date range"
+                  title={dateRangeLabel}
+                  aria-expanded={isDateRangeOpen}
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-all duration-200 hover:border-teal-200 hover:text-teal-700 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-400"
+                >
+                  <FunnelIcon className="h-6 w-6" aria-hidden="true" />
+                </button>
+
+                {isDateRangeOpen && (
+                  <div className="absolute right-0 z-30 mt-3 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-200/70">
+                    <div className="space-y-4">
+                      <div>
+                        <label
+                          htmlFor="dashboard-from-date"
+                          className="mb-1.5 block text-xs font-medium text-slate-600"
+                        >
+                          From Date
+                        </label>
+                        <input
+                          id="dashboard-from-date"
+                          type="date"
+                          value={draftDateRange.from}
+                          onChange={(e) =>
+                            setDraftDateRange((range) => ({
+                              ...range,
+                              from: e.target.value,
+                            }))
+                          }
+                          className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-100"
+                        />
+                      </div>
+
+                      <div>
+                        <label
+                          htmlFor="dashboard-to-date"
+                          className="mb-1.5 block text-xs font-medium text-slate-600"
+                        >
+                          To Date
+                        </label>
+                        <input
+                          id="dashboard-to-date"
+                          type="date"
+                          value={draftDateRange.to}
+                          onChange={(e) =>
+                            setDraftDateRange((range) => ({
+                              ...range,
+                              to: e.target.value,
+                            }))
+                          }
+                          className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-100"
+                        />
+                      </div>
+
+                      {hasInvalidDateRange && (
+                        <p className="text-xs font-medium text-red-500">
+                          From Date must be before To Date.
+                        </p>
+                      )}
+
+                      <div className="flex items-center justify-between gap-3 pt-1">
+                        <button
+                          type="button"
+                          onClick={clearDateRange}
+                          className="rounded-lg px-3 py-2 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                        >
+                          Clear
+                        </button>
+                        <button
+                          type="button"
+                          onClick={applyDateRange}
+                          disabled={hasInvalidDateRange}
+                          className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-teal-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                        >
+                          Apply
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        ) : (
-          <>
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={(event) => {
-                const { active, over } = event;
-                if (!over || active.id === over.id) return;
-                const from = visibleLayout.indexOf(active.id);
-                const to = visibleLayout.indexOf(over.id);
-                if (from === -1 || to === -1) return;
-                moveWidget(from, to);
-              }}
-            >
-              <SortableContext items={visibleLayout} strategy={rectSortingStrategy}>
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
-                    {orderedChartWidgets.map((key) => (
-                      <SortableWidget
-                        key={key}
-                        id={key}
-                        className={key === "dynamicChart" ? "sm:col-span-2" : ""}
-                      >
-                        {renderWidget(key)}
-                      </SortableWidget>
-                    ))}
-                  </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-                    <div className="lg:col-span-2">
-                      <SortableWidget id="dataPreview">
-                        {renderWidget("dataPreview")}
-                      </SortableWidget>
-                    </div>
+          {error && <p className="text-red-500 text-sm">{error}</p>}
 
-                    <aside className="lg:col-span-1 flex flex-col gap-6">
-                      {orderedSidebarWidgets.map((key) => (
-                        <SortableWidget key={key} id={key}>
+          {loadingList || !mounted ? (
+            <div className="flex items-center justify-center py-24">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-teal-500"></div>
+            </div>
+          ) : importDetail.records === 0 ? (
+            <div className="rounded-3xl border border-dashed border-teal-200 bg-white/80 px-8 py-16 text-center shadow-sm">
+              <div className="mx-auto max-w-2xl space-y-4">
+                <span className="inline-flex rounded-full bg-teal-50 px-4 py-1 text-sm font-medium text-teal-700">
+                  No records yet
+                </span>
+                <h2 className="text-2xl font-semibold text-slate-900">
+                  Add records to start using the dashboard
+                </h2>
+                <p className="text-slate-500">
+                  Import a CSV or Excel file, or add records from the Records
+                  page, and we&apos;ll build your financial overview here.
+                </p>
+                <button
+                  onClick={() => navigate("/import")}
+                  className="inline-flex items-center rounded-xl bg-gradient-to-r from-teal-500 to-teal-600 px-6 py-3 font-medium text-white shadow-lg transition-all duration-200 hover:shadow-xl"
+                >
+                  Go to Imports
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={(event) => {
+                  const { active, over } = event;
+                  if (!over || active.id === over.id) return;
+                  const from = visibleLayout.indexOf(active.id);
+                  const to = visibleLayout.indexOf(over.id);
+                  if (from === -1 || to === -1) return;
+                  moveWidget(from, to);
+                }}
+              >
+                <SortableContext
+                  items={visibleLayout}
+                  strategy={rectSortingStrategy}
+                >
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
+                      {orderedChartWidgets.map((key) => (
+                        <SortableWidget
+                          key={key}
+                          id={key}
+                          className={
+                            key === "dynamicChart" ? "sm:col-span-2" : ""
+                          }
+                        >
                           {renderWidget(key)}
                         </SortableWidget>
                       ))}
-                    </aside>
-                  </div>
-                </div>
-              </SortableContext>
-            </DndContext>
+                    </div>
 
-            <div className="flex justify-end gap-2 mt-4">
-              <button
-                onClick={() => {
-                  useDashboardSettings.getState().reset();
-                }}
-                className="px-3 py-2 rounded border text-sm"
-              >
-                Reset Layout
-              </button>
-              <button
-                onClick={handleSaveSettings}
-                className="px-3 py-2 rounded bg-teal-600 text-white text-sm"
-              >
-                Save Layout
-              </button>
-            </div>
-          </>
-        )}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                      <div className="lg:col-span-2">
+                        <SortableWidget id="dataPreview">
+                          {renderWidget("dataPreview")}
+                        </SortableWidget>
+                      </div>
+
+                      <aside className="lg:col-span-1 flex flex-col gap-6">
+                        {orderedSidebarWidgets.map((key) => (
+                          <SortableWidget key={key} id={key}>
+                            {renderWidget(key)}
+                          </SortableWidget>
+                        ))}
+                      </aside>
+                    </div>
+                  </div>
+                </SortableContext>
+              </DndContext>
+
+              <div className="flex justify-end gap-2 mt-4">
+                <button
+                  onClick={() => {
+                    useDashboardSettings.getState().reset();
+                  }}
+                  className="px-3 py-2 rounded border text-sm"
+                >
+                  Reset Layout
+                </button>
+                <button
+                  onClick={handleSaveSettings}
+                  className="px-3 py-2 rounded bg-teal-600 text-white text-sm"
+                >
+                  Save Layout
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
       <Footer />
-    </div>
+    </>
   );
 };
 

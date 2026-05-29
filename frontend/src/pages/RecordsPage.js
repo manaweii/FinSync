@@ -5,13 +5,13 @@ import {
   ArrowPathIcon,
   CalendarDaysIcon,
   ChevronDownIcon,
-  ExclamationTriangleIcon,
   MagnifyingGlassIcon,
   PencilSquareIcon,
   PlusIcon,
   TrashIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
+import ConfirmDeleteModal from "../components/auth/ConfirmDeleteModal";
 import useAuthStore from "../store/useAuthStore";
 import {
   buildRowsFromDatabaseRecords,
@@ -52,7 +52,12 @@ const formatDateInputValue = (value) => {
 };
 
 const getRowSortTime = (row = {}) => {
-  const candidates = [row.__importedOn, row.createdAt, row.transactionDate, row.date];
+  const candidates = [
+    row.__importedOn,
+    row.createdAt,
+    row.transactionDate,
+    row.date,
+  ];
   for (const value of candidates) {
     if (!value) continue;
     const parsed = new Date(value);
@@ -63,9 +68,12 @@ const getRowSortTime = (row = {}) => {
 
 const getAmountTextClass = (row = {}) => {
   const amount = Number(row.amount || row.Amount || 0);
-  const accountType = String(row.accountType || row["Account Type"] || "").toLowerCase();
+  const accountType = String(
+    row.accountType || row["Account Type"] || "",
+  ).toLowerCase();
 
-  if (amount < 0 || accountType === "expense") return "font-semibold text-rose-600";
+  if (amount < 0 || accountType === "expense")
+    return "font-semibold text-rose-600";
   if (amount > 0) return "font-semibold text-emerald-600";
   return "text-slate-500";
 };
@@ -174,7 +182,9 @@ function RecordModal({
     onChange(
       field,
       sanitizedValue,
-      sanitizedValue !== value ? `${label} must contain letters and spaces only.` : "",
+      sanitizedValue !== value
+        ? `${label} must contain letters and spaces only.`
+        : "",
     );
   };
 
@@ -325,73 +335,6 @@ function RecordModal({
   );
 }
 
-function ConfirmDeleteModal({
-  isOpen,
-  recordLabel,
-  deleting,
-  onCancel,
-  onConfirm,
-}) {
-  if (!isOpen) return null;
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-8"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="delete-record-title"
-      onClick={deleting ? undefined : onCancel}
-    >
-      <div
-        className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start gap-4">
-          <div className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
-            <ExclamationTriangleIcon className="h-6 w-6" />
-          </div>
-          <div>
-            <h3
-              id="delete-record-title"
-              className="text-xl font-semibold text-slate-900"
-            >
-              Delete record?
-            </h3>
-            <p className="mt-2 text-sm text-slate-500">
-              Are you sure you want to delete this record?
-            </p>
-            {recordLabel ? (
-              <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-xs text-slate-600">
-                {recordLabel}
-              </p>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={deleting}
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={deleting}
-            className="inline-flex items-center gap-2 rounded-2xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <TrashIcon className="h-4 w-4" />
-            {deleting ? "Deleting..." : "Delete"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function DescriptionCell({ value }) {
   const text = normalizeValue(value);
   const lines = text.includes("\n")
@@ -416,7 +359,10 @@ function DescriptionCell({ value }) {
   );
   const otherLines = structuredLines.filter(({ label }) => {
     const normalizedLabel = label.toLowerCase();
-    return normalizedLabel !== "items" && !["sales", "cogs", "vat"].includes(normalizedLabel);
+    return (
+      normalizedLabel !== "items" &&
+      !["sales", "cogs", "vat"].includes(normalizedLabel)
+    );
   });
   const itemList = itemLine?.value.split(/,\s*/).filter(Boolean) || [];
 
@@ -429,7 +375,10 @@ function DescriptionCell({ value }) {
           </span>
           <div className="mt-0.5 space-y-0.5">
             {itemList.map((item) => (
-              <span key={item} className="block break-words font-medium text-slate-700">
+              <span
+                key={item}
+                className="block break-words font-medium text-slate-700"
+              >
                 {item}
               </span>
             ))}
@@ -453,10 +402,7 @@ function DescriptionCell({ value }) {
       ) : null}
 
       {otherLines.map(({ label, value }, index) => (
-        <div
-          key={`${label}-${value}-${index}`}
-          className="mt-1"
-        >
+        <div key={`${label}-${value}-${index}`} className="mt-1">
           {label ? (
             <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
               {label}
@@ -467,6 +413,50 @@ function DescriptionCell({ value }) {
           </span>
         </div>
       ))}
+    </div>
+  );
+}
+
+function DeleteErrorModal({ message, onClose }) {
+  if (!message) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-8"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-error-title"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-4">
+          <div className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+            <XMarkIcon className="h-6 w-6" />
+          </div>
+          <div>
+            <h3
+              id="delete-error-title"
+              className="text-xl font-semibold text-slate-900"
+            >
+              Delete unavailable
+            </h3>
+            <p className="mt-2 text-sm text-slate-500">{message}</p>
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            OK
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -487,6 +477,7 @@ export default function RecordsPage() {
   const [editingRecordId, setEditingRecordId] = useState(null);
   const [recordPendingDelete, setRecordPendingDelete] = useState(null);
   const [deletingRecord, setDeletingRecord] = useState(false);
+  const [deleteErrorMessage, setDeleteErrorMessage] = useState("");
   const [formState, setFormState] = useState(defaultFormState);
   const [formErrors, setFormErrors] = useState({});
 
@@ -800,348 +791,362 @@ export default function RecordsPage() {
       );
       setRecordPendingDelete(null);
     } catch (err) {
-      alert(err.message || "Failed to delete record");
+      setRecordPendingDelete(null);
+      setDeleteErrorMessage(err.message || "Failed to delete record");
     } finally {
       setDeletingRecord(false);
     }
   };
 
-  const selectedEditableRow = allRows.find(
-    (row) => (row.__recordDocId || row.__recordId) === editingRecordId,
-  ) || null;
+  const selectedEditableRow =
+    allRows.find(
+      (row) => (row.__recordDocId || row.__recordId) === editingRecordId,
+    ) || null;
 
   const manualRecordCount = allRows.filter((row) => row.__isManual).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-sky-50 via-emerald-50/40 to-slate-50 py-12 px-4">
-      <div className="mx-auto w-full max-w-7xl px-4">
-        <div className="text-center mb-2">
-          <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-600">
-            Record
-          </span>
-        </div>
+    <>
+      <div className="min-h-screen bg-gradient-to-b from-sky-50 via-emerald-50/40 to-slate-50 py-12 px-4">
+        <div className="mx-auto w-full max-w-7xl px-4">
+          <div className="text-center mb-2">
+            <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-600">
+              Record
+            </span>
+          </div>
 
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-semibold text-slate-900">
-            Financial Records.
-          </h1>
-          <p className="mt-2 text-sm text-slate-500 max-w-2xl mx-auto">
-            All CSV/Excel imports plus online checkout records are shown in
-            one table, so you can review every row from a single page.
-          </p>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-3 mb-6">
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-              Data Sources
-            </p>
-            <p className="mt-2 text-3xl font-semibold text-slate-900">
-              {fileOptions.length}
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-semibold text-slate-900">
+              Financial Records.
+            </h1>
+            <p className="mt-2 text-sm text-slate-500 max-w-2xl mx-auto">
+              All CSV/Excel imports plus online checkout records are shown in
+              one table, so you can review every row from a single page.
             </p>
           </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-              Total Rows
-            </p>
-            <p className="mt-2 text-3xl font-semibold text-slate-900">
-              {allRows.length}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-              Showing
-            </p>
-            <p className="mt-2 text-3xl font-semibold text-slate-900">
-              {filteredRows.length}
-            </p>
-          </div>
-        </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100">
-          <div className="px-6 pt-5 pb-4 border-b border-slate-100">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 className="text-2xl font-semibold text-slate-900">
-                  Financial Records
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Manage and track all transactions
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={loadRecords}
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 hover:text-slate-700"
-                  aria-label="Refresh records"
-                >
-                  <ArrowPathIcon className="h-5 w-5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={exportRowsToCsv}
-                  disabled={filteredRows.length === 0}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <ArrowDownTrayIcon className="h-5 w-5" />
-                  Export CSV
-                </button>
-                <button
-                  type="button"
-                  onClick={openAddModal}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-cyan-500 px-4 py-3 text-sm font-medium text-white shadow-md transition hover:bg-cyan-600"
-                >
-                  <PlusIcon className="h-5 w-5" />
-                  Add Record
-                </button>
-              </div>
+          <div className="grid gap-4 md:grid-cols-3 mb-6">
+            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                Data Sources
+              </p>
+              <p className="mt-2 text-3xl font-semibold text-slate-900">
+                {fileOptions.length}
+              </p>
             </div>
+            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                Total Rows
+              </p>
+              <p className="mt-2 text-3xl font-semibold text-slate-900">
+                {allRows.length}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                Showing
+              </p>
+              <p className="mt-2 text-3xl font-semibold text-slate-900">
+                {filteredRows.length}
+              </p>
+            </div>
+          </div>
 
-            <div className="mt-4 flex flex-col gap-3">
-              <div className="relative flex-1">
-                <MagnifyingGlassIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-12 py-3 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
-                  placeholder="Search records..."
-                />
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100">
+            <div className="px-6 pt-5 pb-4 border-b border-slate-100">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h2 className="text-2xl font-semibold text-slate-900">
+                    Financial Records
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Manage and track all transactions
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={loadRecords}
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 hover:text-slate-700"
+                    aria-label="Refresh records"
+                  >
+                    <ArrowPathIcon className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={exportRowsToCsv}
+                    disabled={filteredRows.length === 0}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <ArrowDownTrayIcon className="h-5 w-5" />
+                    Export CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openAddModal}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-cyan-500 px-4 py-3 text-sm font-medium text-white shadow-md transition hover:bg-cyan-600"
+                  >
+                    <PlusIcon className="h-5 w-5" />
+                    Add Record
+                  </button>
+                </div>
               </div>
-              <div className="flex flex-wrap gap-3">
-                <div className="relative">
-                  <CalendarDaysIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+
+              <div className="mt-4 flex flex-col gap-3">
+                <div className="relative flex-1">
+                  <MagnifyingGlassIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                   <input
-                    type="date"
-                    value={selectedImportedOn}
-                    onChange={(e) => setSelectedImportedOn(e.target.value)}
-                    className="min-w-[180px] rounded-2xl border border-slate-200 bg-white py-3 pl-12 pr-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-100"
-                    aria-label="Filter by imported date"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-12 py-3 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                    placeholder="Search records..."
                   />
                 </div>
+                <div className="flex flex-wrap gap-3">
+                  <div className="relative">
+                    <CalendarDaysIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="date"
+                      value={selectedImportedOn}
+                      onChange={(e) => setSelectedImportedOn(e.target.value)}
+                      className="min-w-[180px] rounded-2xl border border-slate-200 bg-white py-3 pl-12 pr-4 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                      aria-label="Filter by imported date"
+                    />
+                  </div>
 
-                <div className="relative">
-                  <select
-                    value={selectedFileType}
-                    onChange={(e) => setSelectedFileType(e.target.value)}
-                    className="min-w-[132px] appearance-none rounded-2xl border border-slate-200 bg-white px-4 py-3 pr-10 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-100"
-                    aria-label="Filter by source"
+                  <div className="relative">
+                    <select
+                      value={selectedFileType}
+                      onChange={(e) => setSelectedFileType(e.target.value)}
+                      className="min-w-[132px] appearance-none rounded-2xl border border-slate-200 bg-white px-4 py-3 pr-10 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                      aria-label="Filter by source"
+                    >
+                      <option value="all">All Sources</option>
+                      {fileTypeOptions.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                  </div>
+
+                  <div className="relative">
+                    <select
+                      value={selectedFile}
+                      onChange={(e) => setSelectedFile(e.target.value)}
+                      className="min-w-[132px] appearance-none rounded-2xl border border-slate-200 bg-white px-4 py-3 pr-10 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                      aria-label="Filter by file"
+                    >
+                      <option value="all">All Files</option>
+                      {fileOptions.map((file) => (
+                        <option key={file.id} value={file.id}>
+                          {file.fileName}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearch("");
+                      setSelectedFile("all");
+                      setSelectedFileType("all");
+                      setSelectedImportedOn("");
+                    }}
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
                   >
-                    <option value="all">All Sources</option>
-                    {fileTypeOptions.map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                    Clear Filters
+                  </button>
                 </div>
-
-                <div className="relative">
-                  <select
-                    value={selectedFile}
-                    onChange={(e) => setSelectedFile(e.target.value)}
-                    className="min-w-[132px] appearance-none rounded-2xl border border-slate-200 bg-white px-4 py-3 pr-10 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-100"
-                    aria-label="Filter by file"
-                  >
-                    <option value="all">All Files</option>
-                    {fileOptions.map((file) => (
-                      <option key={file.id} value={file.id}>
-                        {file.fileName}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearch("");
-                    setSelectedFile("all");
-                    setSelectedFileType("all");
-                    setSelectedImportedOn("");
-                  }}
-                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-                >
-                  Clear Filters
-                </button>
               </div>
             </div>
-          </div>
 
-          <div className="px-6 pb-6 pt-4">
-            {loading ? (
-              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-                Loading imported records...
-              </div>
-            ) : error ? (
-              <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-4 text-sm text-rose-600">
-                {error}
-              </div>
-            ) : filteredRows.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-                No rows found. Import a CSV/Excel file or place FruityGo orders
-                to see records here.
-              </div>
-            ) : (
-              <>
-                <div className="overflow-x-auto rounded-xl border border-slate-100">
-                  <table className="min-w-full text-left text-xs">
-                    <thead className="bg-slate-50 text-slate-500">
-                      <tr>
-                        {visibleColumns.map((column) => (
-                          <th
-                            key={column}
-                            className="whitespace-nowrap px-4 py-3 font-medium"
-                          >
-                            {column === "__fileType"
-                              ? "Source"
-                              : column === "__importedOn"
-                                ? "Imported On"
-                                : column === "accountType"
-                                  ? "Account Type"
-                                  : column.charAt(0).toUpperCase() +
-                                    column.slice(1)}
-                          </th>
-                        ))}
-                        <th className="sticky right-0 z-10 w-[104px] whitespace-nowrap border-l border-slate-100 bg-slate-50 px-4 py-3 text-center font-medium shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.45)]">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 bg-white">
-                      {paginatedRows.map((row) => (
-                        <tr key={row.__recordId} className="align-top">
+            <div className="px-6 pb-6 pt-4">
+              {loading ? (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
+                  Loading imported records...
+                </div>
+              ) : error ? (
+                <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-4 text-sm text-rose-600">
+                  {error}
+                </div>
+              ) : filteredRows.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
+                  No rows found. Import a CSV/Excel file or place FruityGo
+                  orders to see records here.
+                </div>
+              ) : (
+                <>
+                  <div className="overflow-x-auto rounded-xl border border-slate-100">
+                    <table className="min-w-full text-left text-xs">
+                      <thead className="bg-slate-50 text-slate-500">
+                        <tr>
                           {visibleColumns.map((column) => (
-                            <td
+                            <th
                               key={column}
-                              className={`whitespace-nowrap px-4 py-3 ${
-                                column === "amount"
-                                  ? getAmountTextClass(row)
-                                  : "text-slate-700"
-                              }`}
+                              className="whitespace-nowrap px-4 py-3 font-medium"
                             >
-                              {column === "__importedOn"
-                                ? formatImportedOn(row[column])
-                                : column === "amount"
-                                  ? Number(row[column] || 0).toLocaleString(
-                                      undefined,
-                                      {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2,
-                                      },
-                                    )
-                                  : column === "description"
-                                    ? <DescriptionCell value={row[column]} />
-                                  : normalizeValue(row[column])}
-                            </td>
+                              {column === "__fileType"
+                                ? "Source"
+                                : column === "__importedOn"
+                                  ? "Imported On"
+                                  : column === "accountType"
+                                    ? "Account Type"
+                                    : column.charAt(0).toUpperCase() +
+                                      column.slice(1)}
+                            </th>
                           ))}
-                          <td className="sticky right-0 w-[104px] whitespace-nowrap border-l border-slate-100 bg-white px-4 py-3 text-slate-700 shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.45)]">
-                            <div className="flex items-center justify-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => openEditModal(row)}
-                                disabled={!row.__isManual}
-                                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                                aria-label={`Edit record ${normalizeValue(row.description || row.Description || row.__recordId)}`}
-                                title="Edit record"
-                              >
-                                <PencilSquareIcon className="h-4 w-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => openDeleteModal(row)}
-                                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-rose-100 text-rose-600 transition hover:bg-rose-50"
-                                aria-label={`Delete record ${normalizeValue(row.description || row.Description || row.__recordId)}`}
-                                title="Delete record"
-                              >
-                                <TrashIcon className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </td>
+                          <th className="sticky right-0 z-10 w-[104px] whitespace-nowrap border-l border-slate-100 bg-slate-50 px-4 py-3 text-center font-medium shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.45)]">
+                            Actions
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-slate-500">
-                  <span>
-                    Showing {paginatedRows.length} of {filteredRows.length}{" "}
-                    record
-                    {filteredRows.length === 1 ? "" : "s"} on this page.
-                    {manualRecordCount > 0
-                      ? ` ${manualRecordCount} manual record${manualRecordCount === 1 ? "" : "s"} can be edited.`
-                      : ""}
-                  </span>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setCurrentPage((prev) => Math.max(1, prev - 1))
-                      }
-                      disabled={currentPage === 1}
-                      className="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-500 disabled:cursor-not-allowed disabled:text-slate-400"
-                    >
-                      Previous
-                    </button>
-                    <span className="h-7 rounded-full bg-emerald-600 px-3 text-xs font-medium leading-7 text-white">
-                      Page {currentPage} of {totalPages}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setCurrentPage((prev) => Math.min(totalPages, prev + 1))
-                      }
-                      disabled={currentPage === totalPages}
-                      className="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-500 disabled:cursor-not-allowed disabled:text-slate-400"
-                    >
-                      Next
-                    </button>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white">
+                        {paginatedRows.map((row) => (
+                          <tr key={row.__recordId} className="align-top">
+                            {visibleColumns.map((column) => (
+                              <td
+                                key={column}
+                                className={`whitespace-nowrap px-4 py-3 ${
+                                  column === "amount"
+                                    ? getAmountTextClass(row)
+                                    : "text-slate-700"
+                                }`}
+                              >
+                                {column === "__importedOn" ? (
+                                  formatImportedOn(row[column])
+                                ) : column === "amount" ? (
+                                  Number(row[column] || 0).toLocaleString(
+                                    undefined,
+                                    {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    },
+                                  )
+                                ) : column === "description" ? (
+                                  <DescriptionCell value={row[column]} />
+                                ) : (
+                                  normalizeValue(row[column])
+                                )}
+                              </td>
+                            ))}
+                            <td className="sticky right-0 w-[104px] whitespace-nowrap border-l border-slate-100 bg-white px-4 py-3 text-slate-700 shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.45)]">
+                              <div className="flex items-center justify-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => openEditModal(row)}
+                                  disabled={!row.__isManual}
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                  aria-label={`Edit record ${normalizeValue(row.description || row.Description || row.__recordId)}`}
+                                  title="Edit record"
+                                >
+                                  <PencilSquareIcon className="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openDeleteModal(row)}
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-rose-100 text-rose-600 transition hover:bg-rose-50"
+                                  aria-label={`Delete record ${normalizeValue(row.description || row.Description || row.__recordId)}`}
+                                  title="Delete record"
+                                >
+                                  <TrashIcon className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                </div>
-              </>
-            )}
+
+                  <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-slate-500">
+                    <span>
+                      Showing {paginatedRows.length} of {filteredRows.length}{" "}
+                      record
+                      {filteredRows.length === 1 ? "" : "s"} on this page.
+                      {manualRecordCount > 0
+                        ? ` ${manualRecordCount} manual record${manualRecordCount === 1 ? "" : "s"} can be edited.`
+                        : ""}
+                    </span>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCurrentPage((prev) => Math.max(1, prev - 1))
+                        }
+                        disabled={currentPage === 1}
+                        className="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-500 disabled:cursor-not-allowed disabled:text-slate-400"
+                      >
+                        Previous
+                      </button>
+                      <span className="h-7 rounded-full bg-emerald-600 px-3 text-xs font-medium leading-7 text-white">
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCurrentPage((prev) =>
+                            Math.min(totalPages, prev + 1),
+                          )
+                        }
+                        disabled={currentPage === totalPages}
+                        className="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-500 disabled:cursor-not-allowed disabled:text-slate-400"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
+
+        <RecordModal
+          isOpen={isAddModalOpen}
+          mode="add"
+          form={formState}
+          errors={formErrors}
+          onChange={updateFormField}
+          onClose={closeModals}
+          onSubmit={handleAddRecord}
+          submitDisabled={false}
+        />
+
+        <RecordModal
+          isOpen={Boolean(editingRecordId)}
+          mode="edit"
+          form={formState}
+          errors={formErrors}
+          onChange={updateFormField}
+          onClose={closeModals}
+          onSubmit={handleEditRecord}
+          submitDisabled={!selectedEditableRow}
+        />
+        <ConfirmDeleteModal
+          isOpen={Boolean(recordPendingDelete)}
+          title="Delete record?"
+          message="Are you sure you want to delete this record?"
+          itemLabel={normalizeValue(
+            recordPendingDelete?.description ||
+              recordPendingDelete?.Description ||
+              recordPendingDelete?.transactionId ||
+              recordPendingDelete?.__recordDocId,
+          )}
+          deleting={deletingRecord}
+          onCancel={closeDeleteModal}
+          onConfirm={handleDeleteRecord}
+        />
+        <DeleteErrorModal
+          message={deleteErrorMessage}
+          onClose={() => setDeleteErrorMessage("")}
+        />
       </div>
-
-      <RecordModal
-        isOpen={isAddModalOpen}
-        mode="add"
-        form={formState}
-        errors={formErrors}
-        onChange={updateFormField}
-        onClose={closeModals}
-        onSubmit={handleAddRecord}
-        submitDisabled={false}
-      />
-
-      <RecordModal
-        isOpen={Boolean(editingRecordId)}
-        mode="edit"
-        form={formState}
-        errors={formErrors}
-        onChange={updateFormField}
-        onClose={closeModals}
-        onSubmit={handleEditRecord}
-        submitDisabled={!selectedEditableRow}
-      />
-      <ConfirmDeleteModal
-        isOpen={Boolean(recordPendingDelete)}
-        recordLabel={normalizeValue(
-          recordPendingDelete?.description ||
-            recordPendingDelete?.Description ||
-            recordPendingDelete?.transactionId ||
-            recordPendingDelete?.__recordDocId,
-        )}
-        deleting={deletingRecord}
-        onCancel={closeDeleteModal}
-        onConfirm={handleDeleteRecord}
-      />
       <Footer />
-    </div>
+    </>
   );
 }
