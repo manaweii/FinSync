@@ -123,6 +123,16 @@ function CreateUser() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // PASSWORD VALIDATION
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+    if (!passwordRegex.test(form.password)) {
+      showToast(
+        "Password must be at least 8 characters long and include an uppercase letter, lowercase letter, number, and special character.",
+        "error"
+      );
+      return;
+    }
     setIsLoading(true);
 
     try {

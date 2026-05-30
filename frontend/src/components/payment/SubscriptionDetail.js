@@ -6,10 +6,8 @@ const SubscriptionDetail = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Centralised API base — consistent across all fetch calls
   const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
-  // Period label map (from Code 1)
   const PERIOD_LABELS = {
     "1 month": "/ month",
     "3 month": "/ 3 months",
@@ -18,6 +16,7 @@ const SubscriptionDetail = () => {
   };
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
 
   const [selectedPlan, setSelectedPlan] = useState(
     location.state?.plan || {
@@ -38,15 +37,25 @@ const SubscriptionDetail = () => {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    // Clear password error when user starts typing in password field
+    if (e.target.name === "password") {
+      setPasswordError("");
+    }
   };
 
-  // Intercept form submit → open confirmation modal
   const handleOpenModal = (e) => {
     e.preventDefault();
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+    if (!passwordRegex.test(formData.password)) {
+      setPasswordError(
+        "Password must be at least 8 characters long and include an uppercase letter, lowercase letter, number, and special character."
+      );
+      return;
+    }
+    setPasswordError("");
     setIsModalOpen(true);
   };
 
-  // Actual eSewa payment — called from EsewaModal's onPay prop
   const handleEsewaPayment = async () => {
     try {
       const response = await fetch(`${API_BASE}/subscription/initiate`, {
@@ -60,8 +69,7 @@ const SubscriptionDetail = () => {
         }),
       });
 
-     console.log("Initiate subscription rese status:", response.status);
-      
+      console.log("Initiate subscription rese status:", response.status);
       const data = await response.json();
       console.log("Initiate subscription response:", data);
 
@@ -104,7 +112,6 @@ const SubscriptionDetail = () => {
     }
   };
 
-  // Dynamic next billing date (from Code 1)
   const getNextBillingDate = (period) => {
     const date = new Date();
     if (period === "year") {
@@ -122,7 +129,6 @@ const SubscriptionDetail = () => {
 
   return (
     <div className="h-screen w-full bg-[#f8fafc] flex flex-col items-center relative overflow-hidden font-sans">
-      {/* Gradient background strip */}
       <div
         className="absolute top-0 w-full h-[40vh] z-0"
         style={{
@@ -131,7 +137,6 @@ const SubscriptionDetail = () => {
         }}
       />
 
-      {/* Confirmation modal — rendered via EsewaModal component */}
       <EsewaModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -141,7 +146,6 @@ const SubscriptionDetail = () => {
       />
 
       <div className="relative z-10 w-full max-w-5xl px-6 flex-grow flex flex-col justify-center items-center py-4">
-        {/* Page heading */}
         <div className="text-center mb-8">
           <h1 className="text-3xl sm:text-4xl font-extrabold text-[#1e293b] tracking-tight">
             Confirm your subscription
@@ -299,8 +303,16 @@ const SubscriptionDetail = () => {
                     value={formData.password}
                     onChange={handleChange}
                     placeholder="••••••••"
-                    className="w-full px-3 py-2 border border-slate-100 bg-slate-50 rounded-lg text-sm focus:ring-2 focus:ring-[#4cb2b3] outline-none"
+                    className={`w-full px-3 py-2 border bg-slate-50 rounded-lg text-sm focus:ring-2 focus:ring-[#4cb2b3] outline-none ${
+                      passwordError ? "border-red-400" : "border-slate-100"
+                    }`}
                   />
+                  {/* ── Password error message ── */}
+                  {passwordError && (
+                    <p className="mt-1 text-[10px] text-red-500 leading-tight">
+                      {passwordError}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
