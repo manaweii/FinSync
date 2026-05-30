@@ -2,16 +2,41 @@ export default function GoalProgressBar({
   actual,
   target,
   label,
+  deadline,
   metric = "profit",
   metricLabel,
   formatCurrency,
 }) {
+  const getDeadlineMonthStart = (value) => {
+    if (!value) return null;
+
+    const dateOnlyMatch =
+      typeof value === "string" && value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const parsedDate = dateOnlyMatch
+      ? new Date(
+          Number(dateOnlyMatch[1]),
+          Number(dateOnlyMatch[2]) - 1,
+          Number(dateOnlyMatch[3]),
+        )
+      : new Date(value);
+
+    if (Number.isNaN(parsedDate.getTime())) return null;
+
+    return new Date(parsedDate.getFullYear(), parsedDate.getMonth(), 1);
+  };
+
   const normalizedMetric = metric === "expense" ? "expenses" : metric;
+  const deadlineMonthStart = getDeadlineMonthStart(deadline);
+  const hasGoalMonthStarted =
+    !deadlineMonthStart || new Date() >= deadlineMonthStart;
+  const effectiveActual = hasGoalMonthStarted ? actual : 0;
   const safeTarget = Math.max(Number(target) || 0, 1);
   const rawProgress =
-    normalizedMetric === "expenses"
+    !hasGoalMonthStarted
+      ? 0
+      : normalizedMetric === "expenses"
       ? (safeTarget / Math.max(actual, 1)) * 100
-      : (actual / safeTarget) * 100;
+      : (effectiveActual / safeTarget) * 100;
   const pct = Math.min(Math.round(rawProgress), 100);
   const barColor =
     pct >= 100 ? "bg-emerald-500" : pct >= 70 ? "bg-amber-400" : "bg-rose-400";
@@ -42,7 +67,7 @@ export default function GoalProgressBar({
       </div>
       <div className="mt-1.5 flex justify-between">
         <span className="tabular-nums text-[10px] text-slate-400">
-          {formatCurrency(actual)}
+          {formatCurrency(effectiveActual)}
         </span>
         <span className="tabular-nums text-[10px] text-slate-400">
           {formatCurrency(target)}

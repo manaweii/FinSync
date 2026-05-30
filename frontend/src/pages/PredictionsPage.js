@@ -477,6 +477,7 @@ export default function PredictionsPage() {
                           actual={currentActualForLatestGoal}
                           target={Number(latestGoal.targetValue)}
                           label={latestGoal.title}
+                          deadline={latestGoal.deadline}
                           metric={latestGoal.metric}
                           metricLabel={getMetricLabel(latestGoal.metric)}
                           formatCurrency={formatCurrency}

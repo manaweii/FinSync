@@ -19,7 +19,7 @@ export default function GoalCreatorCard({ form, onChange, onSubmit, saving, mess
         </div>
       </div>
 
-      <form className="space-y-4" onSubmit={onSubmit} noValidate>
+      <form className="space-y-4" onSubmit={onSubmit}>
         <div>
           <label
             htmlFor="goal-title"
@@ -83,7 +83,7 @@ export default function GoalCreatorCard({ form, onChange, onSubmit, saving, mess
               <input
                 id="goal-amount"
                 type="number"
-                min="0"
+                min="1"
                 step="1"
                 value={form.targetValue}
                 onChange={(e) => onChange("targetValue", e.target.value)}
@@ -101,7 +101,7 @@ export default function GoalCreatorCard({ form, onChange, onSubmit, saving, mess
               htmlFor="goal-deadline"
               className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500"
             >
-              Deadline <span className="font-normal normal-case text-slate-300">(optional)</span>
+              Deadline
             </label>
             <input
               id="goal-deadline"
@@ -109,6 +109,8 @@ export default function GoalCreatorCard({ form, onChange, onSubmit, saving, mess
               value={form.deadline}
               onChange={(e) => onChange("deadline", e.target.value)}
               className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+              required
+              aria-required="true"
               aria-label="Goal deadline date"
             />
           </div>
