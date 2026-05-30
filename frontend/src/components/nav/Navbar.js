@@ -10,6 +10,7 @@ function Navbar() {
   const navigate = useNavigate();
 
   const [isOpen, setIsOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("Home");
   const profileMenuRef = useRef(null);
   const { user, isLoggedIn, role, clearAuth } = useAuthStore();
@@ -45,11 +46,12 @@ function Navbar() {
   const handleLogoutClick = () => {
     clearAuth();
     setIsOpen(false);
+    setIsMobileMenuOpen(false);
     navigate("/Login");
   };
 
   const handleSectionScroll = (e, path, item) => {
-    // If it's the Home link, scroll to top
+    setIsMobileMenuOpen(false);
     if (item === "Home" && location.pathname === "/") {
       e.preventDefault();
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -58,7 +60,6 @@ function Navbar() {
       return;
     }
 
-    // If it's a hash link on the same page, scroll to section
     if (path.includes("#") && location.pathname === "/") {
       e.preventDefault();
       const hash = path.split("#")[1];
@@ -86,14 +87,12 @@ function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
-  // Detect which section is currently in view or update base on hash on initial load
   useEffect(() => {
     if (location.pathname !== "/") {
       setActiveSection(null);
       return;
     }
 
-    // If there's an immediate hash on load, map it correctly
     if (location.hash === "#featureSection") setActiveSection("Features");
     else if (location.hash === "#platformSection") setActiveSection("Platform");
     else setActiveSection("Home");
@@ -106,7 +105,6 @@ function Navbar() {
 
       let currentSection = "Home";
 
-      // If user is near the top of the viewport, fallback to Home
       if (window.scrollY < 120) {
         currentSection = "Home";
       } else {
@@ -114,7 +112,6 @@ function Navbar() {
           const element = document.getElementById(section.id);
           if (element) {
             const rect = element.getBoundingClientRect();
-            // Triggers active when section top crosses into the upper half of screen
             if (rect.top <= window.innerHeight / 2 && rect.bottom >= 100) {
               currentSection = section.name;
             }
@@ -134,27 +131,45 @@ function Navbar() {
   }
 
   return (
-    <nav className="w-full bg-white/80 backdrop-blur shadow-sm sticky top-0 z-50">
-      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        {/* left: logo */}
-        <div className="flex items-center gap-3">
-          <Link to={logoPath} className="flex items-center gap-3">
+    // Outer wrap provides background styling and responsive horizontal padding
+    <nav className="w-full bg-white/80 backdrop-blur shadow-sm sticky top-0 z-50 px-4 sm:px-8 lg:px-12">
+      {/* Changing to max-w-7xl ensures the layout boundary matches standard desktop content setups. 
+        If your content is tighter, adjust this class to 'max-w-6xl'.
+      */}
+      <div className="max-w-7xl mx-auto h-16 flex items-center justify-between gap-4">
+        
+        {/* Left Side: Hamburger & Logo */}
+        <div className="flex items-center gap-2">
+          {/* Mobile Hamburger Button */}
+          {linksToShow.length > 0 && (
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="p-2 text-slate-600 hover:text-teal-600 focus:outline-none md:hidden"
+              aria-label="Toggle Menu"
+            >
+              <svg className="h-6 w-6 fill-current" viewBox="0 0 24 24">
+                {isMobileMenuOpen ? (
+                  <path fillRule="evenodd" clipRule="evenodd" d="M18.278 16.864a1 1 0 0 1-1.414 1.414l-4.829-4.83-4.828 4.83a1 1 0 0 1-1.414-1.414l4.829-4.83-4.829-4.83a1 1 0 0 1 1.414-1.414l4.828 4.83 4.829-4.83a1 1 0 0 1 1.414 1.414l-4.83 4.83 4.83 4.83z"/>
+                ) : (
+                  <path fillRule="evenodd" d="M4 5h16a1 1 0 0 1 0 2H4a1 1 0 1 1 0-2zm0 6h16a1 1 0 0 1 0 2H4a1 1 0 0 1 0-2zm0 6h16a1 1 0 0 1 0 2H4a1 1 0 0 1 0-2z"/>
+                )}
+              </svg>
+            </button>
+          )}
+
+          <Link to={logoPath} className="flex items-center">
             <img
               src="./FinSync.png"
               alt="FinSync Logo"
-              className="h-40 w-40 object-contain"
+              className="h-10 w-auto object-contain" 
             />
           </Link>
         </div>
 
-        {/* center: nav links */}
-        <div className="flex items-center gap-8 text-sm">
+        {/* Center: Desktop Navigation Links */}
+        <div className="hidden md:flex items-center gap-8 text-sm">
           {linksToShow.map((item) => {
             const path = linkMap[item] || "/";
-            
-            // Core Logic Adjustment:
-            // 1. If on home page, use the `activeSection` state strictly for landing tabs
-            // 2. Otherwise, match paths traditionally
             const isActive = location.pathname === "/" && ["Home", "Features", "Platform"].includes(item)
               ? activeSection === item
               : location.pathname === path || location.pathname.startsWith(`${path}/`);
@@ -176,8 +191,8 @@ function Navbar() {
           })}
         </div>
 
-        {/* right side */}
-        <div className="flex items-center gap-3">
+        {/* Right Side Actions */}
+        <div className="flex items-center gap-2 sm:gap-3">
           {isLoggedIn ? (
             <>
               <NotificationFeed userRole={role} />
@@ -189,12 +204,13 @@ function Navbar() {
               >
                 <button
                   onClick={() => setIsOpen(!isOpen)}
-                  className="flex items-center gap-3 rounded-full border border-slate-100 bg-white px-3 py-2 shadow-sm"
+                  className="flex items-center gap-2 rounded-full border border-slate-100 bg-white p-1 md:px-3 md:py-2 shadow-sm hover:border-slate-200 transition-all"
                 >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500 text-xs font-semibold text-white">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-500 text-xs font-semibold text-white">
                     <Initials name={user?.fullName || "U"} />
                   </div>
-                  <div className="text-left text-xs">
+                  {/* Text hidden on mobile layout: only initials circle badge is visible */}
+                  <div className="hidden md:block text-left text-xs">
                     <p className="font-medium leading-tight text-slate-800">
                       {user?.fullName || "User"}
                     </p>
@@ -259,13 +275,38 @@ function Navbar() {
           ) : (
             <Link
               to="/Login"
-              className="px-6 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-sky-500 text-white text-sm font-medium shadow-md hover:opacity-90"
+              className="px-5 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-sky-500 text-white text-sm font-medium shadow-md hover:opacity-90"
             >
               Login
             </Link>
           )}
         </div>
       </div>
+
+      {/* Mobile Dropdown Navigation Drawer */}
+      {isMobileMenuOpen && linksToShow.length > 0 && (
+        <div className="md:hidden border-t border-slate-100 py-3 bg-white space-y-1">
+          {linksToShow.map((item) => {
+            const path = linkMap[item] || "/";
+            const isActive = location.pathname === path;
+
+            return (
+              <Link
+                key={item}
+                to={path}
+                onClick={(e) => handleSectionScroll(e, path, item)}
+                className={`block px-4 py-2.5 rounded-md text-base font-medium transition-colors ${
+                  isActive
+                    ? "bg-teal-50 text-teal-600 font-bold"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-teal-600"
+                }`}
+              >
+                {item}
+              </Link>
+            );
+          })}
+        </div>
+      )}
     </nav>
   );
 }

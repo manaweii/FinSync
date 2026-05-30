@@ -29,7 +29,6 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
 
-    // simple email regex check
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailPattern.test(form.email)) {
       setError("Please enter a valid email address.");
@@ -58,7 +57,6 @@ export default function LoginPage() {
         return;
       }
 
-      // Use zustand store to persist and broadcast auth state
       if (data.token || data.user) {
         console.log("Login successful, setting auth state:", {
           user: data.user,
@@ -113,7 +111,6 @@ export default function LoginPage() {
               </div>
 
               <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
-                {/* Custom Legend */}
                 <div className="flex justify-center gap-4 mb-2">
                   <div className="flex items-center gap-1">
                     <span className="w-4 h-2 border-2 border-teal-500 rounded-full"></span>
@@ -126,7 +123,6 @@ export default function LoginPage() {
                   </div>
                 </div>
 
-                {/* Chart */}
                 <div className="h-32">
                   <MiniChart />
                 </div>
@@ -159,14 +155,14 @@ export default function LoginPage() {
                   <span>Back to home</span>
                 </Link>
               </div>
-              <div className="flex items-center gap-2 mb-5">
-                <div className="flex items-center gap-2 mb-5">
-                  <img
-                    src="./FinSync.png"
-                    alt="FinSync Logo"
-                    className="h-12 w-12 object-contain"
-                  />
-                </div>
+              
+              {/* Cleaned up wrapper and tweaked height settings */}
+              <div className="mb-6 flex items-center">
+                <img
+                  src="./FinSync.png"
+                  alt="FinSync Logo"
+                  className="h-11 w-auto object-contain"
+                />
               </div>
 
               <h2 className="text-[20px] font-semibold text-slate-900 mb-1">
@@ -192,7 +188,7 @@ export default function LoginPage() {
                       value={form.email}
                       onChange={handleChange}
                       placeholder="Email address"
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 pl-7 pr-3 py-2 text-[11px] text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 pl-3 pr-3 py-2 text-[11px] text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
                     />
                   </div>
                 </div>
@@ -212,7 +208,7 @@ export default function LoginPage() {
                       value={form.password}
                       onChange={handleChange}
                       placeholder="••••••••"
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 pl-7 pr-3 py-2 text-[11px] text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 pl-3 pr-3 py-2 text-[11px] text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
                     />
                   </div>
                 </div>
@@ -229,7 +225,6 @@ export default function LoginPage() {
                     <span>Remember me</span>
                   </label>
 
-                  {/* LINK TO RESET PASSWORD PAGE */}
                   <Link
                     to="/reset-password"
                     className="text-[10px] text-emerald-600 font-medium hover:text-emerald-700"
