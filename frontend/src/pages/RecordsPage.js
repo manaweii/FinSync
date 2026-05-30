@@ -67,6 +67,12 @@ const formatDateInputValue = (value) => {
     : parsed.toISOString().slice(0, 10);
 };
 
+const parseRowTime = (value) => {
+  if (!value) return null;
+  const parsed = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.getTime();
+};
+
 const getRowSortTime = (row = {}) => {
   const source = String(row.__source || "").toLowerCase();
   const importFileType = String(row.__importFileType || "").toLowerCase();
@@ -78,23 +84,22 @@ const getRowSortTime = (row = {}) => {
 
   if (isFileImport) {
     const fileDate = row.parsedDate || row.transactionDate || row.date;
-    const parsedFileDate =
-      fileDate instanceof Date ? fileDate : new Date(fileDate);
-    if (!Number.isNaN(parsedFileDate.getTime())) {
-      return parsedFileDate.getTime();
+    const fileTime = parseRowTime(fileDate);
+    if (fileTime !== null) {
+      return fileTime;
     }
   }
 
   const candidates = [
-    row.__importedOn,
-    row.createdAt,
+    row.parsedDate,
     row.transactionDate,
     row.date,
+    row.__importedOn,
+    row.createdAt,
   ];
   for (const value of candidates) {
-    if (!value) continue;
-    const parsed = new Date(value);
-    if (!Number.isNaN(parsed.getTime())) return parsed.getTime();
+    const time = parseRowTime(value);
+    if (time !== null) return time;
   }
   return 0;
 };
