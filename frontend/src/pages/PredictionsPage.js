@@ -62,7 +62,7 @@ const getMetricLabel = (metric) => METRIC_CONFIG[normalizeMetric(metric)].label;
 const getMetricValue = (snapshot, metric) =>
   Number(snapshot?.[normalizeMetric(metric)] || 0);
 
-// ─── Utilities ───────────────────────────────────────────────────────────────
+// Utilities 
 
 const formatCurrency = (value) =>
   `NPR ${new Intl.NumberFormat("en-NP", {
@@ -140,7 +140,7 @@ const chartOptions = {
   },
 };
 
-// ─── Status derivation helpers ────────────────────────────────────────────────
+// Status derivation helpers 
 
 const deriveStatus = (actual, expected) => {
   if (!expected) return null;
@@ -351,6 +351,7 @@ export default function PredictionsPage() {
   const currentActualForLatestGoal = latestGoal
     ? getMetricValue(latestSnapshot, latestGoal.metric)
     : 0;
+  const latestAnomalies = anomalies.slice(0, 3);
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -358,20 +359,22 @@ export default function PredictionsPage() {
     <>
       <div className="min-h-screen bg-gradient-to-b from-sky-50 via-emerald-50/30 to-slate-50 py-12 px-4">
         {/* ── Page Header ── */}
-        <header className="max-w-5xl mx-auto text-center mb-10">
-          <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-100 px-4 py-1 text-xs font-semibold text-emerald-600 mb-4 tracking-wide uppercase">
+        <div className="mb-2 text-center">
+          <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-600">
             Prediction
           </span>
-          <h1 className="text-3xl md:text-4xl font-semibold text-slate-900 mb-3 tracking-tight">
-            Financial Predictions
+        </div>
+
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl font-semibold text-slate-900">
+            Financial Predictions.
           </h1>
-          <p className="text-sm md:text-base text-slate-500 max-w-2xl mx-auto leading-relaxed">
-            View AI-powered forecasts for your income, expenses, and cash flow.
-            Predictions are based on your imported transaction history and help
-            you plan budgets, identify trends, and make informed financial
-            decisions.
+          <p className="mx-auto mt-2 max-w-2xl text-sm text-slate-500">
+            View AI-powered forecasts for your income, expenses, and cash flow
+            based on your imported transaction history to help you plan budgets
+            and identify trends.
           </p>
-        </header>
+        </div>
 
         <main className="mx-auto max-w-7xl space-y-6">
           {/* ── Loading state ── */}
@@ -522,8 +525,8 @@ export default function PredictionsPage() {
                   {/* Unusual Spikes */}
                   <InsightCard icon={BellAlertIcon} title="Unusual Spikes">
                     <div className="space-y-3">
-                      {anomalies.length ? (
-                        anomalies.map((anomaly, index) => (
+                      {latestAnomalies.length ? (
+                        latestAnomalies.map((anomaly, index) => (
                           <div
                             key={`${anomaly.month}-${index}`}
                             className="rounded-2xl bg-slate-50 px-4 py-3"
