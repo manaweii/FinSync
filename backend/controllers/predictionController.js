@@ -1,4 +1,5 @@
 import RecordModel from "../models/Record.js";
+import Organization from "../models/Organization.js";
 import PredictionMilestone from "../models/PredictionMilestone.js";
 
 const DEFAULT_FORECAST_MONTHS = 6;
@@ -47,6 +48,9 @@ const formatMonthLabel = (monthKey) =>
 const getCategoryType = (row) =>
   String(row?.Category || row?.category || row?.Type || row?.type || "").toLowerCase();
 
+const getAccountType = (row) =>
+  String(row?.["Account Type"] || row?.accountType || row?.AccountType || "").toLowerCase();
+
 const getMonthKeyForRow = (row) =>
   monthKeyFromDate(
     row?.Date ||
@@ -58,6 +62,12 @@ const getMonthKeyForRow = (row) =>
   );
 
 const inferRevenue = (row) => {
+  const accountType = getAccountType(row);
+  if (accountType.includes("income") || accountType.includes("revenue")) {
+    return toNumber(row?.Amount ?? row?.amount ?? row?.Value ?? row?.value) ?? 0;
+  }
+  if (accountType) return 0;
+
   const directRevenue =
     toNumber(row?.Revenue) ??
     toNumber(row?.revenue) ??
@@ -82,6 +92,16 @@ const inferRevenue = (row) => {
 };
 
 const inferExpense = (row) => {
+  const accountType = getAccountType(row);
+  if (
+    accountType.includes("expense") ||
+    accountType.includes("cost") ||
+    accountType.includes("cogs")
+  ) {
+    return Math.abs(toNumber(row?.Amount ?? row?.amount ?? row?.Value ?? row?.value) ?? 0);
+  }
+  if (accountType) return 0;
+
   const expenseFields = [
     "Expense",
     "expense",
@@ -389,6 +409,18 @@ const parseRecordRows = (records) => {
   return rows;
 };
 
+const buildRecordQueryForOrganization = async (orgId) => {
+  const org = await Organization.findById(orgId).lean();
+  const orgName = String(org?.orgName || org?.name || org?.fullName || "").trim();
+  const filters = [{ "metadata.orgId": String(orgId) }];
+
+  if (orgName) {
+    filters.push({ orgName });
+  }
+
+  return filters.length === 1 ? filters[0] : { $or: filters };
+};
+
 export const getOrgPredictions = async (req, res) => {
   try {
     const { orgId } = req.params;
@@ -401,10 +433,8 @@ export const getOrgPredictions = async (req, res) => {
       return res.status(400).json({ message: "Organization id is required" });
     }
 
-    const records = await RecordModel.find({
-      source: "import",
-      "metadata.orgId": String(orgId),
-    })
+    const recordQuery = await buildRecordQueryForOrganization(orgId);
+    const records = await RecordModel.find(recordQuery)
       .sort({ importedOn: -1, transactionDate: -1, createdAt: -1 })
       .lean();
     const rows = parseRecordRows(records);

@@ -5,10 +5,14 @@ import { getUsers, UpdateUser, DeleteUser } from "../repositories/userRepo.js";
 import { CreateOrganization, LoadOrganization, UpdateOrganization, DeleteOrganization } from "../repositories/organizationRepo.js";
 import { uploadFile, pastImportData, getImportById } from "../controllers/importController.js";
 import {
+  createInvestmentRecord,
   createManualRecord,
   deleteRecord,
+  getOrganizationFinanceSetup,
   getRecordsByOrgName,
+  recalculateOrganizationRecords,
   saveFruityGoRecords,
+  saveOrganizationMonthlyBudget,
   updateManualRecord,
 } from "../controllers/recordController.js";
 import { saveDashboardSettings, getDashboardSettings } from "../controllers/dashboardController.js";
@@ -83,7 +87,11 @@ router.post("/records/fruitygo", saveFruityGoRecords);
 router.get("/records", getRecordsByOrgName);
 router.post("/records/manual", createManualRecord);
 router.put("/records/manual/:id", updateManualRecord);
+router.post("/records/investment", createInvestmentRecord);
+router.post("/records/recalculate", recalculateOrganizationRecords);
 router.delete("/records/:id", deleteRecord);
+router.get("/organization/finance-setup", getOrganizationFinanceSetup);
+router.post("/organization/monthly-budget", saveOrganizationMonthlyBudget);
 
 // Dashboard settings
 router.post('/dashboard-settings', saveDashboardSettings);

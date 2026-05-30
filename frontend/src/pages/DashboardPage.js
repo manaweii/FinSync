@@ -43,6 +43,7 @@ import {
   formatCurrencyCompact,
 } from "../utils/financialData";
 import { buildRecordDataset } from "../utils/recordsData";
+import { isAdminRole } from "../utils/roles";
 
 ChartJS.register(
   CategoryScale,
@@ -105,7 +106,7 @@ const DashboardPage = () => {
   const [error, setError] = useState("");
   const [mounted, setMounted] = useState(false);
   const dateRangeRef = useRef(null);
-  const dateRangeCloseTimeoutRef = useRef(null);
+  const isOrgAdmin = isAdminRole(currentUser?.role);
 
   useEffect(() => {
     setMounted(true);
@@ -313,29 +314,9 @@ const DashboardPage = () => {
     };
   }, []);
 
-  useEffect(() => {
-    return () => {
-      if (dateRangeCloseTimeoutRef.current) {
-        clearTimeout(dateRangeCloseTimeoutRef.current);
-      }
-    };
-  }, []);
-
   const handleDateRangeToggle = () => {
     setDraftDateRange(dateRange);
     setIsDateRangeOpen((open) => !open);
-  };
-
-  const handleDateRangeMouseEnter = () => {
-    if (dateRangeCloseTimeoutRef.current) {
-      clearTimeout(dateRangeCloseTimeoutRef.current);
-    }
-  };
-
-  const handleDateRangeMouseLeave = () => {
-    dateRangeCloseTimeoutRef.current = setTimeout(() => {
-      setIsDateRangeOpen(false);
-    }, 120);
   };
 
   const applyDateRange = () => {
@@ -445,8 +426,6 @@ const DashboardPage = () => {
               <div
                 className="relative"
                 ref={dateRangeRef}
-                onMouseEnter={handleDateRangeMouseEnter}
-                onMouseLeave={handleDateRangeMouseLeave}
               >
                 <button
                   type="button"
@@ -547,17 +526,19 @@ const DashboardPage = () => {
                   No records yet
                 </span>
                 <h2 className="text-2xl font-semibold text-slate-900">
-                  Add records to start using the dashboard
+                  Add initial investment to start using the dashboard
                 </h2>
                 <p className="text-slate-500">
-                  Import a CSV or Excel file, or add records from the Records
-                  page, and we&apos;ll build your financial overview here.
+                  Organization admins can initialize capital as a balanced cash
+                  and equity transaction from the Records page.
                 </p>
                 <button
-                  onClick={() => navigate("/import")}
+                  onClick={() =>
+                    navigate(isOrgAdmin ? "/records?setup=investment" : "/records")
+                  }
                   className="inline-flex items-center rounded-xl bg-gradient-to-r from-teal-500 to-teal-600 px-6 py-3 font-medium text-white shadow-lg transition-all duration-200 hover:shadow-xl"
                 >
-                  Go to Imports
+                  {isOrgAdmin ? "Set Initial Investment" : "View Records"}
                 </button>
               </div>
             </div>

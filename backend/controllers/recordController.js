@@ -26,6 +26,28 @@ const isAlphabetText = (value, { required = false } = {}) => {
 };
 
 const normalizeRole = (value) => toText(value).toLowerCase();
+const normalizeAccountType = (value) => {
+  const normalized = toText(value).toLowerCase();
+  if (normalized === "revenue") return "Revenue";
+  const accountTypes = {
+    income: "Income",
+    expense: "Expense",
+    asset: "Asset",
+    liability: "Liability",
+    equity: "Equity",
+  };
+  return accountTypes[normalized] || toText(value);
+};
+const normalizeAccountTypeKey = (value) => normalizeAccountType(value).toLowerCase();
+const ALLOWED_ACCOUNT_TYPES = new Set([
+  "income",
+  "revenue",
+  "expense",
+  "asset",
+  "liability",
+  "equity",
+]);
+const MONEY_EPSILON = 0.01;
 
 const extractToken = (req) => {
   const authHeader = req.headers.authorization || req.headers.Authorization || "";
@@ -207,6 +229,144 @@ const buildJournalRows = ({ transactionDate, totals, lineItems, transactionId })
   return rows;
 };
 
+const getEntrySpendAmount = (entry = {}) => {
+  const accountType = normalizeAccountTypeKey(entry?.accountType);
+  if (accountType !== "expense") return 0;
+  const amount = toNumber(entry?.amount);
+  return amount > 0 ? Math.abs(amount) : 0;
+};
+
+const getOrganizationFinanceSummary = async (orgName, { excludeRecordId = null } = {}) => {
+  const match = { orgName };
+  if (excludeRecordId && mongoose.Types.ObjectId.isValid(excludeRecordId)) {
+    match._id = { $ne: new mongoose.Types.ObjectId(excludeRecordId) };
+  }
+
+  const records = await RecordModel.find(match, {
+    source: 1,
+    journalEntries: 1,
+  }).lean();
+
+  return records.reduce(
+    (summary, record) => {
+      const source = toText(record?.source).toLowerCase();
+      const entries = Array.isArray(record?.journalEntries) ? record.journalEntries : [];
+
+      for (const entry of entries) {
+        const accountType = normalizeAccountTypeKey(entry?.accountType);
+        const amount = toNumber(entry?.amount);
+
+        if (source === "investment" && accountType === "equity") {
+          summary.totalInvestment += amount;
+          continue;
+        }
+
+        if (accountType === "income" || accountType === "revenue") {
+          summary.totalMade += amount > 0 ? Math.abs(amount) : -Math.abs(amount);
+          continue;
+        }
+
+        summary.totalSpent += getEntrySpendAmount(entry);
+      }
+
+      return summary;
+    },
+    { totalInvestment: 0, totalMade: 0, totalSpent: 0 },
+  );
+};
+
+const assertSpendingWithinAvailableFunds = async ({
+  orgName,
+  newEntries = [],
+  excludeRecordId = null,
+}) => {
+  const summary = await getOrganizationFinanceSummary(orgName, { excludeRecordId });
+  const newSpent = newEntries.reduce((sum, entry) => sum + getEntrySpendAmount(entry), 0);
+  const availableFunds = summary.totalInvestment + summary.totalMade;
+  const projectedSpent = summary.totalSpent + newSpent;
+
+  if (projectedSpent - availableFunds > MONEY_EPSILON) {
+    return {
+      ok: false,
+      message: "Spending limit exceeded",
+      summary: {
+        ...summary,
+        availableFunds,
+        projectedSpent,
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    summary: {
+      ...summary,
+      availableFunds,
+      projectedSpent,
+    },
+  };
+};
+
+const requireAdminContext = async (req, res) => {
+  const authContext = await getAuthContext(req);
+  if (authContext.error) {
+    res.status(authContext.error.code).json({ message: authContext.error.message });
+    return null;
+  }
+
+  if (normalizeRole(authContext.roleName) !== "admin") {
+    res.status(403).json({ message: "Organization admin privileges are required" });
+    return null;
+  }
+
+  return authContext;
+};
+
+const getPrimaryEntry = (record = {}) =>
+  Array.isArray(record?.journalEntries) ? record.journalEntries[0] || {} : {};
+
+const normalizeRecordAccountTypes = (record = {}) => {
+  const entries = Array.isArray(record?.journalEntries) ? record.journalEntries : [];
+  return entries.map((entry) => ({
+    ...entry,
+    accountType: normalizeAccountType(entry?.accountType),
+  }));
+};
+
+const rebuildRecordForAccounting = (record = {}) => {
+  if (
+    toText(record?.source).toLowerCase() === "fruitygo" &&
+    Array.isArray(record?.lineItems) &&
+    record.lineItems.length > 0
+  ) {
+    return buildJournalRows({
+      transactionDate: parseTimestamp(record.transactionDate) || new Date(),
+      totals: record.orderTotals || {},
+      lineItems: record.lineItems,
+      transactionId: record.transactionId,
+    });
+  }
+
+  const entries = normalizeRecordAccountTypes(record);
+  if (entries.length > 0) return entries;
+
+  const legacyEntry = getPrimaryEntry(record);
+  if (legacyEntry?.account || record?.account) {
+    return [
+      {
+        date: legacyEntry.date || formatDate(parseTimestamp(record.transactionDate) || new Date()),
+        account: legacyEntry.account || record.account,
+        accountType: normalizeAccountType(legacyEntry.accountType || record.accountType),
+        amount: toNumber(legacyEntry.amount ?? record.amount),
+        category: legacyEntry.category || record.category || "General",
+        description: legacyEntry.description || record.description || "Migrated accounting row",
+      },
+    ];
+  }
+
+  return entries;
+};
+
 export const saveFruityGoRecords = async (req, res) => {
   try {
     const payload = req.body || {};
@@ -299,12 +459,38 @@ export const createManualRecord = async (req, res) => {
     if (!isAlphabetText(accountType, { required: true })) {
       return res.status(400).json({ message: "accountType must contain letters and spaces only" });
     }
+    if (!ALLOWED_ACCOUNT_TYPES.has(accountType.toLowerCase())) {
+      return res.status(400).json({
+        message: `accountType must be one of: ${Array.from(ALLOWED_ACCOUNT_TYPES).join(", ")}`,
+      });
+    }
     if (!isAlphabetText(category, { required: true })) {
       return res.status(400).json({ message: "category must contain letters and spaces only" });
     }
 
     const transactionDate = parseTimestamp(date) || new Date();
     const transactionId = `MAN-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const journalEntries = [
+      {
+        date: formatDate(transactionDate),
+        account,
+        accountType: normalizeAccountType(accountType),
+        amount,
+        category,
+        description,
+      },
+    ];
+    const spendingCheck = await assertSpendingWithinAvailableFunds({
+      orgName,
+      newEntries: journalEntries,
+    });
+
+    if (!spendingCheck.ok) {
+      return res.status(400).json({
+        message: spendingCheck.message,
+        financeSummary: spendingCheck.summary,
+      });
+    }
 
     const created = await RecordModel.create({
       orgName,
@@ -316,16 +502,7 @@ export const createManualRecord = async (req, res) => {
       importedOn: new Date(),
       lineItems: [],
       orderTotals: {},
-      journalEntries: [
-        {
-          date: formatDate(transactionDate),
-          account,
-          accountType,
-          amount,
-          category,
-          description,
-        },
-      ],
+      journalEntries,
       metadata: {
         origin: "records_manual_form",
       },
@@ -365,27 +542,46 @@ export const updateManualRecord = async (req, res) => {
     if (!isAlphabetText(accountType, { required: true })) {
       return res.status(400).json({ message: "accountType must contain letters and spaces only" });
     }
+    if (!ALLOWED_ACCOUNT_TYPES.has(accountType.toLowerCase())) {
+      return res.status(400).json({
+        message: `accountType must be one of: ${Array.from(ALLOWED_ACCOUNT_TYPES).join(", ")}`,
+      });
+    }
     if (!isAlphabetText(category, { required: true })) {
       return res.status(400).json({ message: "category must contain letters and spaces only" });
     }
 
     const transactionDate = parseTimestamp(date) || new Date();
+    const journalEntries = [
+      {
+        date: formatDate(transactionDate),
+        account,
+        accountType: normalizeAccountType(accountType),
+        amount,
+        category,
+        description,
+      },
+    ];
+    const spendingCheck = await assertSpendingWithinAvailableFunds({
+      orgName,
+      newEntries: journalEntries,
+      excludeRecordId: id,
+    });
+
+    if (!spendingCheck.ok) {
+      return res.status(400).json({
+        message: spendingCheck.message,
+        financeSummary: spendingCheck.summary,
+      });
+    }
+
     const updated = await RecordModel.findOneAndUpdate(
       { _id: id, orgName, source: "manual" },
       {
         $set: {
           transactionDate,
           importedOn: new Date(),
-          journalEntries: [
-            {
-              date: formatDate(transactionDate),
-              account,
-              accountType,
-              amount,
-              category,
-              description,
-            },
-          ],
+          journalEntries,
         },
       },
       { new: true },
@@ -440,6 +636,204 @@ export const deleteRecord = async (req, res) => {
   } catch (err) {
     console.error("deleteRecord error:", err);
     return res.status(500).json({ message: "Failed to delete record" });
+  }
+};
+
+export const createInvestmentRecord = async (req, res) => {
+  try {
+    const authContext = await requireAdminContext(req, res);
+    if (!authContext) return;
+
+    const payload = req.body || {};
+    const amount = toNumber(payload.amount, NaN);
+    const dateText = toText(payload.date);
+    const cashAccount = toText(payload.cashAccount, "Cash at Bank");
+    const equityAccount = toText(payload.equityAccount, "Company Capital");
+    const description = toText(payload.description);
+
+    if (!isStrictNumber(payload.amount) || !Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ message: "amount must be a positive number" });
+    }
+    if (!dateText) return res.status(400).json({ message: "date is required" });
+    if (!cashAccount || !equityAccount) {
+      return res.status(400).json({ message: "cashAccount and equityAccount are required" });
+    }
+
+    const transactionDate = parseTimestamp(dateText) || new Date();
+    const transactionId = `INVEST-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    const created = await RecordModel.create({
+      orgName: authContext.orgName,
+      source: "investment",
+      schemaVersion: "finsync_v2",
+      transactionId,
+      transactionDate,
+      currency: "NPR",
+      importedOn: new Date(),
+      lineItems: [],
+      orderTotals: {},
+      journalEntries: [
+        {
+          date: formatDate(transactionDate),
+          account: cashAccount,
+          accountType: "Asset",
+          amount: Math.abs(amount),
+          category: "Capital",
+          description: `Debit cash for ${description}`,
+        },
+        {
+          date: formatDate(transactionDate),
+          account: equityAccount,
+          accountType: "Equity",
+          amount: Math.abs(amount),
+          category: "Capital",
+          description: `Credit equity for ${description}`,
+        },
+      ],
+      metadata: {
+        origin: "investment_contribution",
+        accountingBasis: "double_entry",
+        createdByUserId: authContext.userId,
+        orgId: authContext.orgId,
+      },
+      notes: description,
+    });
+
+    return res.status(201).json(created);
+  } catch (err) {
+    console.error("createInvestmentRecord error:", err);
+    return res.status(500).json({ message: "Failed to create investment record" });
+  }
+};
+
+export const recalculateOrganizationRecords = async (req, res) => {
+  try {
+    const authContext = await requireAdminContext(req, res);
+    if (!authContext) return;
+
+    const records = await RecordModel.find({ orgName: authContext.orgName });
+    let updatedCount = 0;
+
+    for (const record of records) {
+      const journalEntries = rebuildRecordForAccounting(record.toObject());
+      record.journalEntries = journalEntries;
+      record.schemaVersion = "finsync_v2";
+      record.metadata = {
+        ...(record.metadata || {}),
+        accountingBasis: Array.isArray(journalEntries) && journalEntries.length > 1
+          ? "double_entry"
+          : "single_entry_row",
+        recalculatedAt: new Date(),
+        recalculatedByUserId: authContext.userId,
+      };
+      await record.save();
+      updatedCount += 1;
+    }
+
+    return res.status(200).json({
+      message: "Records recalculated",
+      updatedCount,
+    });
+  } catch (err) {
+    console.error("recalculateOrganizationRecords error:", err);
+    return res.status(500).json({ message: "Failed to recalculate records" });
+  }
+};
+
+export const getOrganizationFinanceSetup = async (req, res) => {
+  try {
+    const authContext = await getAuthContext(req);
+    if (authContext.error) {
+      return res.status(authContext.error.code).json({ message: authContext.error.message });
+    }
+
+    const org = await Organization.findById(authContext.orgId).lean();
+    if (!org) return res.status(404).json({ message: "Organization not found" });
+
+    const [investmentSummary, financeSummary] = await Promise.all([
+      RecordModel.aggregate([
+        { $match: { orgName: authContext.orgName, source: "investment" } },
+        { $unwind: "$journalEntries" },
+        { $match: { "journalEntries.accountType": { $regex: /^Equity$/i } } },
+        {
+          $group: {
+            _id: null,
+            totalInvestment: { $sum: "$journalEntries.amount" },
+            contributionCount: { $sum: 1 },
+            latestContributionAt: { $max: "$transactionDate" },
+          },
+        },
+      ]),
+      getOrganizationFinanceSummary(authContext.orgName),
+    ]);
+    const investmentTotals = investmentSummary[0] || {};
+    const availableFunds = financeSummary.totalInvestment + financeSummary.totalMade;
+
+    return res.status(200).json({
+      orgId: authContext.orgId,
+      orgName: authContext.orgName,
+      monthlyBudget: Number(org.monthlyBudget || 0),
+      budgetHistory: Array.isArray(org.budgetHistory) ? org.budgetHistory : [],
+      investment: {
+        totalInvestment: Number(investmentTotals?.totalInvestment || 0),
+        contributionCount: Number(investmentTotals?.contributionCount || 0),
+        latestContributionAt: investmentTotals?.latestContributionAt || null,
+      },
+      totals: {
+        totalAmountMade: Number(financeSummary.totalMade || 0),
+        totalSpent: Number(financeSummary.totalSpent || 0),
+        availableFunds: Number(availableFunds || 0),
+        remainingFunds: Number(availableFunds - financeSummary.totalSpent || 0),
+      },
+    });
+  } catch (err) {
+    console.error("getOrganizationFinanceSetup error:", err);
+    return res.status(500).json({ message: "Failed to load finance setup" });
+  }
+};
+
+export const saveOrganizationMonthlyBudget = async (req, res) => {
+  try {
+    const authContext = await requireAdminContext(req, res);
+    if (!authContext) return;
+
+    const amount = toNumber(req.body?.amount, NaN);
+    const effectiveMonth = toText(req.body?.effectiveMonth);
+    const note = toText(req.body?.note);
+
+    if (!isStrictNumber(req.body?.amount) || !Number.isFinite(amount) || amount < 0) {
+      return res.status(400).json({ message: "amount must be a non-negative number" });
+    }
+    if (!/^\d{4}-\d{2}$/.test(effectiveMonth)) {
+      return res.status(400).json({ message: "effectiveMonth must use YYYY-MM format" });
+    }
+
+    const org = await Organization.findByIdAndUpdate(
+      authContext.orgId,
+      {
+        $set: { monthlyBudget: amount },
+        $push: {
+          budgetHistory: {
+            amount,
+            effectiveMonth,
+            note,
+            setBy: authContext.userId,
+            setAt: new Date(),
+          },
+        },
+      },
+      { new: true },
+    ).lean();
+
+    if (!org) return res.status(404).json({ message: "Organization not found" });
+
+    return res.status(200).json({
+      monthlyBudget: Number(org.monthlyBudget || 0),
+      budgetHistory: Array.isArray(org.budgetHistory) ? org.budgetHistory : [],
+    });
+  } catch (err) {
+    console.error("saveOrganizationMonthlyBudget error:", err);
+    return res.status(500).json({ message: "Failed to save monthly budget" });
   }
 };
 

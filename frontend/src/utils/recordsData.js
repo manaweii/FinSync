@@ -23,6 +23,7 @@ function getSourceLabel(record = {}) {
   const source = String(record?.source || "").toLowerCase();
   if (source === "import") return "Import";
   if (source === "manual") return "Manual";
+  if (source === "investment") return "Investment";
   if (source === "fruitygo") return "FruityGo";
   return record?.source || "Record";
 }
@@ -34,6 +35,9 @@ function getFileName(record = {}) {
   }
   if (source === "manual") {
     return "Manual Record";
+  }
+  if (source === "investment") {
+    return "Investment";
   }
   if (source === "fruitygo") {
     return record?.transactionId

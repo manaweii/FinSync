@@ -1,9 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import Footer from "../components/homepage/Footer";
 import {
   ArrowDownTrayIcon,
   ArrowPathIcon,
+  BanknotesIcon,
   CalendarDaysIcon,
+  CalculatorIcon,
   ChevronDownIcon,
   MagnifyingGlassIcon,
   PencilSquareIcon,
@@ -18,6 +21,7 @@ import {
   buildSourceOptionsFromRows,
   RECORDS_VISIBLE_COLUMNS,
 } from "../utils/recordsData";
+import { isAdminRole } from "../utils/roles";
 
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 const RECORDS_PER_PAGE = 8;
@@ -29,6 +33,20 @@ const defaultFormState = {
   amount: "",
   category: "",
   description: "",
+};
+
+const defaultInvestmentFormState = {
+  date: new Date().toISOString().slice(0, 10),
+  amount: "",
+  cashAccount: "Cash at Bank",
+  equityAccount: "Company Capital",
+  description: "",
+};
+
+const defaultBudgetFormState = {
+  amount: "",
+  effectiveMonth: new Date().toISOString().slice(0, 7),
+  note: "",
 };
 
 const normalizeValue = (value) => {
@@ -299,6 +317,7 @@ function RecordModal({
                 className="w-full appearance-none rounded-3xl border border-slate-200 bg-white px-5 py-4 pr-14 text-lg text-slate-700 outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
               >
                 <option value="Income">Income</option>
+                <option value="Revenue">Revenue</option>
                 <option value="Expense">Expense</option>
                 <option value="Asset">Asset</option>
                 <option value="Liability">Liability</option>
@@ -345,6 +364,179 @@ function RecordModal({
             className="w-full rounded-3xl bg-gradient-to-r from-cyan-500 to-teal-500 px-6 py-4 text-xl font-semibold text-white shadow-lg transition hover:from-cyan-600 hover:to-teal-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isEdit ? "Save Changes" : "Add Record"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function InvestmentModal({
+  isOpen,
+  form,
+  onChange,
+  onClose,
+  onSubmit,
+  submitDisabled,
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-8"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="investment-title"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-3xl rounded-[2rem] bg-white p-6 shadow-2xl sm:p-8"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 id="investment-title" className="text-2xl font-semibold text-slate-900">
+              Add Investment
+            </h3>
+            <p className="mt-2 text-sm text-slate-500">
+              This creates a balanced journal entry: debit cash and credit owner equity.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+            aria-label="Close investment form"
+          >
+            <XMarkIcon className="h-6 w-6" />
+          </button>
+        </div>
+
+        <form className="mt-8 grid gap-5 md:grid-cols-2" onSubmit={onSubmit}>
+          <input
+            type="date"
+            value={form.date}
+            onChange={(e) => onChange("date", e.target.value)}
+            className={getInputClass(false)}
+            required
+          />
+          <input
+            type="text"
+            inputMode="decimal"
+            value={form.amount}
+            onChange={(e) => onChange("amount", sanitizeAmountInput(e.target.value))}
+            placeholder="Investment amount"
+            className={getInputClass(false)}
+            required
+          />
+          <input
+            type="text"
+            value={form.cashAccount}
+            onChange={(e) => onChange("cashAccount", e.target.value)}
+            placeholder="Cash or bank account"
+            className={getInputClass(false)}
+            required
+          />
+          <input
+            type="text"
+            value={form.equityAccount}
+            onChange={(e) => onChange("equityAccount", e.target.value)}
+            placeholder="Equity account"
+            className={getInputClass(false)}
+            required
+          />
+          <input
+            type="text"
+            value={form.description}
+            onChange={(e) => onChange("description", e.target.value)}
+            placeholder="Description"
+            className={`${getInputClass(false)} md:col-span-2`}
+            required
+          />
+          <button
+            type="submit"
+            disabled={submitDisabled}
+            className="md:col-span-2 rounded-3xl bg-emerald-600 px-6 py-4 text-lg font-semibold text-white shadow-lg transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Save Investment
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function BudgetModal({
+  isOpen,
+  form,
+  onChange,
+  onClose,
+  onSubmit,
+  submitDisabled,
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-8"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="budget-title"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-2xl rounded-[2rem] bg-white p-6 shadow-2xl sm:p-8"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 id="budget-title" className="text-2xl font-semibold text-slate-900">
+              Set Monthly Budget
+            </h3>
+            <p className="mt-2 text-sm text-slate-500">
+              The current amount is recurring by default, with every change kept in history.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+            aria-label="Close budget form"
+          >
+            <XMarkIcon className="h-6 w-6" />
+          </button>
+        </div>
+
+        <form className="mt-8 grid gap-5" onSubmit={onSubmit}>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={form.amount}
+            onChange={(e) => onChange("amount", sanitizeAmountInput(e.target.value))}
+            placeholder="Monthly budget amount"
+            className={getInputClass(false)}
+            required
+          />
+          <input
+            type="month"
+            value={form.effectiveMonth}
+            onChange={(e) => onChange("effectiveMonth", e.target.value)}
+            className={getInputClass(false)}
+            required
+          />
+          <input
+            type="text"
+            value={form.note}
+            onChange={(e) => onChange("note", e.target.value)}
+            placeholder="Note"
+            className={getInputClass(false)}
+          />
+          <button
+            type="submit"
+            disabled={submitDisabled}
+            className="rounded-3xl bg-slate-900 px-6 py-4 text-lg font-semibold text-white shadow-lg transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Save Budget
           </button>
         </form>
       </div>
@@ -478,13 +670,56 @@ function DeleteErrorModal({ message, onClose }) {
   );
 }
 
+function SpendingLimitModal({ message, onClose }) {
+  if (!message) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-8"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="spending-limit-title"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
+          <XMarkIcon className="h-6 w-6" />
+        </div>
+        <h3
+          id="spending-limit-title"
+          className="mt-4 text-xl font-semibold text-slate-900"
+        >
+          {message}
+        </h3>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-6 rounded-2xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+        >
+          OK
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function RecordsPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const token = useAuthStore((s) => s.token);
   const currentUser = useAuthStore((s) => s.user);
+  const isOrgAdmin = isAdminRole(currentUser?.role);
 
   const [dbRecords, setDbRecords] = useState([]);
+  const [financeSetup, setFinanceSetup] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [financeLoading, setFinanceLoading] = useState(true);
   const [error, setError] = useState("");
+  const [financeError, setFinanceError] = useState("");
   const [search, setSearch] = useState("");
   const [selectedFile, setSelectedFile] = useState("all");
   const [selectedFileType, setSelectedFileType] = useState("all");
@@ -495,8 +730,16 @@ export default function RecordsPage() {
   const [recordPendingDelete, setRecordPendingDelete] = useState(null);
   const [deletingRecord, setDeletingRecord] = useState(false);
   const [deleteErrorMessage, setDeleteErrorMessage] = useState("");
+  const [spendingLimitMessage, setSpendingLimitMessage] = useState("");
   const [formState, setFormState] = useState(defaultFormState);
   const [formErrors, setFormErrors] = useState({});
+  const [isInvestmentModalOpen, setIsInvestmentModalOpen] = useState(false);
+  const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
+  const [investmentForm, setInvestmentForm] = useState(defaultInvestmentFormState);
+  const [budgetForm, setBudgetForm] = useState(defaultBudgetFormState);
+  const [savingInvestment, setSavingInvestment] = useState(false);
+  const [savingBudget, setSavingBudget] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
 
   const loadRecords = useCallback(async () => {
     if (!currentUser?.orgName) {
@@ -532,9 +775,55 @@ export default function RecordsPage() {
     }
   }, [currentUser?.orgName, token]);
 
+  const loadFinanceSetup = useCallback(async () => {
+    try {
+      setFinanceLoading(true);
+      setFinanceError("");
+      const res = await fetch(`${API_BASE}/organization/finance-setup`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.message || "Failed to load finance setup");
+      setFinanceSetup(data);
+    } catch (err) {
+      setFinanceError(err.message || "Failed to load finance setup");
+    } finally {
+      setFinanceLoading(false);
+    }
+  }, [token]);
+
   useEffect(() => {
     loadRecords();
   }, [loadRecords]);
+
+  useEffect(() => {
+    loadFinanceSetup();
+  }, [loadFinanceSetup]);
+
+  useEffect(() => {
+    if (!spendingLimitMessage) return undefined;
+    const timeoutId = window.setTimeout(() => {
+      setSpendingLimitMessage("");
+    }, 1000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [spendingLimitMessage]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("setup") === "investment" && isOrgAdmin) {
+      setInvestmentForm(defaultInvestmentFormState);
+      setIsInvestmentModalOpen(true);
+      params.delete("setup");
+      navigate(
+        {
+          pathname: location.pathname,
+          search: params.toString() ? `?${params.toString()}` : "",
+        },
+        { replace: true },
+      );
+    }
+  }, [isOrgAdmin, location.pathname, location.search, navigate]);
 
   const allRows = useMemo(() => {
     return buildRowsFromDatabaseRecords(dbRecords, {
@@ -669,9 +958,28 @@ export default function RecordsPage() {
     });
   };
 
+  const updateInvestmentField = (field, value) => {
+    setInvestmentForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const updateBudgetField = (field, value) => {
+    setBudgetForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const showErrorMessage = (message, fallback) => {
+    const text = String(message || fallback || "");
+    if (text.toLowerCase().includes("spending limit")) {
+      setSpendingLimitMessage("Spending limit exceeded");
+      return;
+    }
+    alert(text || fallback);
+  };
+
   const closeModals = () => {
     setIsAddModalOpen(false);
     setEditingRecordId(null);
+    setIsInvestmentModalOpen(false);
+    setIsBudgetModalOpen(false);
     setRecordPendingDelete(null);
     setFormState(defaultFormState);
     setFormErrors({});
@@ -681,6 +989,23 @@ export default function RecordsPage() {
     setFormState(defaultFormState);
     setFormErrors({});
     setIsAddModalOpen(true);
+  };
+
+  const openInvestmentModal = () => {
+    if (!isOrgAdmin) return;
+    setInvestmentForm(defaultInvestmentFormState);
+    setIsInvestmentModalOpen(true);
+  };
+
+  const openBudgetModal = () => {
+    if (!isOrgAdmin) return;
+    setBudgetForm({
+      ...defaultBudgetFormState,
+      amount: financeSetup?.monthlyBudget
+        ? String(financeSetup.monthlyBudget)
+        : "",
+    });
+    setIsBudgetModalOpen(true);
   };
 
   const openEditModal = (row) => {
@@ -730,11 +1055,95 @@ export default function RecordsPage() {
         throw new Error(result?.message || "Failed to add record");
       }
 
-      await loadRecords();
+      await Promise.all([loadRecords(), loadFinanceSetup()]);
       closeModals();
       setCurrentPage(1);
     } catch (err) {
-      alert(err.message || "Failed to add record");
+      showErrorMessage(err.message, "Failed to add record");
+    }
+  };
+
+  const handleAddInvestment = async (e) => {
+    e.preventDefault();
+    if (!isOrgAdmin) return;
+    if (!investmentForm.date || !isValidAmount(investmentForm.amount) || Number(investmentForm.amount) <= 0) {
+      alert("Enter a valid positive investment amount and date.");
+      return;
+    }
+
+    try {
+      setSavingInvestment(true);
+      const res = await fetch(`${API_BASE}/records/investment`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          ...investmentForm,
+          amount: Number(investmentForm.amount),
+        }),
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(result?.message || "Failed to add investment");
+
+      await Promise.all([loadRecords(), loadFinanceSetup()]);
+      closeModals();
+    } catch (err) {
+      alert(err.message || "Failed to add investment");
+    } finally {
+      setSavingInvestment(false);
+    }
+  };
+
+  const handleSaveBudget = async (e) => {
+    e.preventDefault();
+    if (!isOrgAdmin) return;
+    if (!isValidAmount(budgetForm.amount) || Number(budgetForm.amount) < 0 || !budgetForm.effectiveMonth) {
+      alert("Enter a valid monthly budget and effective month.");
+      return;
+    }
+
+    try {
+      setSavingBudget(true);
+      const res = await fetch(`${API_BASE}/organization/monthly-budget`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          ...budgetForm,
+          amount: Number(budgetForm.amount),
+        }),
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(result?.message || "Failed to save budget");
+
+      await loadFinanceSetup();
+      closeModals();
+    } catch (err) {
+      alert(err.message || "Failed to save budget");
+    } finally {
+      setSavingBudget(false);
+    }
+  };
+
+  const handleRecalculateRecords = async () => {
+    if (!isOrgAdmin) return;
+    try {
+      setRecalculating(true);
+      const res = await fetch(`${API_BASE}/records/recalculate`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(result?.message || "Failed to recalculate records");
+      await Promise.all([loadRecords(), loadFinanceSetup()]);
+    } catch (err) {
+      alert(err.message || "Failed to recalculate records");
+    } finally {
+      setRecalculating(false);
     }
   };
 
@@ -764,10 +1173,10 @@ export default function RecordsPage() {
         throw new Error(result?.message || "Failed to update record");
       }
 
-      await loadRecords();
+      await Promise.all([loadRecords(), loadFinanceSetup()]);
       closeModals();
     } catch (err) {
-      alert(err.message || "Failed to update record");
+      showErrorMessage(err.message, "Failed to update record");
     }
   };
 
@@ -806,6 +1215,7 @@ export default function RecordsPage() {
       setDbRecords((current) =>
         current.filter((record) => String(record?._id) !== String(recordId)),
       );
+      await loadFinanceSetup();
       setRecordPendingDelete(null);
     } catch (err) {
       setRecordPendingDelete(null);
@@ -821,6 +1231,54 @@ export default function RecordsPage() {
     ) || null;
 
   const manualRecordCount = allRows.filter((row) => row.__isManual).length;
+  const recordMetrics = useMemo(() => {
+    return allRows.reduce(
+      (totals, row) => {
+        const accountType = String(
+          row?.accountType || row?.["Account Type"] || "",
+        )
+          .toLowerCase()
+          .trim();
+        const category = String(row?.category || row?.Category || "")
+          .toLowerCase()
+          .trim();
+        const amount = Number(row?.amount ?? row?.Amount ?? 0);
+        const safeAmount = Number.isFinite(amount) ? amount : 0;
+
+        if (accountType === "equity" && category === "capital") {
+          totals.totalInvestment += safeAmount;
+        }
+
+        if (accountType === "revenue" || accountType === "income") {
+          totals.totalRevenue += safeAmount;
+        }
+
+        if (accountType === "expense") {
+          totals.totalExpenses += safeAmount;
+        }
+
+        return totals;
+      },
+      {
+        totalInvestment: 0,
+        totalRevenue: 0,
+        totalExpenses: 0,
+      },
+    );
+  }, [allRows]);
+  const totalInvestment = recordMetrics.totalInvestment;
+  const totalAmountMade = recordMetrics.totalRevenue;
+  const totalSpent = Math.abs(recordMetrics.totalExpenses);
+  const remainingFunds =
+    recordMetrics.totalInvestment +
+    recordMetrics.totalRevenue +
+    recordMetrics.totalExpenses;
+  const monthlyBudget = financeSetup?.monthlyBudget || 0;
+  const formatMoney = (value) =>
+    `Rs. ${Number(value || 0).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
 
   return (
     <>
@@ -841,6 +1299,93 @@ export default function RecordsPage() {
               one table, so you can review every row from a single page.
             </p>
           </div>
+
+          <div className="mb-6 grid gap-4 lg:grid-cols-3">
+            <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+                    <BanknotesIcon className="h-6 w-6" />
+                  </span>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                      Owner Investment
+                    </p>
+                    <p className="mt-1 text-2xl font-semibold text-slate-900">
+                      {loading ? "Loading..." : formatMoney(totalInvestment)}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {formatMoney(remainingFunds)} remaining.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={openInvestmentModal}
+                  disabled={!isOrgAdmin}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+                >
+                  <PlusIcon className="h-5 w-5" />
+                  Add Investment
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-teal-100 bg-white p-5 shadow-sm">
+              <div className="flex items-start gap-3">
+                <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-teal-50 text-teal-600">
+                  <BanknotesIcon className="h-6 w-6" />
+                </span>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                    Total Amount Made
+                  </p>
+                  <p className="mt-1 text-2xl font-semibold text-slate-900">
+                    {loading ? "Loading..." : formatMoney(totalAmountMade)}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {formatMoney(totalSpent)} spent from available funds.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-50 text-sky-600">
+                    <CalculatorIcon className="h-6 w-6" />
+                  </span>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                      Monthly Budget
+                    </p>
+                    <p className="mt-1 text-2xl font-semibold text-slate-900">
+                      {financeLoading ? "Loading..." : formatMoney(monthlyBudget)}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {financeSetup?.budgetHistory?.length || 0} budget update{financeSetup?.budgetHistory?.length === 1 ? "" : "s"} saved
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={openBudgetModal}
+                  disabled={!isOrgAdmin}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+                >
+                  <CalculatorIcon className="h-5 w-5" />
+                  Set Budget
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {financeError ? (
+            <div className="mb-6 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+              {financeError}
+            </div>
+          ) : null}
 
           <div className="grid gap-4 md:grid-cols-3 mb-6">
             <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
@@ -897,6 +1442,15 @@ export default function RecordsPage() {
                   >
                     <ArrowDownTrayIcon className="h-5 w-5" />
                     Export CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRecalculateRecords}
+                    disabled={!isOrgAdmin || recalculating}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <ArrowPathIcon className={`h-5 w-5 ${recalculating ? "animate-spin" : ""}`} />
+                    Recalculate
                   </button>
                   <button
                     type="button"
@@ -1144,6 +1698,22 @@ export default function RecordsPage() {
           onSubmit={handleEditRecord}
           submitDisabled={!selectedEditableRow}
         />
+        <InvestmentModal
+          isOpen={isInvestmentModalOpen}
+          form={investmentForm}
+          onChange={updateInvestmentField}
+          onClose={closeModals}
+          onSubmit={handleAddInvestment}
+          submitDisabled={savingInvestment}
+        />
+        <BudgetModal
+          isOpen={isBudgetModalOpen}
+          form={budgetForm}
+          onChange={updateBudgetField}
+          onClose={closeModals}
+          onSubmit={handleSaveBudget}
+          submitDisabled={savingBudget}
+        />
         <ConfirmDeleteModal
           isOpen={Boolean(recordPendingDelete)}
           title="Delete record?"
@@ -1161,6 +1731,10 @@ export default function RecordsPage() {
         <DeleteErrorModal
           message={deleteErrorMessage}
           onClose={() => setDeleteErrorMessage("")}
+        />
+        <SpendingLimitModal
+          message={spendingLimitMessage}
+          onClose={() => setSpendingLimitMessage("")}
         />
       </div>
       <Footer />
