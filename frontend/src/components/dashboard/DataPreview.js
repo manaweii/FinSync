@@ -1,9 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { memo, useMemo } from 'react';
 
 const PREVIEW_COLUMNS = ['date', 'account', 'accountType', 'amount', 'category', 'description'];
+const EMPTY_ROWS = [];
 
-const DataPreview = ({ importDetail, loadingDetail }) => {
-  const rows = importDetail?.rows || [];
+const DataPreview = memo(function DataPreview({ importDetail, loadingDetail }) {
+  const rows = importDetail?.rows || EMPTY_ROWS;
 
   const recentRows = useMemo(
     () =>
@@ -67,6 +68,6 @@ const DataPreview = ({ importDetail, loadingDetail }) => {
       </div>
     </div>
   );
-};
+});
 
 export default DataPreview;

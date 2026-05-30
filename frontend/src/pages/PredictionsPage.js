@@ -20,6 +20,7 @@ import {
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 import useAuthStore from "../store/useAuthStore";
+import usePredictionsStore from "../store/usePredictionsStore";
 import InsightCard from "../components/prediction/InsightCard";
 import PredictionStatusBadge from "../components/prediction/PredictionStatusBadge";
 import GoalProgressBar from "../components/prediction/GoalProgressBar";
@@ -223,43 +224,38 @@ export default function PredictionsPage() {
   const [savingMilestone, setSavingMilestone] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
 
+  const predictionsCacheKey = `${currentUser?.orgId || ""}:${months}:${token || ""}`;
+  const predictionEntry = usePredictionsStore(
+    (state) => state.cache[predictionsCacheKey],
+  );
+  const fetchCachedPrediction = usePredictionsStore(
+    (state) => state.fetchPrediction,
+  );
+  const invalidatePredictions = usePredictionsStore((state) => state.invalidateOrg);
+
   // Data state
-  const [predictionData, setPredictionData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const predictionData = predictionEntry?.data || null;
+  const loading = predictionEntry?.loading ?? Boolean(currentUser?.orgId);
+  const error =
+    predictionEntry?.error ||
+    (!currentUser?.orgId ? "Organization context is missing." : "");
 
   // Data fetching
-  const fetchPredictions = async () => {
+  const fetchPredictions = async ({ force = false } = {}) => {
     if (!currentUser?.orgId) {
-      setError("Organization context is missing.");
-      setPredictionData(null);
-      setLoading(false);
       return;
     }
 
     try {
-      setLoading(true);
-      setError("");
-
-      const response = await fetch(
-        `${API_BASE}/predictions/${currentUser.orgId}?months=${months}`,
-        {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        },
-      );
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || "Failed to load predictions");
-      }
-
-      const data = await response.json();
-      setPredictionData(data);
+      await fetchCachedPrediction({
+        apiBase: API_BASE,
+        orgId: currentUser.orgId,
+        months,
+        token,
+        force,
+      });
     } catch (fetchError) {
       console.error("Predictions fetch error:", fetchError);
-      setError(fetchError.message || "Failed to load predictions");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -312,7 +308,8 @@ export default function PredictionsPage() {
 
       setMilestoneForm(defaultMilestone);
       setSaveMessage("Goal saved successfully.");
-      await fetchPredictions();
+      invalidatePredictions(currentUser.orgId);
+      await fetchPredictions({ force: true });
     } catch (saveError) {
       console.error("Milestone save error:", saveError);
       setSaveMessage(saveError.message || "Failed to save goal");

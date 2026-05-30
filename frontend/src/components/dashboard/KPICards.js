@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { memo } from 'react';
 
-const KpiCards = ({ metrics, formatCurrency, profitMargin }) => {
+const KpiCards = memo(function KpiCards({ metrics, formatCurrency, profitMargin }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 gap-6">
       <div className="group bg-white/70 backdrop-blur-xl rounded-3xl p-8 border border-white/50 shadow-2xl hover:shadow-3xl transition-all duration-300 hover:-translate-y-1">
@@ -58,6 +58,6 @@ const KpiCards = ({ metrics, formatCurrency, profitMargin }) => {
       </div>
     </div>
   );
-};
+});
 
 export default KpiCards;

@@ -13,6 +13,8 @@ import RecordsPageHeading from "../components/records/RecordsPageHeading";
 import RecordsSummaryCards from "../components/records/RecordsSummaryCards";
 import RecordsTablePanel from "../components/records/RecordsTablePanel";
 import useAuthStore from "../store/useAuthStore";
+import usePredictionsStore from "../store/usePredictionsStore";
+import useRecordsStore from "../store/useRecordsStore";
 import {
   buildRowsFromDatabaseRecords,
   buildSourceOptionsFromRows,
@@ -22,6 +24,7 @@ import { isAdminRole } from "../utils/roles";
 
 const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 const RECORDS_PER_PAGE = 8;
+const EMPTY_RECORDS = [];
 
 const getLocalDateInputValue = (date = new Date()) => {
   const year = date.getFullYear();
@@ -155,10 +158,12 @@ export default function RecordsPage() {
   const token = useAuthStore((s) => s.token);
   const currentUser = useAuthStore((s) => s.user);
   const isOrgAdmin = isAdminRole(currentUser?.role);
+  const recordsCacheKey = `${currentUser?.orgName || ""}:${token || ""}`;
+  const recordsEntry = useRecordsStore((s) => s.cache[recordsCacheKey]);
+  const fetchRecords = useRecordsStore((s) => s.fetchRecords);
+  const removeCachedRecord = useRecordsStore((s) => s.removeRecord);
+  const invalidatePredictions = usePredictionsStore((s) => s.invalidateOrg);
 
-  const [dbRecords, setDbRecords] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [selectedFile, setSelectedFile] = useState("all");
   const [selectedFileType, setSelectedFileType] = useState("all");
@@ -177,39 +182,29 @@ export default function RecordsPage() {
   const [savingInvestment, setSavingInvestment] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
 
-  const loadRecords = useCallback(async () => {
+  const dbRecords = recordsEntry?.records || EMPTY_RECORDS;
+  const loading = recordsEntry?.loading ?? Boolean(currentUser?.orgName);
+  const error =
+    recordsEntry?.error ||
+    (!currentUser?.orgName ? "Organization context is missing." : "");
+
+  const loadRecords = useCallback(async ({ force = false } = {}) => {
     if (!currentUser?.orgName) {
-      setDbRecords([]);
-      setLoading(false);
-      setError("Organization context is missing.");
       return;
     }
 
     try {
-      setLoading(true);
-      setError("");
-
-      const recordsRes = await fetch(
-        `${API_BASE}/records?orgName=${encodeURIComponent(currentUser.orgName)}`,
-        {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        },
-      );
-      if (!recordsRes.ok) {
-        const text = await recordsRes.text();
-        throw new Error(text || "Failed to load records");
-      }
-
-      const recordsData = await recordsRes.json();
-      setDbRecords(Array.isArray(recordsData) ? recordsData : []);
+      await fetchRecords({
+        apiBase: API_BASE,
+        orgName: currentUser.orgName,
+        token,
+        force,
+      });
       setCurrentPage(1);
     } catch (err) {
       console.error("Error loading records page data:", err);
-      setError(err.message || "Failed to load records");
-    } finally {
-      setLoading(false);
     }
-  }, [currentUser?.orgName, token]);
+  }, [currentUser?.orgName, fetchRecords, token]);
 
   useEffect(() => {
     loadRecords();
@@ -454,7 +449,8 @@ export default function RecordsPage() {
         throw new Error(result?.message || "Failed to add record");
       }
 
-      await loadRecords();
+      await loadRecords({ force: true });
+      invalidatePredictions(currentUser?.orgId);
       closeModals();
       setCurrentPage(1);
     } catch (err) {
@@ -486,7 +482,8 @@ export default function RecordsPage() {
       const result = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(result?.message || "Failed to add investment");
 
-      await loadRecords();
+      await loadRecords({ force: true });
+      invalidatePredictions(currentUser?.orgId);
       closeModals();
     } catch (err) {
       alert(err.message || "Failed to add investment");
@@ -505,7 +502,8 @@ export default function RecordsPage() {
       });
       const result = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(result?.message || "Failed to recalculate records");
-      await loadRecords();
+      await loadRecords({ force: true });
+      invalidatePredictions(currentUser?.orgId);
     } catch (err) {
       alert(err.message || "Failed to recalculate records");
     } finally {
@@ -539,7 +537,8 @@ export default function RecordsPage() {
         throw new Error(result?.message || "Failed to update record");
       }
 
-      await loadRecords();
+      await loadRecords({ force: true });
+      invalidatePredictions(currentUser?.orgId);
       closeModals();
     } catch (err) {
       showErrorMessage(err.message, "Failed to update record");
@@ -578,9 +577,8 @@ export default function RecordsPage() {
         throw new Error(result?.message || "Failed to delete record");
       }
 
-      setDbRecords((current) =>
-        current.filter((record) => String(record?._id) !== String(recordId)),
-      );
+      removeCachedRecord(currentUser?.orgName, token, recordId);
+      invalidatePredictions(currentUser?.orgId);
       setRecordPendingDelete(null);
     } catch (err) {
       setRecordPendingDelete(null);
@@ -688,7 +686,7 @@ export default function RecordsPage() {
               setSelectedFileType("all");
               setSelectedImportedOn("");
             }}
-            onRefresh={loadRecords}
+            onRefresh={() => loadRecords({ force: true })}
             onExport={exportRowsToCsv}
             onRecalculate={handleRecalculateRecords}
             onAddRecord={openAddModal}

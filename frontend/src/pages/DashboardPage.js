@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { FunnelIcon } from "@heroicons/react/24/outline";
 import useAuthStore from "../store/useAuthStore";
 import useDashboardSettings from "../store/useDashboardSettings";
+import useRecordsStore from "../store/useRecordsStore";
 import Footer from "../components/homepage/Footer";
 import {
   Chart as ChartJS,
@@ -77,6 +78,7 @@ const CHART_WIDGET_KEYS = [
   "categoryBar",
 ];
 const SIDEBAR_WIDGET_KEYS = ["alertsSection", "quickActions", "supportCard"];
+const EMPTY_RECORDS = [];
 
 const parseDateInput = (value, endOfDay = false) => {
   if (!value) return null;
@@ -97,16 +99,19 @@ const DashboardPage = () => {
   const navigate = useNavigate();
   const { token, user: currentUser } = useAuthStore();
   const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+  const recordsCacheKey = `${currentUser?.orgName || ""}:${token || ""}`;
+  const recordsEntry = useRecordsStore((s) => s.cache[recordsCacheKey]);
+  const fetchRecords = useRecordsStore((s) => s.fetchRecords);
 
-  const [dbRecords, setDbRecords] = useState([]);
   const [dateRange, setDateRange] = useState({ from: "", to: "" });
   const [draftDateRange, setDraftDateRange] = useState({ from: "", to: "" });
   const [isDateRangeOpen, setIsDateRangeOpen] = useState(false);
-  const [loadingList, setLoadingList] = useState(true);
-  const [error, setError] = useState("");
   const [mounted, setMounted] = useState(false);
   const dateRangeRef = useRef(null);
   const isOrgAdmin = isAdminRole(currentUser?.role);
+  const dbRecords = recordsEntry?.records || EMPTY_RECORDS;
+  const loadingList = recordsEntry?.loading ?? Boolean(currentUser?.orgName);
+  const error = recordsEntry?.error || "";
 
   useEffect(() => {
     setMounted(true);
@@ -115,33 +120,19 @@ const DashboardPage = () => {
   useEffect(() => {
     const fetchImports = async () => {
       try {
-        setLoadingList(true);
         const orgName = currentUser?.orgName || "";
         if (!orgName) {
-          setDbRecords([]);
           return;
         }
 
-        const recordsRes = await fetch(
-          `${API_BASE}/records?orgName=${encodeURIComponent(orgName)}`,
-          {
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-          },
-        );
-        if (!recordsRes.ok) throw new Error("Failed to fetch records");
-
-        const recordsData = await recordsRes.json();
-        setDbRecords(Array.isArray(recordsData) ? recordsData : []);
+        await fetchRecords({ apiBase: API_BASE, orgName, token });
       } catch (err) {
         console.error("Error loading imports:", err);
-        setError("Could not load records.");
-      } finally {
-        setLoadingList(false);
       }
     };
 
     fetchImports();
-  }, [API_BASE, currentUser?.orgName, token]);
+  }, [API_BASE, currentUser?.orgName, fetchRecords, token]);
 
   const importDetail = useMemo(
     () =>

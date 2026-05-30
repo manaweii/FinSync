@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Footer from "../components/homepage/Footer";
 import {
   ArrowDownTrayIcon,
@@ -7,6 +7,9 @@ import {
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import useAuthStore from "../store/useAuthStore";
+import useImportsStore from "../store/useImportsStore";
+import usePredictionsStore from "../store/usePredictionsStore";
+import useRecordsStore from "../store/useRecordsStore";
 
 const IMPORTS_PER_PAGE = 8;
 
@@ -110,11 +113,8 @@ const isValidNumberValue = (value) => {
 
 function FileImportPage() {
   const [selectedFile, setSelectedFile] = useState(null);
-  const [imports, setImports] = useState([]); // from backend
   const [currentPage, setCurrentPage] = useState(1);
-  const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
   const downloadMenuRef = useRef(null);
@@ -140,18 +140,22 @@ function FileImportPage() {
 
   const token = useAuthStore((s) => s.token);
   const currentUser = useAuthStore((s) => s.user);
+  const importsCacheKey = `${currentUser?.orgId || ""}:${token || ""}`;
+  const importsEntry = useImportsStore((s) => s.cache[importsCacheKey]);
+  const fetchCachedImports = useImportsStore((s) => s.fetchImports);
+  const prependCachedImport = useImportsStore((s) => s.prependImport);
+  const invalidateRecords = useRecordsStore((s) => s.invalidate);
+  const invalidatePredictions = usePredictionsStore((s) => s.invalidateOrg);
 
   const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+  const imports = importsEntry?.imports || [];
+  const loading = importsEntry?.loading ?? Boolean(currentUser?.orgId);
+  const error = importsEntry?.error || "";
   const totalPages = Math.max(1, Math.ceil(imports.length / IMPORTS_PER_PAGE));
   const paginatedImports = imports.slice(
     (currentPage - 1) * IMPORTS_PER_PAGE,
     currentPage * IMPORTS_PER_PAGE,
   );
-
-  // load past imports when org context is ready
-  useEffect(() => {
-    loadImports();
-  }, [currentUser?.orgId, token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -184,35 +188,29 @@ function FileImportPage() {
     }, 3000);
   };
 
-  const loadImports = async () => {
+  const loadImports = useCallback(async ({ force = false } = {}) => {
     if (!currentUser?.orgId) {
-      setImports([]);
       setCurrentPage(1);
       return;
     }
 
     try {
-      setLoading(true);
-      const res = await fetch(`${API_BASE}/past-imports/${currentUser.orgId}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      await fetchCachedImports({
+        apiBase: API_BASE,
+        orgId: currentUser.orgId,
+        token,
+        force,
       });
-
-      if (!res.ok) {
-        console.log("Fetch failed, status:", res.status);
-        const text = await res.text();
-        console.log("Response text:", text);
-        throw new Error("Failed to fetch imports");
-      }
-      const data = await res.json();
-      setImports(data);
       setCurrentPage(1);
     } catch (err) {
       console.error("Error loading imports:", err);
-      setError("Could not load past imports.");
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [API_BASE, currentUser?.orgId, fetchCachedImports, token]);
+
+  // load past imports when org context is ready
+  useEffect(() => {
+    loadImports();
+  }, [loadImports]);
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -574,7 +572,9 @@ function FileImportPage() {
         return;
       }
 
-      setImports((prev) => [createdImport, ...prev]);
+      prependCachedImport(currentUser?.orgId, token, createdImport);
+      invalidateRecords(currentUser?.orgName, token);
+      invalidatePredictions(currentUser?.orgId);
       setSelectedFile(null);
       setCurrentPage(1);
       showToast("File uploaded and saved", "success");

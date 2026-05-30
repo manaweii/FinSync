@@ -8,6 +8,7 @@ import React, {
 import { NavLink, Outlet } from "react-router-dom";
 import Footer from "../components/homepage/Footer";
 import useAuthStore from "../store/useAuthStore";
+import useRecordsStore from "../store/useRecordsStore";
 import { CalendarIcon } from "@heroicons/react/24/outline";
 import {
   buildRowsFromDatabaseRecords,
@@ -15,18 +16,20 @@ import {
   buildSourceOptionsFromRows,
 } from "../utils/recordsData";
 
+const EMPTY_RECORDS = [];
+
 function ReportsPage() {
   const token = useAuthStore((s) => s.token);
   const currentUser = useAuthStore((s) => s.user);
   const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+  const recordsCacheKey = `${currentUser?.orgName || ""}:${token || ""}`;
+  const recordsEntry = useRecordsStore((s) => s.cache[recordsCacheKey]);
+  const fetchRecords = useRecordsStore((s) => s.fetchRecords);
 
   const fromRef = useRef(null);
   const toRef = useRef(null);
 
-  const [dbRecords, setDbRecords] = useState([]);
   const [selectedImport, setSelectedImport] = useState("all");
-  const [loadingImports, setLoadingImports] = useState(false);
-  const [error, setError] = useState(null);
   const [filterInput, setFilterInput] = useState({
     preset: "",
     from: "",
@@ -34,35 +37,26 @@ function ReportsPage() {
   });
   const [appliedFilters, setAppliedFilters] = useState({});
 
-  const loadImports = useCallback(async () => {
-    setLoadingImports(true);
-    setError(null);
+  const dbRecords = recordsEntry?.records || EMPTY_RECORDS;
+  const loadingImports = recordsEntry?.loading ?? Boolean(currentUser?.orgName);
+  const error = recordsEntry?.error || null;
+
+  const loadImports = useCallback(async ({ force = false } = {}) => {
     try {
       if (!currentUser?.orgName) {
-        setDbRecords([]);
         return;
       }
 
-      const recordsRes = await fetch(
-        `${API_BASE}/records?orgName=${encodeURIComponent(currentUser.orgName)}`,
-        {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        },
-      );
-      if (!recordsRes.ok) {
-        const t = await recordsRes.text().catch(() => "");
-        throw new Error(t || "Failed to load records");
-      }
-
-      const recordsData = await recordsRes.json();
-      setDbRecords(Array.isArray(recordsData) ? recordsData : []);
+      await fetchRecords({
+        apiBase: API_BASE,
+        orgName: currentUser.orgName,
+        token,
+        force,
+      });
     } catch (err) {
       console.error("loadImports error:", err);
-      setError(err.message || "Failed to load records");
-    } finally {
-      setLoadingImports(false);
     }
-  }, [API_BASE, currentUser?.orgName, token]);
+  }, [API_BASE, currentUser?.orgName, fetchRecords, token]);
 
   useEffect(() => {
     loadImports();
@@ -335,7 +329,7 @@ function ReportsPage() {
                   </p>
                   <button
                     type="button"
-                    onClick={loadImports}
+                    onClick={() => loadImports({ force: true })}
                     className="mt-1 text-xs font-medium text-teal-600 hover:text-teal-700"
                   >
                     Refresh imports
