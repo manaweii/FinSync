@@ -48,6 +48,42 @@ const ALLOWED_ACCOUNT_TYPES = new Set([
   "equity",
 ]);
 const MONEY_EPSILON = 0.01;
+const DB_QUERY_TIMEOUT_MS = 10000;
+
+const withTimeout = (promise, label, timeoutMs = DB_QUERY_TIMEOUT_MS) => {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      const err = new Error(`${label} timed out`);
+      err.code = "QUERY_TIMEOUT";
+      reject(err);
+    }, timeoutMs);
+  });
+
+  return Promise.race([Promise.resolve(promise), timeout]).finally(() => {
+    clearTimeout(timeoutId);
+  });
+};
+
+const runDbQuery = (query, label) => {
+  if (query && typeof query.maxTimeMS === "function") {
+    query.maxTimeMS(DB_QUERY_TIMEOUT_MS);
+  }
+
+  return withTimeout(query, label);
+};
+
+const getMonthKey = (date = new Date()) => {
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+
+const getPreviousMonthKey = (date = new Date()) => {
+  const d = date instanceof Date ? date : new Date(date);
+  const previousMonth = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+  return getMonthKey(previousMonth);
+};
 
 const extractToken = (req) => {
   const authHeader = req.headers.authorization || req.headers.Authorization || "";
@@ -78,7 +114,7 @@ const getAuthContext = async (req) => {
     return { error: { code: 401, message: "Invalid token payload" } };
   }
 
-  const user = await User.findById(userId).lean();
+  const user = await runDbQuery(User.findById(userId).lean(), "User lookup");
   if (!user) {
     return { error: { code: 404, message: "User not found" } };
   }
@@ -87,12 +123,18 @@ const getAuthContext = async (req) => {
     return { error: { code: 403, message: "User account is inactive" } };
   }
 
-  const orgRelation = await UserOrgRelation.findOne({ userId: user._id }).lean();
+  const orgRelation = await runDbQuery(
+    UserOrgRelation.findOne({ userId: user._id }).lean(),
+    "User organization lookup",
+  );
   if (!orgRelation?.orgId) {
     return { error: { code: 400, message: "Organization context is missing" } };
   }
 
-  const org = await Organization.findById(orgRelation.orgId).lean();
+  const org = await runDbQuery(
+    Organization.findById(orgRelation.orgId).lean(),
+    "Organization lookup",
+  );
   if (!org) {
     return { error: { code: 404, message: "Organization not found" } };
   }
@@ -101,8 +143,13 @@ const getAuthContext = async (req) => {
     return { error: { code: 403, message: "Organization is inactive" } };
   }
 
-  const roleRelation = await UserRoleRelation.findOne({ userId: user._id }).lean();
-  const role = roleRelation ? await Role.findById(roleRelation.roleId).lean() : null;
+  const roleRelation = await runDbQuery(
+    UserRoleRelation.findOne({ userId: user._id }).lean(),
+    "User role lookup",
+  );
+  const role = roleRelation
+    ? await runDbQuery(Role.findById(roleRelation.roleId).lean(), "Role lookup")
+    : null;
 
   return {
     userId: user._id,
@@ -236,43 +283,159 @@ const getEntrySpendAmount = (entry = {}) => {
   return amount > 0 ? Math.abs(amount) : 0;
 };
 
+const getEntryActualSpendAmount = (entry = {}) => {
+  const accountType = normalizeAccountTypeKey(entry?.accountType);
+  if (accountType !== "expense") return 0;
+  return Math.abs(toNumber(entry?.amount));
+};
+
+const getEffectiveBudgetEntry = (budgetHistory = [], monthKey = "") => {
+  if (!monthKey) return null;
+
+  return [...budgetHistory]
+    .filter((entry) => /^\d{4}-\d{2}$/.test(toText(entry?.effectiveMonth)))
+    .sort((a, b) =>
+      toText(b?.effectiveMonth).localeCompare(toText(a?.effectiveMonth)),
+    )
+    .find((entry) => toText(entry?.effectiveMonth) <= monthKey) || null;
+};
+
+const getOrganizationMonthlyActualSpend = async (orgName, monthKey) => {
+  if (!/^\d{4}-\d{2}$/.test(monthKey)) return 0;
+
+  const monthStart = new Date(`${monthKey}-01T00:00:00.000Z`);
+  const monthEnd = new Date(Date.UTC(
+    monthStart.getUTCFullYear(),
+    monthStart.getUTCMonth() + 1,
+    1,
+  ));
+
+  const totals = await runDbQuery(
+    RecordModel.aggregate([
+      { $match: { orgName } },
+      { $unwind: "$journalEntries" },
+      {
+        $addFields: {
+          entryDate: {
+            $dateFromString: {
+              dateString: "$journalEntries.date",
+              onError: "$transactionDate",
+              onNull: "$transactionDate",
+            },
+          },
+        },
+      },
+      {
+        $match: {
+          "journalEntries.accountType": { $regex: /^Expense$/i },
+          entryDate: { $gte: monthStart, $lt: monthEnd },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: { $abs: "$journalEntries.amount" } },
+        },
+      },
+    ]),
+    "Monthly budget spend lookup",
+  );
+
+  return Number(totals[0]?.total || 0);
+};
+
+const buildBudgetTracking = async (org, orgName) => {
+  const budgetHistory = Array.isArray(org?.budgetHistory) ? org.budgetHistory : [];
+  const currentMonth = getMonthKey();
+  const previousMonth = getPreviousMonthKey();
+  const currentBudgetEntry = getEffectiveBudgetEntry(budgetHistory, currentMonth);
+  const previousBudgetEntry = getEffectiveBudgetEntry(budgetHistory, previousMonth);
+  const previousActualSpent = await getOrganizationMonthlyActualSpend(
+    orgName,
+    previousMonth,
+  );
+  const fallbackBudget = Number(org?.monthlyBudget || 0);
+  const currentBudget = Number(currentBudgetEntry?.amount ?? fallbackBudget);
+  const previousMonthBudget = Number(previousBudgetEntry?.amount ?? fallbackBudget);
+  const hasPreviousMonthBudget = Boolean(previousBudgetEntry || fallbackBudget > 0);
+
+  return {
+    currentMonth,
+    currentBudget,
+    currentBudgetEffectiveMonth: currentBudgetEntry?.effectiveMonth || null,
+    previousMonth,
+    previousMonthBudget,
+    previousMonthBudgetEffectiveMonth: previousBudgetEntry?.effectiveMonth || null,
+    previousMonthActualSpent: Number(previousActualSpent || 0),
+    previousMonthVariance: Number(previousMonthBudget - previousActualSpent),
+    hasPreviousMonthBudget,
+  };
+};
+
 const getOrganizationFinanceSummary = async (orgName, { excludeRecordId = null } = {}) => {
   const match = { orgName };
   if (excludeRecordId && mongoose.Types.ObjectId.isValid(excludeRecordId)) {
     match._id = { $ne: new mongoose.Types.ObjectId(excludeRecordId) };
   }
 
-  const records = await RecordModel.find(match, {
-    source: 1,
-    journalEntries: 1,
-  }).lean();
-
-  return records.reduce(
-    (summary, record) => {
-      const source = toText(record?.source).toLowerCase();
-      const entries = Array.isArray(record?.journalEntries) ? record.journalEntries : [];
-
-      for (const entry of entries) {
-        const accountType = normalizeAccountTypeKey(entry?.accountType);
-        const amount = toNumber(entry?.amount);
-
-        if (source === "investment" && accountType === "equity") {
-          summary.totalInvestment += amount;
-          continue;
-        }
-
-        if (accountType === "income" || accountType === "revenue") {
-          summary.totalMade += amount > 0 ? Math.abs(amount) : -Math.abs(amount);
-          continue;
-        }
-
-        summary.totalSpent += getEntrySpendAmount(entry);
-      }
-
-      return summary;
-    },
-    { totalInvestment: 0, totalMade: 0, totalSpent: 0 },
+  const totals = await runDbQuery(
+    RecordModel.aggregate([
+      { $match: match },
+      { $unwind: "$journalEntries" },
+      {
+        $project: {
+          source: { $toLower: { $ifNull: ["$source", ""] } },
+          accountType: { $toLower: { $ifNull: ["$journalEntries.accountType", ""] } },
+          amount: { $ifNull: ["$journalEntries.amount", 0] },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalInvestment: {
+            $sum: {
+              $cond: [
+                { $and: [{ $eq: ["$source", "investment"] }, { $eq: ["$accountType", "equity"] }] },
+                "$amount",
+                0,
+              ],
+            },
+          },
+          totalMade: {
+            $sum: {
+              $cond: [
+                { $in: ["$accountType", ["income", "revenue"]] },
+                {
+                  $cond: [
+                    { $gt: ["$amount", 0] },
+                    { $abs: "$amount" },
+                    { $multiply: [{ $abs: "$amount" }, -1] },
+                  ],
+                },
+                0,
+              ],
+            },
+          },
+          totalSpent: {
+            $sum: {
+              $cond: [
+                { $and: [{ $eq: ["$accountType", "expense"] }, { $gt: ["$amount", 0] }] },
+                { $abs: "$amount" },
+                0,
+              ],
+            },
+          },
+        },
+      },
+    ]),
+    "Organization finance summary lookup",
   );
+
+  return {
+    totalInvestment: Number(totals[0]?.totalInvestment || 0),
+    totalMade: Number(totals[0]?.totalMade || 0),
+    totalSpent: Number(totals[0]?.totalSpent || 0),
+  };
 };
 
 const assertSpendingWithinAvailableFunds = async ({
@@ -747,24 +910,31 @@ export const getOrganizationFinanceSetup = async (req, res) => {
       return res.status(authContext.error.code).json({ message: authContext.error.message });
     }
 
-    const org = await Organization.findById(authContext.orgId).lean();
+    const org = await runDbQuery(
+      Organization.findById(authContext.orgId).lean(),
+      "Finance setup organization lookup",
+    );
     if (!org) return res.status(404).json({ message: "Organization not found" });
 
-    const [investmentSummary, financeSummary] = await Promise.all([
-      RecordModel.aggregate([
-        { $match: { orgName: authContext.orgName, source: "investment" } },
-        { $unwind: "$journalEntries" },
-        { $match: { "journalEntries.accountType": { $regex: /^Equity$/i } } },
-        {
-          $group: {
-            _id: null,
-            totalInvestment: { $sum: "$journalEntries.amount" },
-            contributionCount: { $sum: 1 },
-            latestContributionAt: { $max: "$transactionDate" },
+    const [investmentSummary, financeSummary, budgetTracking] = await Promise.all([
+      runDbQuery(
+        RecordModel.aggregate([
+          { $match: { orgName: authContext.orgName, source: "investment" } },
+          { $unwind: "$journalEntries" },
+          { $match: { "journalEntries.accountType": { $regex: /^Equity$/i } } },
+          {
+            $group: {
+              _id: null,
+              totalInvestment: { $sum: "$journalEntries.amount" },
+              contributionCount: { $sum: 1 },
+              latestContributionAt: { $max: "$transactionDate" },
+            },
           },
-        },
-      ]),
+        ]),
+        "Investment summary lookup",
+      ),
       getOrganizationFinanceSummary(authContext.orgName),
+      buildBudgetTracking(org, authContext.orgName),
     ]);
     const investmentTotals = investmentSummary[0] || {};
     const availableFunds = financeSummary.totalInvestment + financeSummary.totalMade;
@@ -774,6 +944,7 @@ export const getOrganizationFinanceSetup = async (req, res) => {
       orgName: authContext.orgName,
       monthlyBudget: Number(org.monthlyBudget || 0),
       budgetHistory: Array.isArray(org.budgetHistory) ? org.budgetHistory : [],
+      budgetTracking,
       investment: {
         totalInvestment: Number(investmentTotals?.totalInvestment || 0),
         contributionCount: Number(investmentTotals?.contributionCount || 0),
@@ -808,22 +979,25 @@ export const saveOrganizationMonthlyBudget = async (req, res) => {
       return res.status(400).json({ message: "effectiveMonth must use YYYY-MM format" });
     }
 
-    const org = await Organization.findByIdAndUpdate(
-      authContext.orgId,
-      {
-        $set: { monthlyBudget: amount },
-        $push: {
-          budgetHistory: {
-            amount,
-            effectiveMonth,
-            note,
-            setBy: authContext.userId,
-            setAt: new Date(),
+    const org = await runDbQuery(
+      Organization.findByIdAndUpdate(
+        authContext.orgId,
+        {
+          $set: { monthlyBudget: amount },
+          $push: {
+            budgetHistory: {
+              amount,
+              effectiveMonth,
+              note,
+              setBy: authContext.userId,
+              setAt: new Date(),
+            },
           },
         },
-      },
-      { new: true },
-    ).lean();
+        { new: true },
+      ).lean(),
+      "Monthly budget save",
+    );
 
     if (!org) return res.status(404).json({ message: "Organization not found" });
 
