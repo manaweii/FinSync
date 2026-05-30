@@ -49,6 +49,7 @@ export default function CreateOrganization() {
     e.preventDefault();
 
     // PASSWORD VALIDATION
+    // eslint-disable-next-line no-useless-escape
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
     if (!passwordRegex.test(form.password)) {
       showToast(

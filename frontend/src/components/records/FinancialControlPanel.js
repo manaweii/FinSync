@@ -1,5 +1,4 @@
 import React, { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   BanknotesIcon,
   BriefcaseIcon,
@@ -100,7 +99,6 @@ export default function FinancialControlPanel({
   totalSpent,
   onOpenInvestmentModal,
 }) {
-  const navigate = useNavigate();
   const contributionCount = useMemo(() => {
     return allRows.filter((row) => {
       const accountType = String(

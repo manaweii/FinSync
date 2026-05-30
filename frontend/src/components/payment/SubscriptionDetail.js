@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import EsewaModal from "./EsewaModal";
 
@@ -18,7 +18,7 @@ const SubscriptionDetail = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [passwordError, setPasswordError] = useState("");
 
-  const [selectedPlan, setSelectedPlan] = useState(
+  const [selectedPlan] = useState(
     location.state?.plan || {
       name: "Starter",
       price: "1500",
@@ -45,6 +45,7 @@ const SubscriptionDetail = () => {
 
   const handleOpenModal = (e) => {
     e.preventDefault();
+    // eslint-disable-next-line no-useless-escape
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
     if (!passwordRegex.test(formData.password)) {
       setPasswordError(

@@ -69,6 +69,7 @@ function CreateUser() {
     if (options.length === 1) {
       setForm((prev) => ({ ...prev, role: options[0].value }));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.role]);
 
   const getAuthHeaders = () => {
@@ -125,6 +126,7 @@ function CreateUser() {
     e.preventDefault();
 
     // PASSWORD VALIDATION
+    // eslint-disable-next-line no-useless-escape
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
     if (!passwordRegex.test(form.password)) {
       showToast(
